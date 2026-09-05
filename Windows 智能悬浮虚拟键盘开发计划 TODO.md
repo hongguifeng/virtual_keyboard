@@ -87,7 +87,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 确认目标框架为 `net10.0-windows`、首发 RID 为 `win-x64`。
   - 验证：ADR 与方案设计第 3 章一致，无 C++/WinUI/CMake 残留执行项。
 
-- [ ] **T0.2（P0，0.5 人日）创建解决方案和项目结构**
+- [x] **T0.2（P0，0.5 人日）创建解决方案和项目结构**
   - 创建 `VirtualKeyboard.App`、`VirtualKeyboard.Core`、`VirtualKeyboard.Windows`。
   - 创建 Core、Windows、IntegrationTests、TestHost 测试项目。
   - 配置 nullable、隐式 using、分析器、Release 确定性构建。
