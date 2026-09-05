@@ -5,35 +5,41 @@ using System.IO;
 using System.Text;
 
 /// <summary>
-/// 本地滚动文件汇聚点（FR-DIA-003 / NFR-PRI-001 / NFR-PERF-001 / 设计文档 15.3/16）：
-/// 事件序列化为 JSON 行追加到 <c>diagnostic.{N}.jsonl</c>；超过单文件上限即滚动到下一文件，
-/// 删除最旧文件，使“文件数 × 单文件上限”构成确定性的总量上界。
+/// T0.4 本地滚动 JSONL 汇聚点（FR-DIA-003 / NFR-PRI-001 / NFR-PERF-001 / 设计文档 15.3、16）：
+/// 文件数量与总大小都有确定上界（maxFileCount × maxFileBytes）。
 /// <para>
-/// 降级与故障隔离（设计文档 16）：构造函数先做写探测，失败则 <see cref="CanWrite"/>=false，
-/// 后续 <see cref="Write"/> 均为 no-op；运行期任何 IO/磁盘故障把目录标记为不可写并停止使用，
-/// 绝不向诊断调用方抛出异常，也绝不影响主流程。
+/// 线程与轮转模型：活跃文件恒为 <c>diagnostic.0.jsonl</c>（index 0），轮转时其余文件依次下移
+/// （删除最旧的 index maxFileCount-1）。整条写入路径——可写状态检查、详细事件过滤、
+/// 大小预判（当前文件 stat + 本行字节数）、轮转判定与执行、实际追加、故障降级——
+/// 全部在同一把 <c>_gate</c> 锁内执行，因此任何并发下都不会有未串行化的窗口：
+/// 单文件（含活跃文件）不会超过 <c>maxFileBytes</c>，总字节量不会超过 <c>maxFileBytes × maxFileCount</c>。
+/// </para>
+/// <para>
+/// 目录创建失败、权限不足或任何 IO/文件级故障时，汇聚点降级为 no-op（后续写入静默丢弃，不抛异常）；
+/// 诊断只保留本地文件，无网络上传路径（NFR-PRI-001）。
 /// </para>
 /// </summary>
 public sealed class RollingFileDiagnosticSink : IDiagnosticSink
 {
-    private const string FileNamePrefix = "diagnostic.";
-    private const string FileExtension = ".jsonl";
     private const long MinFileBytes = 512;
     private const long MaxFileBytes = 64_000_000;
     private const int MinFileCount = 1;
     private const int MaxFileCount = 50;
+    private const string FilePrefix = "diagnostic.";
+    private const string Extension = "jsonl";
+    private static readonly Encoding Utf8 = Encoding.UTF8;
 
     private readonly object _gate = new();
     private readonly bool _detailedEnabled;
     private readonly long _maxFileBytes;
     private readonly int _maxFileCount;
     private string? _root;
-    private int _activeIndex;
     private bool _disposed;
 
-    /// <summary>
-    /// 创建汇聚点。<paramref name="rootDirectory"/> 不可创建/不可写时 <see cref="CanWrite"/> 为 false（no-op）。
-    /// </summary>
+    /// <param name="rootDirectory">日志根目录（不存在则创建）。</param>
+    /// <param name="detailedEnabled">是否写入 <see cref="DiagnosticLevel.Detailed"/> 事件（FR-DIA-003 默认 false）。</param>
+    /// <param name="maxFileBytes">单文件上限（字节）；超出 [512, 64MB] 时收敛。</param>
+    /// <param name="maxFileCount">文件数上限；超出 [1, 50] 时收敛。</param>
     public RollingFileDiagnosticSink(
         string rootDirectory,
         bool detailedEnabled = false,
@@ -93,7 +99,10 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
     /// </summary>
     public void Write(DiagnosticEvent e)
     {
-        string? file;
+        // JSON 行序列化是纯计算，可在锁外生成；其余文件/状态操作全部在同一锁内串行化。
+        var line = DiagnosticSerializer.ToJsonLine(e) + "\n";
+        var lineBytes = Utf8.GetByteCount(line);
+
         try
         {
             lock (_gate)
@@ -108,23 +117,24 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
                     return;
                 }
 
-            file = NextFile();
+                // 大小预判：当前大小（stat）+ 本行字节数将超过单文件上限 → 先滚动。
+                // 注意：.NET 10 中 FileInfo.Length 对不存在的文件抛 FileNotFoundException，须先判存在。
+                var active = FilePath(0);
+                var activeInfo = new FileInfo(active);
+                if ((activeInfo.Exists ? activeInfo.Length : 0) + lineBytes > _maxFileBytes)
+                {
+                    Rotate();
+                    active = FilePath(0);
+                }
+
+                // 追加：活跃文件恒为 index 0；写入失败由外层 catch 降级。
+                System.IO.File.AppendAllText(active, line, Utf8);
             }
         }
         catch
         {
-            return;
-        }
-
-        try
-        {
-            var line = DiagnosticSerializer.ToJsonLine(e) + "\n";
-            using var fs = new FileStream(file, FileMode.Append, FileAccess.Write, FileShare.Read, 4096);
-            using var sw = new StreamWriter(fs, Encoding.UTF8);
-            sw.Write(line);
-        }
-        catch
-        {
+            // 故障隔离（设计文档 16）：标记目录不可写并永久停止使用，
+            // 绝不抛出到诊断调用方，绝不影响主流程。
             lock (_gate)
             {
                 _root = null;
@@ -132,21 +142,10 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
         }
     }
 
-    /// <summary>计算下一个可写文件路径；必要时滚动。</summary>
-    private string NextFile()
-    {
-        var active = FilePath(_activeIndex);
-        var info = new FileInfo(active);
-        if (info.Exists && info.Length >= _maxFileBytes)
-        {
-            Rotate();
-            active = FilePath(_activeIndex);
-        }
-
-        return active;
-    }
-
-    /// <summary>滚动：删除最旧文件，其余下移，activeIndex 前进。</summary>
+    /// <summary>
+    /// 滚动：删除最旧文件（index <see cref="_maxFileCount"/>-1），其余依次下移，
+    /// 活跃文件保持为 index 0（滚动后为空/新建）。调用方必须持有 <see cref="_gate"/>。
+    /// </summary>
     private void Rotate()
     {
         var oldest = FilePath(_maxFileCount - 1);
@@ -163,19 +162,19 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
                 System.IO.File.Move(src, FilePath(i + 1), overwrite: true);
             }
         }
-
-        _activeIndex = Math.Min(_activeIndex + 1, _maxFileCount - 1);
     }
 
-    private string FilePath(int index) =>
-        System.IO.Path.Combine(_root!, FileNamePrefix + index.ToString(CultureInfo.InvariantCulture) + FileExtension);
+    private string FilePath(int index)
+    {
+        // _root 在 _disposed 或 IO 故障后被置 null；调用方必须持有 _gate 且已检查。
+        return System.IO.Path.Combine(_root!, FilePrefix + index + "." + Extension);
+    }
 
     public void Dispose()
     {
         lock (_gate)
         {
             _disposed = true;
-            _root = null;
         }
     }
 }
