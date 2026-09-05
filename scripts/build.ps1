@@ -42,7 +42,7 @@ function Test-SafeArtifactDirectory {
   集中的 artifacts 目录安全校验（可独立测试，参数均为显式字面路径）：
     1. 将目标与 artifacts 根规范化为绝对路径；
     2. 目标必须严格位于本仓库 artifacts 目录之下（不能是根本身，更不能在仓库外/兄弟路径）；
-    3. artifacts 根或目标本身是 reparse point（符号链接/junction）时拒绝（防止递归清理越出仓库）。
+    3. 逐级检查 artifacts 根、其到目标的每个现有中间目录和最终目标，任一为 reparse point（符号链接/junction）时拒绝（防止中间 junction 指向仓库外而最终子目录尚不存在时校验漏检）。
   通过时返回 [PSCustomObject] 且 .Path 为规范化后的绝对路径；
   拒绝时 .Path 为 $null，.Reason 为可判定的拒绝原因。
   #>
@@ -61,11 +61,14 @@ function Test-SafeArtifactDirectory {
   if ($targetFull -eq $rootFull -or -not $targetFull.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     return [PSCustomObject]@{ Path = $null; Reason = "目标 '$targetFull' 不严格位于本仓库 artifacts 目录 '$rootFull' 之下，拒绝清理。" }
   }
-  foreach ($p in @($rootFull, $targetFull)) {
-    if (Test-Path -LiteralPath $p) {
-      $item = Get-Item -LiteralPath $p
+  # 逐级：artifacts 根 + 每个现有中间目录 + 最终目标；任一为 reparse point 即拒绝（不存在的目录无需检查，它没有文件系统对象）
+  $cursor = $rootFull
+  foreach ($seg in @($targetFull.Substring($rootFull.Length + 1) -split '\\')) {
+    $cursor = [System.IO.Path]::Combine($cursor, $seg)
+    if (Test-Path -LiteralPath $cursor) {
+      $item = Get-Item -LiteralPath $cursor
       if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
-        return [PSCustomObject]@{ Path = $null; Reason = "'$p' 是 reparse point（符号链接/junction），拒绝清理。" }
+        return [PSCustomObject]@{ Path = $null; Reason = "'$cursor' 是 reparse point（符号链接/junction），拒绝清理。" }
       }
     }
   }
