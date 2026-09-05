@@ -38,6 +38,23 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 - win-x64 发布（framework-dependent，运行需已安装 .NET 10 桌面运行时）：`artifacts/package/win-x64/`
 - 以上目录均由 `.gitignore` 忽略，不进入仓库。
 
+## 测试宿主（TestHost）
+
+M1/M2 验证用的纯测试宿主（无产品逻辑）：
+
+- WPF 控件页：普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域；页面右侧实时显示当前键盘焦点与各控件接收的按键计数（PasswordBox 仅计数，不读取/显示密码值）。
+- 独立启动：
+
+  ```powershell
+  dotnet run --project tests/VirtualKeyboard.TestHost
+  ```
+
+- 自动自检（`--selftest`）：启动后顺序执行 31 项检查（控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、按键计数与展示即时刷新），逐项输出 PASS/FAIL 并给出结论；退出码 0 = 全部通过（该页的自动证据，本次实测全部通过、退出码 0）：
+
+  ```powershell
+  dotnet run --project tests/VirtualKeyboard.TestHost -- --selftest
+  ```
+
 ## 仓库结构
 
 ```
@@ -47,7 +64,7 @@ src/VirtualKeyboard.Windows    Windows 适配层（UIA、Win32、SendInput，暂
 tests/VirtualKeyboard.Core.Tests
 tests/VirtualKeyboard.Windows.Tests
 tests/VirtualKeyboard.IntegrationTests
-tests/VirtualKeyboard.TestHost 手工/集成测试宿主窗口（T0.5 实现）
+tests/VirtualKeyboard.TestHost 测试宿主（T0.5a：WPF 页已实现 + --selftest 自检；WinForms 页 T0.5b 未开始）
 scripts/build.ps1              统一构建入口
 docs/adr/                      架构决策记录
 ```

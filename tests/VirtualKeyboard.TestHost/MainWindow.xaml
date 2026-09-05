@@ -1,12 +1,52 @@
 ﻿<Window x:Class="VirtualKeyboard.TestHost.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:VirtualKeyboard.TestHost"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Virtual Keyboard TestHost - WPF 测试页（仅测试进程）"
+        Height="620" Width="940">
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="360"/>
+        </Grid.ColumnDefinitions>
 
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
+            <StackPanel>
+                <GroupBox Header="普通 TextBox（可编辑）" Margin="0,0,0,8">
+                    <TextBox x:Name="txtNormal" Margin="8" MinWidth="300" PreviewKeyDown="OnControlKeyDown"/>
+                </GroupBox>
+                <GroupBox Header="只读 TextBox（可聚焦、不可编辑）" Margin="0,0,0,8">
+                    <TextBox x:Name="txtReadOnly" IsReadOnly="True" Margin="8" MinWidth="300"
+                             Text="只读内容（只读）" PreviewKeyDown="OnControlKeyDown"/>
+                </GroupBox>
+                <GroupBox Header="PasswordBox（只计数，不记录密码值）" Margin="0,0,0,8">
+                    <PasswordBox x:Name="pwdPassword" Margin="8" MinWidth="300" PreviewKeyDown="OnControlKeyDown"/>
+                </GroupBox>
+                <GroupBox Header="多行编辑框（AcceptsReturn）" Margin="0,0,0,8">
+                    <TextBox x:Name="txtMultiline" AcceptsReturn="True" TextWrapping="Wrap"
+                             Height="100" Margin="8" MinWidth="300"
+                             VerticalScrollBarVisibility="Auto" PreviewKeyDown="OnControlKeyDown"/>
+                </GroupBox>
+                <GroupBox Header="Button" Margin="0,0,0,8">
+                    <Button x:Name="btnSample" Content="测试按钮" Width="140"
+                            HorizontalAlignment="Left" Margin="8" PreviewKeyDown="OnControlKeyDown"/>
+                </GroupBox>
+                <GroupBox Header="不可聚焦空白区（不应取得键盘焦点）" Margin="0,0,0,8">
+                    <Border x:Name="areaBlank" Focusable="False" Background="#F0F0F0" Height="48" Margin="8"/>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Column="1" BorderBrush="#B0B0B0" BorderThickness="1" CornerRadius="4">
+            <StackPanel Margin="12">
+                <TextBlock Text="当前焦点" FontWeight="Bold" Margin="0,0,0,4"/>
+                <TextBlock x:Name="txtCurrentFocus" Text="(none)" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <TextBlock Text="收到按键计数（按键后即时刷新）" FontWeight="Bold" Margin="0,0,0,4"/>
+                <TextBlock x:Name="txtKeyCounts"
+                           Text="normal=0  readonly=0  password=0  multiline=0  button=0（合计=0）"
+                           TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#606060"
+                           Text="本页仅为测试进程（NFR-COMP-001 / 设计 §18.2），不含产品功能代码。PasswordBox 仅记录按键次数，不读取、不记录密码值（NFR-PRI）。"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

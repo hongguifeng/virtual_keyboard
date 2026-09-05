@@ -111,12 +111,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 提供 WPF 和 WinForms 两类控件页。
   - 页面显示当前焦点和接收到的按键计数，仅用于测试进程。
   - 对应：NFR-COMP-001。
+  - 进度（T0.5a，本轮完成）：WPF 控件页已实现并具备独立入口（`dotnet run --project tests/VirtualKeyboard.TestHost`）；页面含普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域，实时显示当前键盘焦点与各控件按键计数（PasswordBox 仅计数、不读密码值）；新增 `--selftest` 自检模式（31 项检查：控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、按键计数与展示即时刷新），本次实测全部 PASS、退出码 0，控制台输出即自动证据。WinForms 控件页未开始（T0.5b），T0.5 整体仍为未完成。
 
 ### M0 退出检查
 
 - [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
 - [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 24 个测试通过，其余项目 M1 起有产品用例）
-- [ ] TestHost 可独立启动。
+- [ ] TestHost 可独立启动。（T0.5a：WPF 页已可独立启动并有 selftest 自动证据；WinForms 页 T0.5b 未开始，M0 出口仍不满足，保持未勾选）
 - [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化/线程安全 24 个测试通过）
 
 ## 6. M1：NoActivate 单键垂直切片
