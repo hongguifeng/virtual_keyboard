@@ -1,0 +1,71 @@
+# .NET / C# 构建输出
+bin/
+obj/
+out/
+artifacts/
+publish/
+*.slnx-cache
+*.suo
+
+# Visual Studio 本机/用户文件
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+*.db
+*.db-shm
+*.db-wal
+
+# Rider / ReSharper 等 IDE 本机文件
+.idea/
+*.ide
+_ReSharper*
+
+# 构建与测试结果
+TestResults/
+TestResult/
+*.trx
+*.coverage
+coverage*.json
+TestResults_*.xml
+*.coverag.xml
+
+# 日志（含诊断日志，AGENTS.md §3 禁止入库）
+logs/
+*.log
+*.log.*
+
+# 用户配置与恢复文件（运行期数据位于 %LocalAppData%\VirtualKeyboard\，若误写入仓库须忽略）
+*.local.json
+config.local.json
+recovery/
+
+# 密钥、证书与签名材料（AGENTS.md §6 禁止入库）
+*.pfx
+*.p12
+*.p7b
+*.p7c
+*.cer
+*.cert
+*.crt
+*.key
+*.pem
+*.snk
+*.pvk
+*.dll.key
+secrets/
+secrets.*
+*.env
+appsettings.*.Local.json
+
+# 本机路径缓存与工具状态
+*.cache
+*.state
+toolstate.json
+
+# Windows 常见垃圾文件
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
