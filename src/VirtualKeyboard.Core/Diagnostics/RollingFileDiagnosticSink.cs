@@ -27,7 +27,9 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
     private const int MaxFileCount = 50;
     private const string FilePrefix = "diagnostic.";
     private const string Extension = "jsonl";
-    private static readonly Encoding Utf8 = Encoding.UTF8;
+    // 必须使用 no-BOM UTF-8：Encoding.UTF8 默认输出 EF BB BF preamble，
+    // 该 3 字节不计入 lineBytes（GetByteCount），会破坏严格单文件/总量字节上界。
+    private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
     private readonly object _gate = new();
     private readonly bool _detailedEnabled;

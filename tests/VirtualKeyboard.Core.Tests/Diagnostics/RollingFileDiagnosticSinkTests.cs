@@ -50,6 +50,9 @@ public class RollingFileDiagnosticSinkTests
 
             // 总量必须严格落在 文件数 × 单文件上限 的确定性上界之内（无宽限）。
             Assert.True(total <= (long)maxFiles * 1024, $"总量 {total} 字节超出上界");
+
+            // 所有生成 JSONL 不得以 UTF-8 BOM（EF BB BF）开头，否则 GetByteCount 计量失真。
+            AssertNoUtf8BomInAllFiles(dir);
         }
         finally
         {
@@ -126,6 +129,9 @@ public class RollingFileDiagnosticSinkTests
             var content = File.ReadAllText(file);
             Assert.Contains("InputBatchStarted", content);
             Assert.Contains("\"TargetProcessId\":7", content);
+
+            // 写入文件不得以 UTF-8 BOM 开头。
+            AssertNoUtf8BomInAllFiles(dir);
         }
         finally
         {
@@ -205,6 +211,9 @@ public class RollingFileDiagnosticSinkTests
                     Assert.Contains(t * 1000 + i, seen);
                 }
             }
+
+            // 单文件不得以 UTF-8 BOM 开头。
+            AssertNoUtf8BomInAllFiles(dir);
         }
         finally
         {
@@ -250,6 +259,9 @@ public class RollingFileDiagnosticSinkTests
             }
 
             Assert.True(total <= maxFileBytes * maxFiles, $"总量 {total} 字节超出上界 {maxFileBytes * maxFiles}");
+
+            // 所有文件（含滚动后的历史文件）不得以 UTF-8 BOM 开头。
+            AssertNoUtf8BomInAllFiles(dir);
 
             // 活跃文件恒为 index 0：最后一笔写入（Sequence 39）必须落在 diagnostic.0.jsonl 的末行。
             var active = System.IO.Path.Combine(dir, "diagnostic.0.jsonl");
@@ -327,6 +339,9 @@ public class RollingFileDiagnosticSinkTests
             }
 
             Assert.True(total <= maxFileBytes * maxFiles, $"总量 {total} 字节超出上界 {maxFileBytes * maxFiles}");
+
+            // 所有文件（含滚动后的历史文件）不得以 UTF-8 BOM 开头。
+            AssertNoUtf8BomInAllFiles(dir);
         }
         finally
         {
@@ -344,6 +359,18 @@ public class RollingFileDiagnosticSinkTests
             Level = level,
             Sequence = 1,
         };
+
+    /// <summary>断言目录下所有文件都不以 UTF-8 BOM（EF BB BF）开头（no-BOM 写入，GetByteCount 与实际字节一致）。</summary>
+    private static void AssertNoUtf8BomInAllFiles(string dir)
+    {
+        foreach (var f in Directory.GetFiles(dir))
+        {
+            var bytes = File.ReadAllBytes(f);
+            Assert.False(
+                bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF,
+                $"{System.IO.Path.GetFileName(f)} 以 UTF-8 BOM 开头");
+        }
+    }
 
     private static bool HasContent(string dir)
     {
