@@ -10,4 +10,3 @@ namespace VirtualKeyboard.App;
 public partial class App : Application
 {
 }
-

@@ -4,6 +4,6 @@
              xmlns:local="clr-namespace:VirtualKeyboard.TestHost"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+
     </Application.Resources>
 </Application>

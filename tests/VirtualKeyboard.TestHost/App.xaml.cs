@@ -10,4 +10,3 @@ namespace VirtualKeyboard.TestHost;
 public partial class App : Application
 {
 }
-
