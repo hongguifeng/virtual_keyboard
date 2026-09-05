@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    T0.3：在此集中启用全仓库通用的项目属性，各 csproj 不再重复声明。
+    项目特有属性（OutputType、TargetFramework、UseWPF、IsPackable 等）仍保留在各 csproj 中。
+  -->
+  <PropertyGroup>
+    <!-- .NET 内置分析器（C# 与 .NET 分析器），使用已安装最高 SDK 版本的 recommended 严重级别 -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- 可空引用类型 -->
+    <Nullable>enable</Nullable>
+    <!-- 隐式 using -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 警告视为错误 -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- 确定性构建：固定时间戳与 ID，相同输入产生相同输出 -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>

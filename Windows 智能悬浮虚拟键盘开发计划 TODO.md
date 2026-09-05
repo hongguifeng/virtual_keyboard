@@ -93,7 +93,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 配置 nullable、隐式 using、分析器、Release 确定性构建。
   - 验证：Debug/Release 均可从干净环境构建。
 
-- [ ] **T0.3（P0，0.5 人日）固定 SDK 和构建入口**
+- [x] **T0.3（P0，0.5 人日）固定 SDK 和构建入口**
   - 添加 `global.json`、`Directory.Build.props`。
   - 提供 PowerShell 构建脚本或统一 `dotnet` 命令说明。
   - 输出测试结果到 `artifacts/test-results/`，构建包到 `artifacts/package/`。
@@ -113,8 +113,8 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### M0 退出检查
 
-- [ ] `dotnet build -c Release` 成功。
-- [ ] `dotnet test -c Release` 可生成结果文件。
+- [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
+- [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；当前 0 个测试，M1 起才有用例）
 - [ ] TestHost 可独立启动。
 - [ ] 日志隐私约束有自动测试。
 
