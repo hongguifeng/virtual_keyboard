@@ -86,7 +86,7 @@ public sealed record DiagnosticEvent
     public DateTimeOffset OccurredAtUtc { get; init; }
 
     /// <summary>应用版本号（如 "0.1.0"）；仅版本号，永不承载用户内容。</summary>
-    public string? AppVersion { get; init; }
+    public AppVersion? AppVersion { get; init; }
 
     public Guid EventId { get; init; }
 

@@ -9,7 +9,7 @@ using Xunit;
 /// T0.4 类型级隐私约束测试（FR-DIA-002 / NFR-PRI-001 / 设计文档 15.2）：
 /// 证明 InputAction 文本、密码 Value、剪贴板、短语、元素名称
 /// 无法进入 DiagnosticEvent，也不会出现在序列化输出中。
-/// 本测试不写入任何真实敏感值，仅使用假的哨兵字符串，且断言这些值"不得出现"。
+/// 本测试不写入任何真实敏感值，仅使用假的哨兵字符串，且断言这些值“不得出现”。
 /// </summary>
 public class DiagnosticPrivacyTests
 {
@@ -21,8 +21,7 @@ public class DiagnosticPrivacyTests
     [Fact]
     public void DiagnosticEvent_HasNoFreeTextOrObjectTypedProperties()
     {
-        // 类型级约束：除 AppVersion（版本号）外不存在 string 属性；
-        // 除 AppVersion 外所有属性均为值类型（含可空值类型与枚举）。
+        // 类型级约束：不存在 string 属性；所有属性均为值类型（含可空值类型、枚举与结构化版本号）。
         var props = typeof(DiagnosticEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         Assert.True(props.Length > 0, "DiagnosticEvent 不应没有公共属性");
 
@@ -46,7 +45,7 @@ public class DiagnosticPrivacyTests
         var e = new DiagnosticEvent
         {
             OccurredAtUtc = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
-            AppVersion = "0.0.0",
+            AppVersion = new AppVersion(0, 0, 0),
             EventId = Guid.NewGuid(),
             Type = DiagnosticType.ClassificationCompleted,
             Module = DiagnosticModule.Focus,
@@ -72,6 +71,8 @@ public class DiagnosticPrivacyTests
         Assert.Contains("ClassificationCompleted", json);
         Assert.Contains("Editable", json);
         Assert.Contains("\"TargetProcessId\":4242", json);
+        // AppVersion 以结构化对象（三个数字）序列化，而非自由字符串。
+        Assert.Contains("\"AppVersion\":{\"Major\":0", json);
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public class DiagnosticPrivacyTests
         var dir = CreateTempDir();
         try
         {
-            // 用一个已存在的"文件"充当 root：CreateDirectory 必然失败 → 降级。
+            // 用一个已存在的“文件”充当 root：CreateDirectory 必然失败 → 降级。
             var blocker = System.IO.Path.Combine(dir, "blocker");
             File.WriteAllText(blocker, "x");
 
@@ -149,14 +150,14 @@ public class DiagnosticPrivacyTests
             var sink = new RollingFileDiagnosticSink(dir);
             var logger = new DiagnosticLogger(queueCapacity: 8, sink: sink);
 
-            // 骨架 API 只有封闭枚举/数字/版本号参数——编译期即无法传入任意字符串内容。
+            // 骨架 API 只有封闭枚举/数字/结构化版本号参数——编译期即无法传入任意字符串内容。
             logger.Log(
                 DiagnosticType.ClassificationCompleted,
                 DiagnosticModule.Focus,
                 targetProcessId: 4242,
                 verdict: Verdict.Editable,
                 durationMs: 7,
-                appVersion: "0.0.0");
+                appVersion: new AppVersion(0, 0, 0));
 
             Assert.Equal(1, logger.PendingCount);
             Assert.True(logger.TryReadNext(out var e));
@@ -181,7 +182,7 @@ public class DiagnosticPrivacyTests
         new()
         {
             OccurredAtUtc = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
-            AppVersion = "0.0.0",
+            AppVersion = new AppVersion(0, 0, 0),
             EventId = Guid.NewGuid(),
             Type = DiagnosticType.FocusObserved,
             Module = DiagnosticModule.Focus,

@@ -10,6 +10,7 @@ public sealed class DiagnosticLogger : IDisposable
 {
     private readonly BoundedDiagnosticQueue _queue;
     private readonly IDiagnosticSink? _sink;
+    private readonly object _sinkGate = new();
     private long _sequence;
     private bool _disposed;
 
@@ -23,7 +24,10 @@ public sealed class DiagnosticLogger : IDisposable
 
     public long DroppedCount => _queue.DroppedCount;
 
-    /// <summary>上报一条结构化事件（线程安全入队）。</summary>
+    /// <summary>
+    /// 上报一条结构化事件：线程安全入有界队列，并（如配置）写入本地汇聚点。
+    /// 汇聚点写入在独立锁内进行且吞掉所有异常——写入故障只降级，绝不影响入队或主流程（设计文档 16）。
+    /// </summary>
     public void Log(
         DiagnosticType type,
         DiagnosticModule module,
@@ -34,7 +38,7 @@ public sealed class DiagnosticLogger : IDisposable
         ReasonCode? reason = null,
         int errorCode = 0,
         long durationMs = 0,
-        string? appVersion = null)
+        AppVersion? appVersion = null)
     {
         var e = new DiagnosticEvent
         {
@@ -54,7 +58,21 @@ public sealed class DiagnosticLogger : IDisposable
         };
 
         _queue.TryAdd(e);
-        _sink?.Write(e);
+
+        if (_sink is not null)
+        {
+            lock (_sinkGate)
+            {
+                try
+                {
+                    _sink.Write(e);
+                }
+                catch
+                {
+                    // 汇聚点故障：仅降级，不影响事件入队与主流程。
+                }
+            }
+        }
     }
 
     public bool TryReadNext(out DiagnosticEvent? e) => _queue.TryDequeue(out e);

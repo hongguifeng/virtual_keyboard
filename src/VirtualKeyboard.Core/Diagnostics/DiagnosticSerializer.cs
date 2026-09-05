@@ -14,8 +14,70 @@ public static class DiagnosticSerializer
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new JsonStringEnumConverter(), new AppVersionJsonConverter() },
     };
 
     public static string ToJsonLine(DiagnosticEvent e) => JsonSerializer.Serialize(e, Options);
+
+    /// <summary>
+    /// 将 <see cref="AppVersion"/> 序列化为 {"Major":..,"Minor":..,"Revision":..}，
+    /// 保证版本号在 JSON 中以三个数字呈现（而非自由字符串）。
+    /// </summary>
+    private sealed class AppVersionJsonConverter : JsonConverter<AppVersion>
+    {
+        public override AppVersion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                throw new JsonException("Expected an AppVersion object.");
+            }
+
+            var major = 0;
+            var minor = 0;
+            var revision = 0;
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndObject)
+                {
+                    break;
+                }
+
+                if (reader.TokenType != JsonTokenType.PropertyName)
+                {
+                    continue;
+                }
+
+                var name = reader.GetString();
+                if (!reader.Read())
+                {
+                    break;
+                }
+
+                var value = reader.GetInt32();
+                switch (name)
+                {
+                    case "Major":
+                        major = (ushort)value;
+                        break;
+                    case "Minor":
+                        minor = (ushort)value;
+                        break;
+                    case "Revision":
+                        revision = (ushort)value;
+                        break;
+                }
+            }
+
+            return new AppVersion((ushort)major, (ushort)minor, (ushort)revision);
+        }
+
+        public override void Write(Utf8JsonWriter writer, AppVersion value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("Major", value.Major);
+            writer.WriteNumber("Minor", value.Minor);
+            writer.WriteNumber("Revision", value.Revision);
+            writer.WriteEndObject();
+        }
+    }
 }
