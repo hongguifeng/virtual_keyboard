@@ -99,11 +99,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 输出测试结果到 `artifacts/test-results/`，构建包到 `artifacts/package/`。
   - 验证：错误 SDK 版本能给出清晰提示。
 
-- [ ] **T0.4（P0，0.5 人日）建立隐私安全日志骨架**
+- [x] **T0.4（P0，0.5 人日）建立隐私安全日志骨架**
   - 定义结构化事件 DTO，不允许接收输入文本字段。
   - 实现有界内存队列和本地滚动文件接口，可先使用测试实现。
   - 添加自动测试，确保 InputAction 文本不会被序列化进日志。
   - 对应：FR-DIA-001、002。
+  - 验证：`VirtualKeyboard.Core.Diagnostics`（`DiagnosticEvent` 密封记录仅含非敏感字段/类型上无法携带输入文本；`BoundedDiagnosticQueue` 有界丢最旧；`RollingFileDiagnosticSink` 本地滚动、目录不可写/IO 故障降级 no-op；`DiagnosticSerializer` 白名单 JSONL；`DiagnosticLogger` 线程安全入队 + 可选汇聚）。13 个自动测试通过（Release），详细诊断默认关闭。
 
 - [ ] **T0.5（P0，0.5-1 人日）创建 TestHost**
   - 提供普通 TextBox、只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区。
@@ -114,9 +115,9 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 ### M0 退出检查
 
 - [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
-- [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；当前 0 个测试，M1 起才有用例）
+- [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 13 个测试通过，其余项目 M1 起有产品用例）
 - [ ] TestHost 可独立启动。
-- [ ] 日志隐私约束有自动测试。
+- [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化 13 个测试通过）
 
 ## 6. M1：NoActivate 单键垂直切片
 

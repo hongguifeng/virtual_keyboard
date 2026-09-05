@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <!-- T0.4：xUnit 测试方法命名（下划线）在本测试项目内豁免 CA1707，产品代码不受影响 -->
+    <EditorConfigPath>$(MSBuildProjectDirectory)\.editorconfig</EditorConfigPath>
   </PropertyGroup>
 
   <ItemGroup>

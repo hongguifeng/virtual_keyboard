@@ -1,0 +1,9 @@
+root = true
+
+# xUnit test methods follow the official xunit naming convention
+# (test scenario / assertion separated by underscores). CA1707 only
+# exempts classes named Test/Fixture/FixtureTests, so it is a false
+# positive for this project's *Tests classes. Suppressed in this
+# test project only; product code under src/ is unaffected.
+[*.cs]
+dotnet_diagnostic.CA1707.severity = none
