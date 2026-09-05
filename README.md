@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M0（工程与测试基础）进行中——T0.3 构建/测试脚本完成，T0.4 隐私安全日志骨架（`VirtualKeyboard.Core.Diagnostics`，13 个自动测试通过）完成，T0.5 TestHost 待做。产品功能（M1 起）尚未实现。
+> 当前状态：M0（工程与测试基础）进行中——T0.3 构建/测试脚本、T0.4 隐私安全日志骨架（13 个自动测试）、T0.5a WPF TestHost 页、T0.5b1 WinForms TestHost 页（--selftest 共 62 项自检）完成；T0.5b2 Win32 钩子/焦点监控未完成。产品功能（M1 起）尚未实现。
 
 ## 先决条件
 
@@ -42,14 +42,15 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 
 M1/M2 验证用的纯测试宿主（无产品逻辑）：
 
-- WPF 控件页：普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域；页面右侧实时显示当前键盘焦点与各控件接收的按键计数（PasswordBox 仅计数，不读取/显示密码值）。
+- WPF 控件页（T0.5a）：普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域；页面右侧实时显示当前键盘焦点与各控件接收的按键计数（PasswordBox 仅计数，不读取/显示密码值）。
+- WinForms 控件页（T0.5b1）：普通/只读/多行/密码 TextBox + Button + 不可 Tab 聚焦 Label 六个独立控件；与 WPF 页独立（NFR-COMP-001），焦点/按键经逐控件 `Enter`/`Leave`/`KeyPress` 真实事件接线验证。注意：本机 .NET 10 的 WinForms 引用程序集缺少 `IsReadOnly`/`IsEnabled`/`ControlEnter`/`ControlLeave` 等成员，故本页用 `ReadOnly`/`Enabled`/逐控件 `Enter`/`Leave`（不依赖缺失成员）。
 - 独立启动：
 
   ```powershell
   dotnet run --project tests/VirtualKeyboard.TestHost
   ```
 
-- 自动自检（`--selftest`）：启动后顺序执行 31 项检查（控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、对五个控件逐个触发真实 WPF PreviewKeyDown routed 事件以覆盖 XAML 事件绑定/处理器映射/按键计数/展示），逐项输出 PASS/FAIL 并给出结论；退出码 0 = 全部通过（该页的自动证据，本次实测全部通过、退出码 0）：
+- 自动自检（`--selftest`）：启动后先执行 WPF 页 31 项检查（控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、五个控件的 PreviewKeyDown routed 事件绑定与计数），再执行 WinForms 页 31 项检查（属性、`Show()` 后真实焦点切换、逐控件 Enter/Leave 事件计数、表单 OnKeyPress 按键计数、布局/句柄/关闭）；逐项输出 PASS/FAIL，退出码 0 = 全部通过（62 项，本次实测全部通过）：
 
   ```powershell
   dotnet run --project tests/VirtualKeyboard.TestHost -- --selftest
@@ -64,7 +65,7 @@ src/VirtualKeyboard.Windows    Windows 适配层（UIA、Win32、SendInput，暂
 tests/VirtualKeyboard.Core.Tests
 tests/VirtualKeyboard.Windows.Tests
 tests/VirtualKeyboard.IntegrationTests
-tests/VirtualKeyboard.TestHost 测试宿主（T0.5a：WPF 页已实现 + --selftest 自检；WinForms 页 T0.5b 未开始）
+tests/VirtualKeyboard.TestHost 测试宿主（T0.5a WPF 页 + T0.5b1 WinForms 页均已完成；Win32 钩子/焦点监控 T0.5b2 未开始）
 scripts/build.ps1              统一构建入口
 docs/adr/                      架构决策记录
 ```

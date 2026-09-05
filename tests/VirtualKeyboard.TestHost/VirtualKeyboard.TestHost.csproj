@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType><!-- 需控制台输出（selftest 自动证据）；原模板 WinExe 无控制台 -->
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms><!-- T0.5b1：WinForms 控件测试页与 WPF 页共存（测试专用进程） -->
   </PropertyGroup>
 
 </Project>

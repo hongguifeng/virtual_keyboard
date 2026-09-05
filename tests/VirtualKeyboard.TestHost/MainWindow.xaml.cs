@@ -1,6 +1,14 @@
 ﻿using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
+
+// WPF/WinForms 共存（T0.5b1）：别名压制 WinForms 隐式全局 using，消除与 WPF 类型的二义。
+using Button = System.Windows.Controls.Button;
+using Border = System.Windows.Controls.Border;
+using Control = System.Windows.Controls.Control;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using PasswordBox = System.Windows.Controls.PasswordBox;
+using TextBlock = System.Windows.Controls.TextBlock;
+using TextBox = System.Windows.Controls.TextBox;
 
 namespace VirtualKeyboard.TestHost;
 

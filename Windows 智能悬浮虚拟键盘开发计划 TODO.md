@@ -111,13 +111,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 提供 WPF 和 WinForms 两类控件页。
   - 页面显示当前焦点和接收到的按键计数，仅用于测试进程。
   - 对应：NFR-COMP-001。
-  - 进度（T0.5a，本轮完成）：WPF 控件页已实现并具备独立入口（`dotnet run --project tests/VirtualKeyboard.TestHost`）；页面含普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域，实时显示当前键盘焦点与各控件按键计数（PasswordBox 仅计数、不读密码值）；新增 `--selftest` 自检模式（31 项检查：控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、对五个控件逐个触发真实 WPF PreviewKeyDown routed 事件以覆盖 XAML 事件绑定/处理器映射/按键计数/展示），本次实测全部 PASS、退出码 0，控制台输出即自动证据。WinForms 控件页未开始（T0.5b），T0.5 整体仍为未完成。
+  - 进度（T0.5a，2026-07-22 前一轮完成）：WPF 控件页已实现并具备独立入口（`dotnet run --project tests/VirtualKeyboard.TestHost`）；页面含普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域，实时显示当前键盘焦点与各控件按键计数（PasswordBox 仅计数、不读密码值）；`--selftest` WPF 31 项检查全通过 exit=0。
+  - 进度（T0.5b1，本轮完成，2026-07-22，独立提交 `test(host): [T0.5b1] …`）：新增 WinForms 独立控制页（`WinFormsTestPage.cs`：6 个独立控件——只读/普通/多行/密码 TextBox + Button + 不可 Tab 聚焦 Label，焦点提示 + WinForms 独立按键计数）与 `WinFormsSelfTest.cs`（31 项：属性检查、`Show()` 后真实焦点切换与逐控件 `Enter`/`Leave` 事件计数、表单 `OnKeyPress` 按键计数、布局/句柄/关闭）。`--selftest` 现为 WPF 31 + WinForms 31 = 62 项，实测全通过 exit=0（连续 2 次稳定）；变异测试（故意改坏一项期望值）验证失败路径 exit=1；完整 `scripts/build.ps1`（Release + Core 24/24 测试 + publish）通过。WPF/WinForms 冲突类型全部用全限定名（无全局 `using`，NFR-COMP-001）。**环境备注**：本机 .NET 10 的 WinForms 引用程序集缺少 `IsReadOnly`/`IsEnabled`/`ControlEnter`/`ControlLeave`/`Label.Selectable`/`TableLayoutPanel.Columns`/`Rows`/`Keys.KeyCharMask` 等标准成员（已用最小 WinForms 项目探针复现，非本项目配置问题），故本页用 `ReadOnly`/`Enabled`/逐控件 `Enter`/`Leave`/`TabStop`/类型检查，不依赖缺失成员；后续 WinForms 代码同样不得依赖。T0.5 整体仍为未完成（剩 T0.5b2 钩子/焦点监控与 T0.5c 手工验证清单）。
 
 ### M0 退出检查
 
 - [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
 - [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 24 个测试通过，其余项目 M1 起有产品用例）
-- [ ] TestHost 可独立启动。（T0.5a：WPF 页已可独立启动并有 selftest 自动证据；WinForms 页 T0.5b 未开始，M0 出口仍不满足，保持未勾选）
+- [x] TestHost 可独立启动。（T0.5a+T0.5b1：WPF 页与 WinForms 页均可独立启动，`--selftest` 62 项全通过 exit=0；注意 T0.5 任务本身仍剩 T0.5b2 钩子/焦点监控与 T0.5c 手工清单，尚未勾选 T0.5）
 - [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化/线程安全 24 个测试通过）
 
 ## 6. M1：NoActivate 单键垂直切片
