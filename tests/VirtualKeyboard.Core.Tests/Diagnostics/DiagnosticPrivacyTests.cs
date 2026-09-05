@@ -1,46 +1,127 @@
 namespace VirtualKeyboard.Core.Tests.Diagnostics;
 
-using System.Collections.Generic;
 using System.Reflection;
+using System.Text.Json;
 using VirtualKeyboard.Core.Diagnostics;
 using Xunit;
 
 /// <summary>
-/// T0.4 类型级隐私约束测试（FR-DIA-002 / NFR-PRI-001 / 设计文档 15.2）：
-/// 证明 InputAction 文本、密码 Value、剪贴板、短语、元素名称
-/// 无法进入 DiagnosticEvent，也不会出现在序列化输出中。
-/// 本测试不写入任何真实敏感值，仅使用假的哨兵字符串，且断言这些值“不得出现”。
+/// T0.4 隐私/序列化测试（FR-DIA-002 / NFR-PRI-001 / 设计文档 15）：
+/// 隐私由类型级约束证明——DiagnosticEvent 所有公共实例属性均为值类型、
+/// DiagnosticLogger.Log 所有参数均为值类型（string/object/dynamic 从类型上不存在），
+/// 并以固定的 JSON 顶层字段白名单精确匹配序列化输出；仅使用假数据，绝不写入真实敏感值。
 /// </summary>
 public class DiagnosticPrivacyTests
 {
-    private const string SentinelSecret = "SENTINEL-SECRET-8f3a-never-log";
-    private const string SentinelClipboard = "SENTINEL-CLIP-2d7c-never-log";
-    private const string SentinelPhrase = "SENTINEL-PHRASE-9be1-never-log";
-    private const string SentinelElementName = "SENTINEL-ELNAME-41c0-never-log";
+    /// <summary>
+    /// 固定的 JSON 顶层字段白名单（显式写出，不从 DiagnosticEvent 反射动态生成）：
+    /// 序列化输出出现白名单之外的任何键都会使断言失败。
+    /// </summary>
+    private static readonly HashSet<string> ExpectedJsonKeys = new()
+    {
+        "OccurredAtUtc", "AppVersion", "EventId", "Type", "Module", "Level",
+        "TargetProcessId", "ControlKind", "Verdict", "Reason", "ErrorCode",
+        "DurationMs", "Sequence",
+    };
+
+    /// <summary>AppVersion 子对象只允许三个数字键。</summary>
+    private static readonly HashSet<string> ExpectedAppVersionKeys = new() { "Major", "Minor", "Revision" };
 
     [Fact]
-    public void DiagnosticEvent_HasNoFreeTextOrObjectTypedProperties()
+    public void DiagnosticEvent_AllPublicInstancePropertiesAreValueTypes()
     {
-        // 类型级约束：不存在 string 属性；所有属性均为值类型（含可空值类型、枚举与结构化版本号）。
+        // 类型级保证：任何公共实例属性都必须是值类型（含可空值类型、枚举与 struct）。
+        // string/object/dynamic 均为引用类型，一旦存在即断言失败——
+        // 不做任何属性名特判，AppVersion 若回退为 string 本测试直接失败。
         var props = typeof(DiagnosticEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Assert.True(props.Length > 0, "DiagnosticEvent 不应没有公共属性");
+        Assert.NotEmpty(props);
 
         foreach (var p in props)
         {
-            if (p.PropertyType == typeof(string))
-            {
-                Assert.Equal(nameof(DiagnosticEvent.AppVersion), p.Name);
-                continue;
-            }
-
             Assert.True(
-                p.PropertyType.IsValueType,
-                $"属性 {p.Name} 类型为 {p.PropertyType}：非值类型/字符串字段可能承载任意文本（违反 15.2 类型级约束）");
+                IsValueOrNullableValueType(p.PropertyType),
+                $"属性 {p.Name} 类型为 {p.PropertyType.FullName}：可能承载自由文本（违反 15.2 类型级约束）");
         }
     }
 
     [Fact]
-    public void SerializedEvent_NeverContainsSensitiveSamples()
+    public void DiagnosticLogger_LogParameters_AllValueTypes_NoFreeText()
+    {
+        // Log 的所有参数必须是值类型（封闭枚举/数字/结构化版本号及其可空）：
+        // string/object/dynamic 无法作为参数传入——从类型上无法携带用户文本。
+        var logs = typeof(DiagnosticLogger).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => m.Name == "Log");
+        Assert.NotEmpty(logs);
+
+        foreach (var m in logs)
+        {
+            var parameters = m.GetParameters();
+            Assert.NotEmpty(parameters);
+
+            foreach (var p in parameters)
+            {
+                Assert.True(
+                    IsValueOrNullableValueType(p.ParameterType),
+                    $"Log 参数 {p.Name} 类型为 {p.ParameterType.FullName}：string/object/dynamic 不允许");
+            }
+        }
+    }
+
+    [Fact]
+    public void JsonWhitelist_FullyPopulatedEvent_ExactKeySet_MatchesFixedWhitelist()
+    {
+        // 所有可空字段均赋值：实际顶层 JSON 键集合必须与固定白名单精确相等（不多不少）。
+        var e = new DiagnosticEvent
+        {
+            OccurredAtUtc = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
+            AppVersion = new AppVersion(1, 2, 3),
+            EventId = Guid.Empty,
+            Type = DiagnosticType.InputBatchStarted,
+            Module = DiagnosticModule.Input,
+            Level = DiagnosticLevel.Detailed,
+            TargetProcessId = 4242,
+            ControlKind = ControlKind.Password,
+            Verdict = Verdict.Password,
+            Reason = ReasonCode.IoError,
+            ErrorCode = 7,
+            DurationMs = 123,
+            Sequence = 9,
+        };
+
+        var json = DiagnosticSerializer.ToJsonLine(e);
+        using var doc = JsonDocument.Parse(json);
+
+        var actual = new HashSet<string>();
+        foreach (var p in doc.RootElement.EnumerateObject())
+        {
+            Assert.True(actual.Add(p.Name), $"JSON 含重复键 {p.Name}");
+        }
+
+        Assert.True(
+            actual.SetEquals(ExpectedJsonKeys),
+            $"顶层键集合与固定白名单不一致：actual=[{string.Join(",", actual.OrderBy(k => k))}]");
+
+        // AppVersion 子对象只允许 Major/Minor/Revision 三个数字键（无自由字符串）。
+        var av = doc.RootElement.GetProperty("AppVersion");
+        Assert.Equal(JsonValueKind.Object, av.ValueKind);
+
+        var avKeys = new HashSet<string>();
+        foreach (var p in av.EnumerateObject())
+        {
+            Assert.True(avKeys.Add(p.Name), $"AppVersion 含重复键 {p.Name}");
+            Assert.True(p.Value.ValueKind == JsonValueKind.Number, $"AppVersion 键 {p.Name} 不是数字");
+        }
+
+        Assert.True(
+            avKeys.SetEquals(ExpectedAppVersionKeys),
+            $"AppVersion 键集合与白名单不一致：actual=[{string.Join(",", avKeys.OrderBy(k => k))}]");
+        Assert.Equal(1, av.GetProperty("Major").GetInt32());
+        Assert.Equal(2, av.GetProperty("Minor").GetInt32());
+        Assert.Equal(3, av.GetProperty("Revision").GetInt32());
+    }
+
+    [Fact]
+    public void SerializedEvent_StructuredFields_DeterministicContent()
     {
         var e = new DiagnosticEvent
         {
@@ -61,24 +142,18 @@ public class DiagnosticPrivacyTests
 
         var json = DiagnosticSerializer.ToJsonLine(e);
 
-        // 事件结构本身序列化后不含任何哨兵（本用例未将哨兵塞入任何字段）。
-        Assert.DoesNotContain(SentinelSecret, json);
-        Assert.DoesNotContain(SentinelClipboard, json);
-        Assert.DoesNotContain(SentinelPhrase, json);
-        Assert.DoesNotContain(SentinelElementName, json);
-
-        // 结构化字段确实被序列化（确定性内容）。
+        // 结构化字段确定性序列化：枚举字符串 + 数字 + 版本号对象。
         Assert.Contains("ClassificationCompleted", json);
-        Assert.Contains("Editable", json);
+        Assert.Contains("PatternMissing", json);
         Assert.Contains("\"TargetProcessId\":4242", json);
-        // AppVersion 以结构化对象（三个数字）序列化，而非自由字符串。
+        Assert.Contains("\"DurationMs\":12", json);
         Assert.Contains("\"AppVersion\":{\"Major\":0", json);
     }
 
     [Fact]
     public void PasswordVerdict_IsCarriedOnlyAsClosedEnum()
     {
-        // 15.2/15.3：密码结论只以枚举表达；序列化为枚举字符串，不含名称/值。
+        // 15.2/15.3：密码结论只以封闭枚举表达；序列化为枚举字符串，不含名称/值。
         var e = new DiagnosticEvent
         {
             OccurredAtUtc = DateTimeOffset.UtcNow,
@@ -93,8 +168,6 @@ public class DiagnosticPrivacyTests
         var json = DiagnosticSerializer.ToJsonLine(e);
         Assert.Contains("\"Verdict\":\"Password\"", json);
         Assert.Contains("\"ControlKind\":\"Password\"", json);
-        Assert.DoesNotContain(SentinelElementName, json);
-        Assert.DoesNotContain(SentinelSecret, json);
     }
 
     [Fact]
@@ -124,7 +197,7 @@ public class DiagnosticPrivacyTests
         var dir = CreateTempDir();
         try
         {
-            // 用一个已存在的“文件”充当 root：CreateDirectory 必然失败 → 降级。
+            // 用一个已存在的"文件"充当 root：CreateDirectory 必然失败 → 降级。
             var blocker = System.IO.Path.Combine(dir, "blocker");
             File.WriteAllText(blocker, "x");
 
@@ -142,15 +215,16 @@ public class DiagnosticPrivacyTests
     }
 
     [Fact]
-    public void LoggerRejectsFreeTextInput()
+    public void Logger_AcceptsStructuredArgs_QueueAndFileConsistent()
     {
+        // Logger 入口只接受封闭枚举/数字/结构化版本号（编译期无法传入任意字符串）；
+        // 事件入队并可被读取，随后写入本地文件。
         var dir = CreateTempDir();
         try
         {
             var sink = new RollingFileDiagnosticSink(dir);
             var logger = new DiagnosticLogger(queueCapacity: 8, sink: sink);
 
-            // 骨架 API 只有封闭枚举/数字/结构化版本号参数——编译期即无法传入任意字符串内容。
             logger.Log(
                 DiagnosticType.ClassificationCompleted,
                 DiagnosticModule.Focus,
@@ -167,15 +241,22 @@ public class DiagnosticPrivacyTests
             var file = System.IO.Path.Combine(dir, "diagnostic.0.jsonl");
             var content = File.Exists(file) ? File.ReadAllText(file) : string.Empty;
             Assert.Contains("ClassificationCompleted", content);
-            Assert.DoesNotContain(SentinelSecret, content);
-            Assert.DoesNotContain(SentinelClipboard, content);
-            Assert.DoesNotContain(SentinelPhrase, content);
-            Assert.DoesNotContain(SentinelElementName, content);
         }
         finally
         {
             DeleteDir(dir);
         }
+    }
+
+    /// <summary>判断类型是值类型（含枚举/struct）或"值类型的可空"；引用类型（string/object 等）一律 false。</summary>
+    private static bool IsValueOrNullableValueType(Type t)
+    {
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            return t.GetGenericArguments()[0].IsValueType;
+        }
+
+        return t.IsValueType;
     }
 
     private static DiagnosticEvent MakeEvent(DiagnosticLevel level = DiagnosticLevel.Info) =>

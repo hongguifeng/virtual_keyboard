@@ -104,7 +104,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现有界内存队列和本地滚动文件接口，可先使用测试实现。
   - 添加自动测试，确保 InputAction 文本不会被序列化进日志。
   - 对应：FR-DIA-001、002。
-  - 验证：`VirtualKeyboard.Core.Diagnostics`（`DiagnosticEvent` 密封记录仅含非敏感字段/类型上无法携带输入文本；`BoundedDiagnosticQueue` 有界丢最旧；`RollingFileDiagnosticSink` 本地滚动、目录不可写/IO 故障降级 no-op；`DiagnosticSerializer` 白名单 JSONL；`DiagnosticLogger` 线程安全入队 + 可选汇聚）。20 个自动测试通过（Release；含 1 个 2 用例 Theory），详细诊断默认关闭。review 修正：`AppVersion` 改为结构化 `struct`（`ushort` 三元组，类型上无法承载任意文本，序列化为 `{"Major","Minor","Revision"}` 而非字符串）；`RollingFileDiagnosticSink` 用 `lock` 串行化轮转/降级等可变状态（线程安全）；`DiagnosticLogger` 对汇聚点 `Write` 用 `try/catch`+锁隔离，汇聚点故障不传播到调用方（NFR-REL-001）。第二轮 review 修正：`BoundedDiagnosticQueue` 用单一锁保护全部可变状态与读取路径（多生产者/消费者并发安全，丢弃最旧与 added=dequeued+dropped 守恒语义不变），新增 2 个并发守恒/无重复测试。第三轮 review 修正：`RollingFileDiagnosticSink` 整条写入路径（可写状态检查/大小预判/轮转判定(size+行字节)/删除与下移/实际追加/故障降级）全部在同一锁内执行，活跃文件恒为 index 0，单文件不超 `maxFileBytes`、总量严格 ≤ `maxFileBytes`×`maxFileCount`（移除宽限），新增 3 个并发/连续滚动测试，共 20 个测试（另修复 .NET 10 中 `FileInfo.Length` 对不存在文件抛 `FileNotFoundException` 导致的首次写入永久降级缺陷）。第四轮 review 微型修正：文件编码改为显式 no-BOM UTF-8（`new UTF8Encoding(false)`，`Encoding.UTF8` 的 3 字节 preamble 不计入 `GetByteCount` 会破坏严格字节上界）；测试新增断言验证所有生成 JSONL 不以 BOM 开头（已合并进现有测试，仍 20 个测试）。
+  - 验证：`VirtualKeyboard.Core.Diagnostics`（`DiagnosticEvent` 密封记录仅含非敏感字段/类型上无法携带输入文本；`BoundedDiagnosticQueue` 有界丢最旧；`RollingFileDiagnosticSink` 本地滚动、目录不可写/IO 故障降级 no-op；`DiagnosticSerializer` 白名单 JSONL；`DiagnosticLogger` 线程安全入队 + 可选汇聚）。24 个自动测试通过（Release；含 1 个 2 用例 Theory），详细诊断默认关闭。review 修正：`AppVersion` 改为结构化 `struct`（`ushort` 三元组，类型上无法承载任意文本，序列化为 `{"Major","Minor","Revision"}` 而非字符串）；`RollingFileDiagnosticSink` 用 `lock` 串行化轮转/降级等可变状态（线程安全）；`DiagnosticLogger` 对汇聚点 `Write` 用 `try/catch`+锁隔离，汇聚点故障不传播到调用方（NFR-REL-001）。第二轮 review 修正：`BoundedDiagnosticQueue` 用单一锁保护全部可变状态与读取路径（多生产者/消费者并发安全，丢弃最旧与 added=dequeued+dropped 守恒语义不变），新增 2 个并发守恒/无重复测试。第三轮 review 修正：`RollingFileDiagnosticSink` 整条写入路径（可写状态检查/大小预判/轮转判定(size+行字节)/删除与下移/实际追加/故障降级）全部在同一锁内执行，活跃文件恒为 index 0，单文件不超 `maxFileBytes`、总量严格 ≤ `maxFileBytes`×`maxFileCount`（移除宽限），新增 3 个并发/连续滚动测试，共 20 个测试（另修复 .NET 10 中 `FileInfo.Length` 对不存在文件抛 `FileNotFoundException` 导致的首次写入永久降级缺陷）。第四轮 review 微型修正：文件编码改为显式 no-BOM UTF-8（`new UTF8Encoding(false)`，`Encoding.UTF8` 的 3 字节 preamble 不计入 `GetByteCount` 会破坏严格字节上界）；测试新增断言验证所有生成 JSONL 不以 BOM 开头（已合并进现有测试，仍 20 个测试）。第五轮（测试证据修正）：`DiagnosticPrivacyTests` 移除 `AppVersion` 名称特判与无效哨兵断言，改为反射断言 `DiagnosticEvent` 全部公共实例属性与 `DiagnosticLogger.Log` 全部参数均为值类型（`string`/`object`/`dynamic` 从类型上不存在），并以固定 JSON 顶层字段白名单 + `AppVersion` 子对象仅 3 个数字键精确比对序列化输出；新增 `DiagnosticLoggerTests`：抛异常 sink 的 `Write` 异常不传播出 `Log` 且入队路径不受影响（事件经队列路径完整到达 sink）、并发 `Log` 时 sink `Write` 最大并发为 1 且调用计数完整；共 24 个测试（未改产品代码）。
 
 - [ ] **T0.5（P0，0.5-1 人日）创建 TestHost**
   - 提供普通 TextBox、只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区。
@@ -115,9 +115,9 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 ### M0 退出检查
 
 - [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
-- [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 20 个测试通过，其余项目 M1 起有产品用例）
+- [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 24 个测试通过，其余项目 M1 起有产品用例）
 - [ ] TestHost 可独立启动。
-- [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化/线程安全 20 个测试通过）
+- [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化/线程安全 24 个测试通过）
 
 ## 6. M1：NoActivate 单键垂直切片
 
