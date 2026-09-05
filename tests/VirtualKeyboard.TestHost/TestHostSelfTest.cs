@@ -9,7 +9,7 @@ namespace VirtualKeyboard.TestHost;
 /// 1) 六类控件区域均存在且关键属性正确（只读/AcceptsReturn/Focusable=false）；
 /// 2) 程序化设置键盘焦点后 Keyboard.FocusedElement 正确、焦点展示随之刷新（真实 WPF 焦点语义）；
 /// 3) 不可聚焦空白区不取得键盘焦点；
-/// 4) 按键计数（与真实按键共用的 RecordKey 路径）逐控件与合计正确、展示串即时刷新。
+/// 4) 对五个控件逐个触发真实 WPF routed PreviewKeyDown 事件（覆盖 XAML 事件绑定、处理器控件映射、逐控件/合计计数与展示串即时刷新）。
 /// 全部通过返回 0，任一失败返回 1；控制台逐条打印 PASS/FAIL 作为自动证据。
 /// </summary>
 internal static class TestHostSelfTest
@@ -44,12 +44,14 @@ internal static class TestHostSelfTest
         Keyboard.Focus(window.BlankArea);
         Check(Keyboard.FocusedElement != window.BlankArea, "不可聚焦空白区不取得键盘焦点");
 
-        // 按键计数：初始为 0；经与真实按键共用的 RecordKey 路径逐控件累加。
+        // 按键计数：初始为 0；对五个控件逐个触发真实 WPF routed PreviewKeyDown 事件
+        // （与真实按键同一代码路径：XAML 事件绑定 → OnControlKeyDown → RecordKey）。
         Check(window.TotalKeyCount == 0, "初始按键计数合计为 0");
-        foreach (var key in MainWindow.KeyOrder)
-        {
-            window.RecordKey(key);
-        }
+        RaisePreviewKeyDown(window.NormalTextBox, Key.A);
+        RaisePreviewKeyDown(window.ReadOnlyTextBox, Key.B);
+        RaisePreviewKeyDown(window.PasswordBox, Key.C);
+        RaisePreviewKeyDown(window.MultilineTextBox, Key.D);
+        RaisePreviewKeyDown(window.SampleButton, Key.Space);
 
         foreach (var key in MainWindow.KeyOrder)
         {
@@ -59,7 +61,7 @@ internal static class TestHostSelfTest
         Check(window.TotalKeyCount == 5, "合计计数=5");
         Check(window.KeyCountDisplay.Text.Contains("normal=1") && window.KeyCountDisplay.Text.Contains("password=1")
               && window.KeyCountDisplay.Text.Contains("合计=5"), "按键计数展示串即时刷新");
-        window.RecordKey("normal");
+        RaisePreviewKeyDown(window.NormalTextBox, Key.A);
         Check(window.KeyCount("normal") == 2 && window.TotalKeyCount == 6, "重复按键累加正确");
 
         var result = _failed == 0 ? "PASS（全部通过）" : $"FAIL（失败 {_failed} 项）";
@@ -72,6 +74,14 @@ internal static class TestHostSelfTest
         Keyboard.Focus(control);
         Check(ReferenceEquals(Keyboard.FocusedElement, control), $"键盘焦点可落在 {control.Name}");
         Check(window.FocusDisplay.Text.Contains(control.Name), $"焦点展示刷新为 {control.Name}");
+    }
+
+    /// <summary>对指定控件触发真实 WPF routed PreviewKeyDown 事件（与真实按键同一代码路径）。</summary>
+    private static void RaisePreviewKeyDown(FrameworkElement control, Key key)
+    {
+        var source = PresentationSource.FromVisual(control) ?? throw new InvalidOperationException($"{control.Name} 未接入 PresentationSource");
+        var device = Keyboard.PrimaryDevice ?? throw new InvalidOperationException("Keyboard.PrimaryDevice 不可用");
+        control.RaiseEvent(new KeyEventArgs(device, source, 1, key) { RoutedEvent = UIElement.PreviewKeyDownEvent });
     }
 
     private static void Check(bool condition, string description)

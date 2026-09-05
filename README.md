@@ -49,7 +49,7 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
   dotnet run --project tests/VirtualKeyboard.TestHost
   ```
 
-- 自动自检（`--selftest`）：启动后顺序执行 31 项检查（控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、按键计数与展示即时刷新），逐项输出 PASS/FAIL 并给出结论；退出码 0 = 全部通过（该页的自动证据，本次实测全部通过、退出码 0）：
+- 自动自检（`--selftest`）：启动后顺序执行 31 项检查（控件存在与关键属性、真实 WPF 焦点语义、不可聚焦区拒绝键盘焦点、对五个控件逐个触发真实 WPF PreviewKeyDown routed 事件以覆盖 XAML 事件绑定/处理器映射/按键计数/展示），逐项输出 PASS/FAIL 并给出结论；退出码 0 = 全部通过（该页的自动证据，本次实测全部通过、退出码 0）：
 
   ```powershell
   dotnet run --project tests/VirtualKeyboard.TestHost -- --selftest
