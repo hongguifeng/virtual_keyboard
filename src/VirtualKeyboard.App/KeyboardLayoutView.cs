@@ -237,27 +237,26 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        base.OnPreviewMouseLeftButtonDown(e);
+        // This control owns the complete pointer lifecycle. Letting Button process
+        // the event first can create a second Click/capture lifecycle alongside
+        // the gesture controller, which is especially visible with IME input.
+        e.Handled = true;
         if (BeginGesture() && CaptureMouse())
         {
-            e.Handled = true;
+            return;
         }
-        else
-        {
-            CancelGesture();
-        }
+        CancelGesture();
     }
 
     protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        base.OnPreviewMouseLeftButtonUp(e);
+        e.Handled = true;
         if (!IsMouseCaptured)
         {
             return;
         }
         bool invoke = EndGesture(IsMouseOver);
         ReleaseMouseCapture();
-        e.Handled = true;
         if (invoke)
         {
             Invoked?.Invoke(this, EventArgs.Empty);
@@ -266,7 +265,6 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchDown(TouchEventArgs e)
     {
-        base.OnTouchDown(e);
         e.Handled = true;
         if (BeginGesture() && e.TouchDevice.Capture(this))
         {
@@ -278,7 +276,6 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchUp(TouchEventArgs e)
     {
-        base.OnTouchUp(e);
         e.Handled = true;
         if (e.TouchDevice.Captured != this)
         {
@@ -296,23 +293,21 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchMove(TouchEventArgs e)
     {
-        base.OnTouchMove(e);
+        e.Handled = true;
         if (e.TouchDevice.Captured == this)
         {
-            e.Handled = true;
+            return;
         }
     }
 
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         CancelGesture();
-        base.OnLostMouseCapture(e);
     }
 
     protected override void OnLostTouchCapture(TouchEventArgs e)
     {
         CancelGesture();
-        base.OnLostTouchCapture(e);
     }
 
     private bool BeginGesture()

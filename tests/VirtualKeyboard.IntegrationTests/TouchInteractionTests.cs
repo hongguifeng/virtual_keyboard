@@ -35,11 +35,14 @@ public sealed class TouchInteractionTests
     }
 
     [Theory]
+    [InlineData("OnPreviewMouseLeftButtonDown")]
+    [InlineData("OnPreviewMouseLeftButtonUp")]
+    [InlineData("OnLostMouseCapture")]
     [InlineData("OnTouchDown")]
     [InlineData("OnTouchMove")]
     [InlineData("OnTouchUp")]
     [InlineData("OnLostTouchCapture")]
-    public void KeyButtonExplicitlyOwnsTouchLifecycle(string methodName)
+    public void KeyButtonExplicitlyOwnsPointerLifecycle(string methodName)
     {
         MethodInfo? method = typeof(NonFocusableKeyButton).GetMethod(
             methodName,
