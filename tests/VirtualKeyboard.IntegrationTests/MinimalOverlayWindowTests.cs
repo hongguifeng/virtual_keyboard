@@ -278,9 +278,9 @@ public sealed class MinimalOverlayWindowTests
                 Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle automatic));
                 int width = automatic.Right - automatic.Left;
                 int height = automatic.Bottom - automatic.Top;
-                // Move toward the interior of the primary work area so the assertion also holds on a
-                // 1024x768 CI virtual desktop where the automatic rectangle may touch the right edge.
-                var moved = new NativeRectangle(automatic.Left - 20, automatic.Top - 20, automatic.Right - 20, automatic.Bottom - 20);
+                // The tested anchor places this rectangle against the left edge and near the bottom on
+                // a 1024x768 CI desktop, so right/up stays inside both small and large work areas.
+                var moved = new NativeRectangle(automatic.Left + 20, automatic.Top - 20, automatic.Right + 20, automatic.Bottom - 20);
                 window.ShowAt(moved.Left, moved.Top, width, height);
                 Assert.True(window.BeginManualMoveForCurrentSession());
                 Assert.True(window.EndManualMoveForCurrentSession());
