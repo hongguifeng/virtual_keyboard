@@ -469,11 +469,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；`ConfigurationValidator` 校验 schema v1、透明度 0.30–1.00、宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP、布局 ID 长度和封闭手动定位模式。
   - 验证：Core 199/199；覆盖默认配置、版本/模式、NaN/Infinity/所有数值边界、空/超长布局 ID 及错误消息不泄露 ID；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T6.2（P0，0.75 人日）实现 ConfigRepository**
+- [x] **T6.2（P0，0.75 人日）实现 ConfigRepository**
   - 使用 `%LocalAppData%\VirtualKeyboard\config.json`。
   - 临时文件 + Flush + 原子替换。
   - 损坏文件复制到 recovery 后加载默认值。
   - 对应：FR-CFG-003、004，AC-014。
+  - 实现：Core `ConfigurationRepository` 限制 64 KiB/JSON 深度 8，兼容 BOM、拒绝注释和尾逗号、忽略未知字段；损坏或无效配置备份到 recovery 并回退安全默认值。保存使用同目录随机临时文件、`Flush(true)` 与 `File.Replace`/首次 `File.Move` 原子更新；保存失败删除临时文件并保留内存快照。
+  - 验证：Core 206/206；覆盖默认值、camelCase 往返、BOM/未知字段、JSON 损坏恢复、schema 无效脱敏、保存验证拒绝和保存失败内存保持；完整 Release 构建和 win-x64 发布待本任务提交前执行。
 
 - [ ] **T6.3（P0，0.75 人日）实现 SettingsWindow**
   - 设置窗口独立且允许激活。

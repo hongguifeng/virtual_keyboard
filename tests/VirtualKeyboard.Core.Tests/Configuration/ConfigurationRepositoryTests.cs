@@ -1,0 +1,133 @@
+using System.Text;
+using System.Text.Json;
+using VirtualKeyboard.Core.Configuration;
+
+namespace VirtualKeyboard.Core.Tests.Configuration;
+
+public sealed class ConfigurationRepositoryTests
+{
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    [Fact]
+    public void MissingFileReturnsSafeDefaults()
+    {
+        using var fixture = new Fixture();
+
+        ConfigurationLoadResult result = fixture.Repository.Load();
+
+        Assert.Equal(ConfigurationLoadStatus.DefaultMissing, result.Status);
+        Assert.Equal("builtin.qwerty.en-US", result.Configuration.LayoutId);
+        Assert.Empty(result.Issues);
+    }
+
+    [Fact]
+    public void SaveThenLoadRoundTripsCamelCaseConfiguration()
+    {
+        using var fixture = new Fixture();
+        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true);
+
+        ConfigurationSaveResult saved = fixture.Repository.Save(expected);
+        ConfigurationLoadResult loaded = fixture.Repository.Load();
+
+        Assert.True(saved.IsSaved);
+        Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
+        Assert.Equal(expected.SchemaVersion, loaded.Configuration.SchemaVersion);
+        Assert.Equal(expected.Enabled, loaded.Configuration.Enabled);
+        Assert.Equal(expected.AutoShow, loaded.Configuration.AutoShow);
+        Assert.Equal(expected.AutoHide, loaded.Configuration.AutoHide);
+        Assert.Equal(expected.Opacity, loaded.Configuration.Opacity);
+        Assert.Equal(expected.KeyboardWidthDip, loaded.Configuration.KeyboardWidthDip);
+        Assert.Equal(expected.KeyboardHeightDip, loaded.Configuration.KeyboardHeightDip);
+        Assert.Equal(expected.MarginDip, loaded.Configuration.MarginDip);
+        Assert.Equal(expected.LayoutId, loaded.Configuration.LayoutId);
+        Assert.Equal(expected.ManualPositionMode, loaded.Configuration.ManualPositionMode);
+        Assert.Equal(expected.DetailedDiagnostics, loaded.Configuration.DetailedDiagnostics);
+        using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
+        Assert.True(json.RootElement.TryGetProperty("schemaVersion", out _));
+        Assert.True(json.RootElement.TryGetProperty("keyboardWidthDip", out _));
+    }
+
+    [Fact]
+    public void InvalidJsonIsCopiedToRecoveryAndDefaultsAreReturned()
+    {
+        using var fixture = new Fixture();
+        File.WriteAllText(fixture.ConfigurationFile, "{ invalid", Encoding.UTF8);
+
+        ConfigurationLoadResult result = fixture.Repository.Load();
+
+        Assert.Equal(ConfigurationLoadStatus.RecoveredInvalid, result.Status);
+        Assert.Equal("builtin.qwerty.en-US", result.Configuration.LayoutId);
+        Assert.NotNull(result.RecoveryFileName);
+        Assert.True(File.Exists(Path.Combine(fixture.RecoveryDirectory, result.RecoveryFileName!)));
+        Assert.Contains(result.Issues, issue => issue.Code == "json.invalid");
+    }
+
+    [Fact]
+    public void SchemaInvalidFileIsRecoveredAndDoesNotEchoLayoutId()
+    {
+        using var fixture = new Fixture();
+        string sensitive = new('X', ConfigurationSchemaLimits.MaximumLayoutIdLength + 1);
+        KeyboardConfiguration invalid = new(1, true, true, true, 0.9, 800, 300, 8, sensitive, ManualPositionMode.UntilTargetChanges, false);
+        File.WriteAllText(fixture.ConfigurationFile, JsonSerializer.Serialize(invalid, JsonOptions));
+
+        ConfigurationLoadResult result = fixture.Repository.Load();
+
+        Assert.Equal(ConfigurationLoadStatus.RecoveredInvalid, result.Status);
+        Assert.DoesNotContain(result.Issues, issue => issue.Message.Contains('X'));
+    }
+
+    [Fact]
+    public void SaveRejectsInvalidConfigurationWithoutWritingFile()
+    {
+        using var fixture = new Fixture();
+        KeyboardConfiguration invalid = new(1, true, true, true, 0.1, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false);
+
+        ConfigurationSaveResult result = fixture.Repository.Save(invalid);
+
+        Assert.False(result.IsSaved);
+        Assert.False(File.Exists(fixture.ConfigurationFile));
+        Assert.Contains(result.Issues, issue => issue.Path == "$.opacity");
+    }
+
+    [Fact]
+    public void SaveFailureKeepsValidatedMemoryConfiguration()
+    {
+        using var fixture = new Fixture();
+        KeyboardConfiguration expected = ConfigurationDefaults.Create();
+        Directory.CreateDirectory(fixture.ConfigurationFile);
+
+        ConfigurationSaveResult result = fixture.Repository.Save(expected);
+
+        Assert.False(result.IsSaved);
+        Assert.Equal(expected, fixture.Repository.Current);
+    }
+
+    [Fact]
+    public void Utf8BomAndUnknownForwardCompatibleFieldAreAccepted()
+    {
+        using var fixture = new Fixture();
+        string json = """
+            {"schemaVersion":1,"enabled":true,"autoShow":true,"autoHide":true,"opacity":0.9,
+             "keyboardWidthDip":800,"keyboardHeightDip":300,"marginDip":8,"layoutId":"layout",
+             "manualPositionMode":"UntilTargetChanges","detailedDiagnostics":false,"future":true}
+            """;
+        File.WriteAllText(fixture.ConfigurationFile, json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+        Assert.Equal(ConfigurationLoadStatus.Loaded, fixture.Repository.Load().Status);
+    }
+
+    private sealed class Fixture : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), $"VirtualKeyboard.ConfigTests.{Guid.NewGuid():N}");
+        public Fixture()
+        {
+            ConfigurationFile = Path.Combine(_root, "VirtualKeyboard", "config.json");
+            RecoveryDirectory = Path.Combine(_root, "VirtualKeyboard", "recovery");
+            Repository = new(new(ConfigurationFile, RecoveryDirectory));
+            Directory.CreateDirectory(Path.GetDirectoryName(ConfigurationFile)!);
+        }
+        public string ConfigurationFile { get; }
+        public string RecoveryDirectory { get; }
+        public ConfigurationRepository Repository { get; }
+        public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); }
+    }
+}
