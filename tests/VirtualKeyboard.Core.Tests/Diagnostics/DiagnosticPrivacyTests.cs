@@ -21,7 +21,7 @@ public class DiagnosticPrivacyTests
     {
         "OccurredAtUtc", "AppVersion", "EventId", "Type", "Module", "Level",
         "TargetProcessId", "ControlKind", "Verdict", "Reason", "ErrorCode",
-        "DurationMs", "Sequence",
+        "DurationMs", "RequestedCount", "CompletedCount", "Sequence",
     };
 
     /// <summary>AppVersion 子对象只允许三个数字键。</summary>
@@ -85,6 +85,8 @@ public class DiagnosticPrivacyTests
             Reason = ReasonCode.IoError,
             ErrorCode = 7,
             DurationMs = 123,
+            RequestedCount = 2,
+            CompletedCount = 1,
             Sequence = 9,
         };
 

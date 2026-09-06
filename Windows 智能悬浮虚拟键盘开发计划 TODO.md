@@ -143,11 +143,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`NativeForegroundTargetCapture` 集中封装 `GetForegroundWindow`、`GetWindowThreadProcessId`、`GetGUIThreadInfo`；`TargetSessionStore` 原子发布不可变会话并生成单调 `SessionId`；Overlay 调试入口仅显示数字句柄和 PID，不读取标题或输入内容。
   - 验证：Core 30/30、Windows 7/7、Integration 2/2 通过；覆盖成功捕获、无前台窗口、进程/焦点查询失败、自进程过滤、会话清空与并发替换。
 
-- [ ] **T1.3（P0，0.75 人日）实现单键发送和返回值检查**
+- [x] **T1.3（P0，0.75 人日）实现单键发送和返回值检查**
   - `A` 键生成 KeyDown/KeyUp INPUT 数组。
   - 调用 SendInput，验证返回事件数。
   - 失败不自动重试，记录无内容诊断。
   - 对应：FR-INP-003、006。
+  - 实现：`SingleKeyInputSender` 固定生成 VK_A 的两个键盘事件并单次调用 `SendInput`；按返回数量区分成功、完全失败和部分失败，原生 API 不可用时返回 `NativeUnavailable`，不执行激活或重试。诊断仅记录数字字段（目标 PID、请求/完成数量、错误码）。
+  - 验证：Core 30/30、Windows 11/11、Integration 2/2 通过；覆盖 KeyDown/KeyUp 顺序、VK_A、KeyUp 标志、原生 `INPUT` x64 尺寸、0/1 返回值、无重试和结构化失败诊断。
 
 - [ ] **T1.4（P0，0.75 人日）实现发送前目标校验**
   - 点击前校验 GetForegroundWindow、焦点 HWND 和 SessionId。

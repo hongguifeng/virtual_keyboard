@@ -111,6 +111,12 @@ public sealed record DiagnosticEvent
     /// <summary>耗时（毫秒，非负）。</summary>
     public long DurationMs { get; init; }
 
+    /// <summary>Requested native operations in a batch; zero when not applicable.</summary>
+    public int RequestedCount { get; init; }
+
+    /// <summary>Completed native operations in a batch; zero when not applicable.</summary>
+    public int CompletedCount { get; init; }
+
     /// <summary>单调递增序号（评估版本/批次等，仅数字）。</summary>
     public long Sequence { get; init; }
 }

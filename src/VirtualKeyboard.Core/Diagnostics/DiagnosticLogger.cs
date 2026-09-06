@@ -38,6 +38,8 @@ public sealed class DiagnosticLogger : IDisposable
         ReasonCode? reason = null,
         int errorCode = 0,
         long durationMs = 0,
+        int requestedCount = 0,
+        int completedCount = 0,
         AppVersion? appVersion = null)
     {
         var e = new DiagnosticEvent
@@ -53,6 +55,8 @@ public sealed class DiagnosticLogger : IDisposable
             Reason = reason,
             ErrorCode = errorCode,
             DurationMs = durationMs,
+            RequestedCount = requestedCount,
+            CompletedCount = completedCount,
             Sequence = Interlocked.Increment(ref _sequence),
             AppVersion = appVersion,
         };

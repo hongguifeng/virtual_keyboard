@@ -382,6 +382,8 @@ T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗�
 
 T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForegroundTargetCapture`。适配器通过 `GetForegroundWindow` 获取前台顶层 HWND，再用 `GetWindowThreadProcessId` 获取进程 ID 和 GUI 线程，最后通过 `GetGUIThreadInfo` 获取焦点 HWND；任何句柄、线程或进程查询失败都返回可判定的 `TargetCaptureStatus`，不会读取标题、进程名或输入内容，也不会改变前台窗口。捕获本程序自身窗口时返回 `OwnProcess`。`VirtualKeyboard.Core.TargetSessionStore` 使用不可变 DTO 和锁保护的原子替换生成单调 `SessionId`；失败捕获会清空当前会话。`MainWindow` 的“捕获当前目标”按钮只展示 PID/HWND/会话号，保持 NoActivate 约束。`SendInput` 留在 T1.3。
 
+T1.3 的单键发送实现位于 `VirtualKeyboard.Windows.SingleKeyInputSender`。发送器为 `VK_A` 构造一个固定长度为 2 的 `INPUT` 数组（KeyDown 后 KeyUp），通过 `NativeInputApi` 调用一次 `SendInput` 并严格检查返回事件数：2 为成功，0 为失败，1 为部分失败；短返回不重试。原生 API 不可用时返回 `NativeUnavailable`。诊断只写入事件类型、目标 PID、请求/完成数量和错误码等结构化数字，不写入按键文本。发送器不执行目标校验、激活或焦点恢复，UI 接线必须在 T1.4 的发送前校验之后完成。
+
 ### 10.3 鼠标与触摸命中
 
 - MouseDown 只改变按压视觉状态。
