@@ -319,11 +319,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T4.1（P0，0.75 人日）实现串行 InputInjectionService**
+- [x] **T4.1（P0，0.75 人日）实现串行 InputInjectionService**
   - 使用有界串行队列或 SemaphoreSlim。
   - 每个动作绑定 SessionId 和递增 ActionId。
   - 新目标建立时取消尚未开始的旧目标动作。
   - 对应：FR-INP-001。
+  - 实现：Core `InputInjectionService` 使用固定容量 `Channel` 和单消费者；多生产者入队时分配单调 ActionId，动作携带 SessionId 与封闭 `InputActionKind`。执行前再次比较当前会话，新 SessionId 建立后尚未开始的旧动作返回 `StaleSession`，已开始动作按自身结果结束。队列满、操作异常、停止分别返回 `QueueFull`、`OperationFailed`、`ServiceStopped`，不重试或并行执行。
+  - 验证：Core 109/109、Windows 42/42、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖 10 个并发提交严格串行/顺序/ActionId、会话替换、容量满失败关闭、过期会话、执行异常，以及 Dispose 取消运行中和 pending 动作。
 
 - [ ] **T4.2（P0，0.75 人日）增强发送前目标验证**
   - 校验前台顶层 HWND、进程、最新焦点和 RuntimeId。

@@ -505,6 +505,8 @@ InputInjectionService serialized queue
       └─ release only modifiers pressed by this batch
 ```
 
+T4.1 的 Core `InputInjectionService` 在流水线入口提供固定容量、多生产者单消费者队列。每次提交原子分配 ActionId 并绑定 SessionId/`InputActionKind`；唯一消费者在动作开始前重新比较当前 SessionId，因此会话替换会使尚未开始的旧动作返回 `StaleSession`，而不会中断已经进入受控发送边界的批次。队列满和生命周期停止均失败关闭，不进行无界等待、自动重试或并行注入。
+
 ### 12.2 发送前目标校验
 
 校验步骤：
