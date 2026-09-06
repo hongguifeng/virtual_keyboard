@@ -327,11 +327,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `InputInjectionService` 使用固定容量 `Channel` 和单消费者；多生产者入队时分配单调 ActionId，动作携带 SessionId 与封闭 `InputActionKind`。执行前再次比较当前会话，新 SessionId 建立后尚未开始的旧动作返回 `StaleSession`，已开始动作按自身结果结束。队列满、操作异常、停止分别返回 `QueueFull`、`OperationFailed`、`ServiceStopped`，不重试或并行执行。
   - 验证：Core 109/109、Windows 42/42、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖 10 个并发提交严格串行/顺序/ActionId、会话替换、容量满失败关闭、过期会话、执行异常，以及 Dispose 取消运行中和 pending 动作。
 
-- [ ] **T4.2（P0，0.75 人日）增强发送前目标验证**
+- [x] **T4.2（P0，0.75 人日）增强发送前目标验证**
   - 校验前台顶层 HWND、进程、最新焦点和 RuntimeId。
   - DOM/控件重建导致身份变化时取消本次动作并重新分类。
   - 不通过激活窗口来修复目标。
   - 对应：AC-009。
+  - 实现：`TargetSession` 扩展为 FocusVersion、RuntimeIdentity、密码标志和可选物理锚点；`TargetSessionStore` 保留 T1 Win32 弱身份入口并增加从 FocusSnapshot 建立完整会话的入口。`LatestFocusSnapshotStore` 只发布更高版本快照。`TargetSessionValidator` 在既有前台 HWND/进程/焦点 HWND/SessionId 校验后，对完整会话再验证快照版本、RuntimeId、焦点/启用/离屏状态；身份重建返回 `IdentityChangedRequiresReclassification`。发送器取消本次动作并触发重新分类回调，不调用激活 API。
+  - 验证：Core 111/111、Windows 48/48、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖完整会话字段、快照版本门禁、RuntimeId 相同/变化/缺失/过旧、失焦元数据、零底层发送及单次重新分类通知。
 
 - [ ] **T4.3（P0，0.75 人日）实现 Unicode Text builder**
   - 使用 KEYEVENTF_UNICODE 构建 KeyDown/KeyUp。

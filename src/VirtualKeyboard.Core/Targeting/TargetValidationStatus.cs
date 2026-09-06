@@ -9,4 +9,7 @@ public enum TargetValidationStatus
     ForegroundChanged,
     ProcessChanged,
     FocusChanged,
+    FocusIdentityUnavailable,
+    FocusIdentityStale,
+    IdentityChangedRequiresReclassification,
 }

@@ -7,11 +7,16 @@ public sealed class TargetSessionValidator
 {
     private readonly TargetSessionStore _sessions;
     private readonly IForegroundTargetCapture _capture;
+    private readonly LatestFocusSnapshotStore? _focusSnapshots;
 
-    public TargetSessionValidator(TargetSessionStore sessions, IForegroundTargetCapture capture)
+    public TargetSessionValidator(
+        TargetSessionStore sessions,
+        IForegroundTargetCapture capture,
+        LatestFocusSnapshotStore? focusSnapshots = null)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
+        _focusSnapshots = focusSnapshots;
     }
 
     public TargetValidationResult Validate(long expectedSessionId)
@@ -45,6 +50,19 @@ public sealed class TargetSessionValidator
         if (status != TargetValidationStatus.Valid)
         {
             return TargetValidationResult.Invalid(status);
+        }
+
+        if (session.RuntimeId is not null)
+        {
+            FocusSnapshot? identity = _focusSnapshots?.Current;
+            if (identity is null)
+                return TargetValidationResult.Invalid(TargetValidationStatus.FocusIdentityUnavailable);
+            if (identity.Version < session.FocusVersion)
+                return TargetValidationResult.Invalid(TargetValidationStatus.FocusIdentityStale);
+            if (identity.ProcessId != session.ProcessId || identity.TopLevelHwnd != session.TopLevelHwnd ||
+                identity.RuntimeId is null || !identity.RuntimeId.Equals(session.RuntimeId) ||
+                !identity.HasKeyboardFocus || !identity.IsEnabled || identity.IsOffscreen)
+                return TargetValidationResult.Invalid(TargetValidationStatus.IdentityChangedRequiresReclassification);
         }
 
         TargetSession? latest = _sessions.Current;

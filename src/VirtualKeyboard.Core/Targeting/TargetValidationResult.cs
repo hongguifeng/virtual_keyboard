@@ -4,6 +4,8 @@ public readonly record struct TargetValidationResult(TargetValidationStatus Stat
 {
     public bool IsValid => Status == TargetValidationStatus.Valid && Session is not null;
 
+    public bool RequiresReclassification => Status == TargetValidationStatus.IdentityChangedRequiresReclassification;
+
     public static TargetValidationResult Valid(TargetSession session) =>
         new(TargetValidationStatus.Valid, session ?? throw new ArgumentNullException(nameof(session)));
 

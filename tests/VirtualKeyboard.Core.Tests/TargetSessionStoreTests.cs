@@ -1,4 +1,5 @@
 using VirtualKeyboard.Core.Targeting;
+using VirtualKeyboard.Core.Geometry;
 
 namespace VirtualKeyboard.Core.Tests;
 
@@ -60,6 +61,39 @@ public sealed class TargetSessionStoreTests
         Assert.Throws<ArgumentException>(() => store.Replace(Snapshot(1, 2, 0)));
     }
 
+    [Fact]
+    public void FocusSnapshotSessionPreservesVersionRuntimePasswordAndAnchor()
+    {
+        var store = new TargetSessionStore();
+        var focus = new FocusSnapshot(
+            9, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity([1, 2]),
+            FocusControlType.Edit, true, true, false, true);
+        var anchor = new PhysicalPixelRect(10, 20, 1, 18);
+
+        TargetSession session = store.Replace(focus, (nint)101, anchor);
+
+        Assert.Equal(9, session.FocusVersion);
+        Assert.Equal(new RuntimeIdentity([1, 2]), session.RuntimeId);
+        Assert.True(session.IsPassword);
+        Assert.Equal(anchor, session.Anchor);
+    }
+
+    [Fact]
+    public void LatestFocusStoreRejectsOlderAndDuplicateVersions()
+    {
+        var store = new LatestFocusSnapshotStore();
+        FocusSnapshot newer = Focus(2, [2]);
+        Assert.True(store.Publish(newer));
+        Assert.False(store.Publish(Focus(1, [1])));
+        Assert.False(store.Publish(Focus(2, [3])));
+        Assert.Same(newer, store.Current);
+        store.Clear();
+        Assert.Null(store.Current);
+    }
+
     private static TargetCaptureSnapshot Snapshot(int processId, int topLevel, int focus) =>
         new(new DateTimeOffset(2026, 9, 6, 0, 0, 0, TimeSpan.Zero), processId, (nint)topLevel, (nint)focus);
+
+    private static FocusSnapshot Focus(long version, int[] runtimeId) =>
+        new(version, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity(runtimeId), FocusControlType.Edit, true, true, false, false);
 }

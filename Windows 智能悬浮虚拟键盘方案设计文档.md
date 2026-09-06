@@ -519,6 +519,8 @@ T4.1 的 Core `InputInjectionService` 在流水线入口提供固定容量、多
 
 目标验证失败不调用 `SetForegroundWindow`，只返回 `TargetInvalid`。
 
+T4.2 将完整 UIA 身份纳入 `TargetSession`：FocusVersion、深复制 RuntimeIdentity、密码标志和可选物理锚点随会话原子发布；T1 手动捕获仍使用 RuntimeId 为空的弱身份路径。发送前先复核 SessionId、前台 HWND、进程和焦点 HWND，再从只接受更高版本的 `LatestFocusSnapshotStore` 比较 RuntimeId 与焦点/启用/离屏状态。DOM/控件重建或元数据不再可编辑时，本批次返回 TargetInvalid，并以封闭状态请求重新分类；不会尝试激活或修复窗口。
+
 ### 12.3 Text 路径
 
 - 枚举 .NET 字符串中的 UTF-16 code unit。

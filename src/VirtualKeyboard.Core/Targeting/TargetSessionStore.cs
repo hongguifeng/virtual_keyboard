@@ -18,10 +18,39 @@ public sealed class TargetSessionStore
             long sessionId = checked(++_lastSessionId);
             var session = new TargetSession(
                 sessionId,
+                0,
                 snapshot.CapturedAt,
                 snapshot.ProcessId,
                 snapshot.TopLevelHwnd,
-                snapshot.FocusHwnd);
+                snapshot.FocusHwnd,
+                null,
+                false,
+                null);
+            Volatile.Write(ref _current, session);
+            return session;
+        }
+    }
+
+    public TargetSession Replace(FocusSnapshot snapshot, nint focusHwnd, VirtualKeyboard.Core.Geometry.PhysicalPixelRect? anchor)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (snapshot.Version <= 0) throw new ArgumentOutOfRangeException(nameof(snapshot));
+        if (snapshot.ProcessId <= 0 || snapshot.TopLevelHwnd == nint.Zero || focusHwnd == nint.Zero)
+            throw new ArgumentException("Focus target identity must be complete.", nameof(snapshot));
+        if (anchor is { IsValid: false }) throw new ArgumentOutOfRangeException(nameof(anchor));
+        lock (_gate)
+        {
+            long sessionId = checked(++_lastSessionId);
+            var session = new TargetSession(
+                sessionId,
+                snapshot.Version,
+                snapshot.ObservedAt,
+                snapshot.ProcessId,
+                snapshot.TopLevelHwnd,
+                focusHwnd,
+                snapshot.RuntimeId,
+                snapshot.IsPassword,
+                anchor);
             Volatile.Write(ref _current, session);
             return session;
         }
