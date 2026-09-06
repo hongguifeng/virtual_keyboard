@@ -344,11 +344,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`UnicodeTextInputBuilder` 按 .NET 字符串的 UTF-16 code unit 顺序为每个单元生成 `wVk=0`、`KEYEVENTF_UNICODE` Down/Up；代理对不解码或重排。`UnicodeTextInputSender` 最多接受 4096 code unit，空文本零调用成功，非空文本单次 `SendInput`，严格区分成功/短返回/零返回/原生不可用且不重试。诊断仅写 PID、事件计数和错误码。
   - 验证：Core 111/111、Windows 58/58、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖 ASCII、中文、重音字符、emoji、混合文本、空/Null/超长输入、单批提交、部分返回、无重试、原生 API 不可用和日志无文本。
 
-- [ ] **T4.4（P0，0.75 人日）实现 Key builder**
+- [x] **T4.4（P0，0.75 人日）实现 Key builder**
   - 支持 VK、scan code、扩展键、KeyDown/KeyUp。
   - 获取目标线程 KeyboardLayout，使用 MapVirtualKeyEx。
   - 覆盖 Enter、Tab、Backspace、Escape、方向/导航键预留。
   - 对应：FR-INP-003。
+  - 实现：`KeyInputSender` 从目标焦点 HWND 解析线程和 HKL，以 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)` 获取 scan code；支持 Enter、Tab、Backspace、Escape、四方向及 Home/End、PageUp/PageDown、Insert/Delete。方向/导航键自动带 `KEYEVENTF_EXTENDEDKEY`；`KeyInputBuilder` 同时支持 VK/纯 scan-code 编码、默认 Down+Up 和独立 KeyDown/KeyUp。无效键、零 HWND、线程/HKL/映射失败均在原生发送前拒绝，短返回不重试，日志不含字符化按键结果。
+  - 验证：Core 111/111、Windows 86/86、Integration 6/6；覆盖普通/扩展键批次快照、scan-code 模式、单独 Down/Up、目标 HWND→线程→HKL→映射调用链、真实 WPF HWND 原生映射、映射失败、短返回、原生不可用、无重试和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
 - [ ] **T4.5（P0，0.75 人日）实现 Hotkey/Modifier builder**
   - 修饰键顺序按下、逆序释放。

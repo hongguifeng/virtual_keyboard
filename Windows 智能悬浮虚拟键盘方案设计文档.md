@@ -543,6 +543,8 @@ T4.3 的 `UnicodeTextInputBuilder` 直接枚举 UTF-16 code unit，每个单元�
 - 每个非状态键默认发送 KeyDown + KeyUp。
 - 不用 `PostMessage(WM_CHAR)` 作为回退。
 
+T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通 Enter、Tab、Backspace、Escape 和方向/导航键均映射为同一批次的 Down/Up；方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 scan code 和 `KEYEVENTF_EXTENDEDKEY`。底层 `KeyInputBuilder` 另支持纯 scan-code 编码以及单独 KeyDown/KeyUp，供 T4.5 的修饰键有序批次复用。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`；短返回不重试，诊断只包含 PID、事件数量和错误码。
+
 ### 12.5 Hotkey 与修饰键
 
 - 一个热键构建为单个有序 `INPUT[]`：修饰键按下、普通键按下/释放、修饰键逆序释放。

@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M4（完整输入引擎）进行中，T4.1-T4.3 已完成；M1-M3 的交互式矩阵仍待验收。下一开发任务为 T4.4 Key builder。
+> 当前状态：M4（完整输入引擎）进行中，T4.1-T4.4 已完成；M1-M3 的交互式矩阵仍待验收。下一开发任务为 T4.5 Hotkey/Modifier builder。
 
 ## 先决条件
 
@@ -71,7 +71,7 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
 ```
 src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置、托盘，暂未实现）
 src/VirtualKeyboard.Core       平台无关核心（分类、状态、布局、配置，无 WPF/UIA/P-Invoke 引用）
-src/VirtualKeyboard.Windows    Windows 适配层（目标捕获/Overlay 已实现；UIA、SendInput 暂未实现）
+src/VirtualKeyboard.Windows    Windows 适配层（目标捕获、UIA、Overlay、定位和 SendInput）
 tests/VirtualKeyboard.Core.Tests
 tests/VirtualKeyboard.Windows.Tests
 tests/VirtualKeyboard.IntegrationTests
