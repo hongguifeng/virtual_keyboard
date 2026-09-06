@@ -8,7 +8,7 @@ namespace VirtualKeyboard.TestHost;
 /// <summary>
 /// TestHost 入口（仅测试进程，不含产品功能代码；NFR-COMP-001 / 设计 §18.2）。
 /// 无参数：同时启动 WPF 测试页与 WinForms 测试页（T0.5b1）——两个明确分开的独立窗口。
-/// --selftest：启动后依次运行 WPF 页自检（31 项）与 WinForms 页自检（31 项，T0.5b1），
+/// --selftest：启动后依次运行 WPF 页自检（31 项）与 WinForms 页自检（36 项，T0.5b1），
 /// 控制台逐条打印 PASS/FAIL，以退出码 0（全部通过）/ 1（任一失败或异常）结束。
 /// </summary>
 public partial class App : Application

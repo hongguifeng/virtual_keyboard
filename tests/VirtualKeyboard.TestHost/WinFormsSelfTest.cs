@@ -1,103 +1,81 @@
-// T0.5b1: WinForms 自检（NFR-COMP-001 / 设计 §18.3 / NFR-PRI-001）。
-// 31 项 WinForms 专属断言：
-//   01-06  只读/普通/多行/密码 TextBox 能力、Button 可聚焦、Label 不可聚焦
-//   07-12  真实事件接线：短暂 Show + 真实焦点切换（ActiveControl 往返）
-//   13-16  真实 Enter/Leave 事件计数（逐控件订阅）
-//   17-19  WinForms 独立键计数（OnKeyPress 事件链，与 WPF 页互不混用）
-//   20-22  密码框只测掩码能力（不读内容，NFR-PRI-001）
-//   23-26  布局：ClientSize / 2 列 4 行 / 6 控件
-//   27-31  句柄、名称、关闭
-// 类型全部使用完全限定名：项目同时引用 WPF 与 WinForms，简单名冲突（NFR-COMP-001）。
+// T0.5b1: WinForms 自检（NFR-COMP-001 / NFR-PRI-001）。
 namespace VirtualKeyboard.TestHost;
 
-/// <summary>
-/// T0.5b1: WinForms 自检（NFR-COMP-001 / 设计 §18.3 / NFR-PRI-001）。返回失败数（0 = 通过）。
-/// </summary>
+/// <summary>通过真实控件焦点和 WM_KEYDOWN 消息验证 WinForms 测试页。</summary>
 internal static class WinFormsSelfTest
 {
-    private static readonly System.Windows.Forms.Keys[] KeyChecks =
-    [
-        System.Windows.Forms.Keys.A,
-        System.Windows.Forms.Keys.Return,
-        System.Windows.Forms.Keys.Tab,
-        System.Windows.Forms.Keys.Shift | System.Windows.Forms.Keys.Tab,
-    ];
-
-    /// <summary>执行 31 项 WinForms 自检（NFR-COMP-001 / 设计 §18.3 / NFR-PRI-001）。返回失败数（0 = 通过）。</summary>
     internal static int Run(WinFormsTestPage page)
     {
-        int fail = 0;
+        int checks = 0;
+        int failures = 0;
         void Check(string name, bool pass)
         {
-            if (!pass) fail++;
-            System.Console.WriteLine((pass ? "PASS " : "FAIL ") + name);
+            checks++;
+            if (!pass) failures++;
+            Console.WriteLine((pass ? "PASS " : "FAIL ") + name);
         }
 
-        Check("01 ReadOnlyTextBox.ReadOnly", page.ReadOnlyTextBox is { ReadOnly: true });
-        Check("02 NormalTextBox not ReadOnly", page.NormalTextBox is { ReadOnly: false });
-        Check("03 MultilineTextBox Multiline+ScrollBars", page.MultilineTextBox is { Multiline: true, ScrollBars: System.Windows.Forms.ScrollBars.Both });
-        Check("04 PasswordTextBox UseSystemPasswordChar", page.PasswordTextBox is { UseSystemPasswordChar: true });
-        Check("05 ActionButton is a Button", page.ActionButton is System.Windows.Forms.Button);
-        Check("06 Label not tab-stoppable", !page.NonFocusableLabel.TabStop);
+        Check("01 normal TextBox", page.NormalTextBox is { ReadOnly: false });
+        Check("02 read-only TextBox", page.ReadOnlyTextBox is { ReadOnly: true });
+        Check("03 password TextBox masked", page.PasswordTextBox is { UseSystemPasswordChar: true });
+        Check("04 multiline TextBox", page.MultilineTextBox is { Multiline: true, AcceptsReturn: true });
+        Check("05 Button", page.ActionButton is System.Windows.Forms.Button);
+        Check("06 blank Label disabled and not tab-stoppable", !page.NonFocusableLabel.Enabled && !page.NonFocusableLabel.TabStop);
 
-        // 真实事件接线自检（NFR-PRI-001）：真实 Show + 消息泵 + 真实焦点切换
         page.Show();
         System.Windows.Forms.Application.DoEvents();
+        Check("07 form handle created", page.IsHandleCreated);
 
-        page.NormalTextBox.Focus();
-        System.Windows.Forms.Application.DoEvents();
-        Check("07 real focus -> NormalTextBox", page.ActiveControl == page.NormalTextBox);
-
-        page.ReadOnlyTextBox.Focus();
-        System.Windows.Forms.Application.DoEvents();
-        Check("08 real focus -> ReadOnlyTextBox", page.ActiveControl == page.ReadOnlyTextBox);
-
-        page.MultilineTextBox.Focus();
-        System.Windows.Forms.Application.DoEvents();
-        Check("09 real focus -> MultilineTextBox", page.ActiveControl == page.MultilineTextBox);
-
-        page.ActionButton.Focus();
-        System.Windows.Forms.Application.DoEvents();
-        Check("10 real focus -> ActionButton", page.ActiveControl == page.ActionButton);
-
-        page.NormalTextBox.Focus();
-        System.Windows.Forms.Application.DoEvents();
-        Check("11 focus back -> NormalTextBox", page.ActiveControl == page.NormalTextBox);
-        Check("12 real Enter events fired", page.EnterEventCount >= 4);
-        Check("13 real Leave events fired", page.LeaveEventCount >= 4);
-
-        // WinForms 独立键计数（NFR-COMP-001：与 WPF 页互不混用）
-        foreach (System.Windows.Forms.Keys key in KeyChecks)
+        System.Windows.Forms.Control[] focusables =
         {
-            page.SimulateFormKey(key);
+            page.NormalTextBox,
+            page.ReadOnlyTextBox,
+            page.PasswordTextBox,
+            page.MultilineTextBox,
+            page.ActionButton,
+        };
+        foreach (var control in focusables)
+        {
+            bool focused = control.Focus();
+            System.Windows.Forms.Application.DoEvents();
+            Check($"focus {control.Name} accepted", focused && page.ActiveControl == control);
+            Check($"focus display {control.Name}", page.FocusDisplay.Text.Contains(control.Name, StringComparison.Ordinal));
         }
-        Check("14-17 4 keys (A/Return/Tab/Shift+Tab) counted", page.WfKeyCount == 4);
-        Check("18 WfKeyCount > 0 (WinForms independent)", page.WfKeyCount > 0);
 
-        // 密码框：只测掩码能力，不读内容（NFR-PRI-001）
+        Check("blank Label rejects focus", !page.NonFocusableLabel.Focus() && page.ActiveControl != page.NonFocusableLabel);
+        Check("Enter events observed", page.EnterEventCount >= focusables.Length);
+        Check("Leave events observed", page.LeaveEventCount >= focusables.Length - 1);
+
+        for (int i = 0; i < focusables.Length; i++)
+        {
+            var control = focusables[i];
+            control.Focus();
+            System.Windows.Forms.Application.DoEvents();
+            Win32Test.SendKeyDown(control.Handle, (System.Windows.Forms.Keys)((int)System.Windows.Forms.Keys.A + i));
+            System.Windows.Forms.Application.DoEvents();
+            string key = i switch { 0 => "normal", 1 => "readonly", 2 => "password", 3 => "multiline", _ => "button" };
+            Check($"real WM_KEYDOWN counted for {key}", page.KeyCount(key) == 1);
+        }
+
+        Check("total key count", page.TotalKeyCount == focusables.Length);
+        Check("key count display updated", page.KeyCountDisplay.Text.Contains("normal=1", StringComparison.Ordinal)
+            && page.KeyCountDisplay.Text.Contains("button=1", StringComparison.Ordinal)
+            && page.KeyCountDisplay.Text.Contains("total=5", StringComparison.Ordinal));
         page.PasswordTextBox.Focus();
         System.Windows.Forms.Application.DoEvents();
-        Check("19 real focus -> PasswordTextBox", page.ActiveControl == page.PasswordTextBox);
-        Check("20 UseSystemPasswordChar stays true", page.PasswordTextBox is { UseSystemPasswordChar: true });
-        Check("21 password box is WinForms TextBox type", page.PasswordTextBox.GetType() == typeof(System.Windows.Forms.TextBox));
-        Check("22 password box has a name (no content asserted)", page.PasswordTextBox.Name == "wfPassword");
+        Check("password focus display", page.FocusDisplay.Text.Contains("wfPassword", StringComparison.Ordinal));
+        Check("layout has six zones", page.LayoutPanel.Controls.Count == 6);
+        Check("layout has two columns", page.LayoutPanel.ColumnCount == 2);
+        Check("layout has three rows", page.LayoutPanel.RowCount == 3);
+        Check("page has expected name", page.Name == "WfSelfTestForm");
+        Check("page has visible key display", page.KeyCountDisplay.Visible);
+        Check("page has visible focus display", page.FocusDisplay.Visible);
 
-        // 布局
-        Check("23 page ClientSize 520x360", page.ClientSize == new System.Drawing.Size(520, 360));
-        Check("24 layout is TableLayoutPanel", page.Controls[0] is System.Windows.Forms.TableLayoutPanel);
-        Check("25 layout holds 6 controls",
-            page.Controls[0] is System.Windows.Forms.TableLayoutPanel t && t.Controls.Count == 6);
-        Check("26 layout contains ActionButton", page.ActionButton.Parent == page.Controls[0]);
-
-        // 句柄、名称、关闭
-        Check("27 handle created", page.IsHandleCreated);
-        Check("28 form has a name", page.Name == "WfSelfTestForm");
         page.Close();
         System.Windows.Forms.Application.DoEvents();
-        Check("29 closed (not visible)", !page.Visible);
-        Check("30 disposed or closed flag", page.IsDisposed || !page.Visible);
-        Check("31 no residual WinForms windows", true);
-
-        return fail;
+        Check("form closed", !page.Visible);
+        Check("closed form is not an open form", !System.Windows.Forms.Application.OpenForms.Cast<System.Windows.Forms.Form>().Any(form => ReferenceEquals(form, page)));
+        Console.WriteLine($"=== WinForms 自检：{checks} 项，失败 {failures} 项 ===");
+        return failures;
     }
 }

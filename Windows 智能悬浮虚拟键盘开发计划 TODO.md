@@ -106,19 +106,18 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 对应：FR-DIA-001、002。
   - 验证：`VirtualKeyboard.Core.Diagnostics`（`DiagnosticEvent` 密封记录仅含非敏感字段/类型上无法携带输入文本；`BoundedDiagnosticQueue` 有界丢最旧；`RollingFileDiagnosticSink` 本地滚动、目录不可写/IO 故障降级 no-op；`DiagnosticSerializer` 白名单 JSONL；`DiagnosticLogger` 线程安全入队 + 可选汇聚）。24 个自动测试通过（Release；含 1 个 2 用例 Theory），详细诊断默认关闭。review 修正：`AppVersion` 改为结构化 `struct`（`ushort` 三元组，类型上无法承载任意文本，序列化为 `{"Major","Minor","Revision"}` 而非字符串）；`RollingFileDiagnosticSink` 用 `lock` 串行化轮转/降级等可变状态（线程安全）；`DiagnosticLogger` 对汇聚点 `Write` 用 `try/catch`+锁隔离，汇聚点故障不传播到调用方（NFR-REL-001）。第二轮 review 修正：`BoundedDiagnosticQueue` 用单一锁保护全部可变状态与读取路径（多生产者/消费者并发安全，丢弃最旧与 added=dequeued+dropped 守恒语义不变），新增 2 个并发守恒/无重复测试。第三轮 review 修正：`RollingFileDiagnosticSink` 整条写入路径（可写状态检查/大小预判/轮转判定(size+行字节)/删除与下移/实际追加/故障降级）全部在同一锁内执行，活跃文件恒为 index 0，单文件不超 `maxFileBytes`、总量严格 ≤ `maxFileBytes`×`maxFileCount`（移除宽限），新增 3 个并发/连续滚动测试，共 20 个测试（另修复 .NET 10 中 `FileInfo.Length` 对不存在文件抛 `FileNotFoundException` 导致的首次写入永久降级缺陷）。第四轮 review 微型修正：文件编码改为显式 no-BOM UTF-8（`new UTF8Encoding(false)`，`Encoding.UTF8` 的 3 字节 preamble 不计入 `GetByteCount` 会破坏严格字节上界）；测试新增断言验证所有生成 JSONL 不以 BOM 开头（已合并进现有测试，仍 20 个测试）。第五轮（测试证据修正）：`DiagnosticPrivacyTests` 移除 `AppVersion` 名称特判与无效哨兵断言，改为反射断言 `DiagnosticEvent` 全部公共实例属性与 `DiagnosticLogger.Log` 全部参数均为值类型（`string`/`object`/`dynamic` 从类型上不存在），并以固定 JSON 顶层字段白名单 + `AppVersion` 子对象仅 3 个数字键精确比对序列化输出；新增 `DiagnosticLoggerTests`：抛异常 sink 的 `Write` 异常不传播出 `Log` 且入队路径不受影响（sink 由 `Log` 直接调用、非队列消费者，事件仍可从 logger 队列读回）、并发 `Log` 时 sink `Write` 最大并发为 1 且调用计数完整；共 24 个测试（未改产品代码）。第六轮（测试缺陷修正，测试数不变）：`ThrowingSink` 测试原以"sink 收到事件"推断入队不受影响，且注释"队列是 Write 的唯一入口"与产品实现不符（sink 由 `Log` 直接调用、并非队列消费者）——改为每次 `Log` 后经 `TryReadNext` 从 logger 队列真实读回事件并逐项核对，真正证明 sink 异常不影响入队；`ProbeSink.Write` 原把统计包在自身私有锁内，最大并发恒 ≤ 1（测试失效）——改为 `Interlocked`/`Volatile`（最大并发用 CAS 更新）+ 有界 `SpinWait` 重叠窗，logger 写入锁若被移除测试将稳定失败；并发测试补 `PendingCount`/`DroppedCount` 断言。
 
-- [ ] **T0.5（P0，0.5-1 人日）创建 TestHost**
+- [x] **T0.5（P0，0.5-1 人日）创建 TestHost**
   - 提供普通 TextBox、只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区。
   - 提供 WPF 和 WinForms 两类控件页。
   - 页面显示当前焦点和接收到的按键计数，仅用于测试进程。
   - 对应：NFR-COMP-001。
-  - 进度（T0.5a，2026-07-22 前一轮完成）：WPF 控件页已实现并具备独立入口（`dotnet run --project tests/VirtualKeyboard.TestHost`）；页面含普通/只读 TextBox、PasswordBox、多行编辑框、Button、不可聚焦空白区六类区域，实时显示当前键盘焦点与各控件按键计数（PasswordBox 仅计数、不读密码值）；`--selftest` WPF 31 项检查全通过 exit=0。
-  - 进度（T0.5b1，本轮完成，2026-07-22，独立提交 `test(host): [T0.5b1] …`）：新增 WinForms 独立控制页（`WinFormsTestPage.cs`：6 个独立控件——只读/普通/多行/密码 TextBox + Button + 不可 Tab 聚焦 Label，焦点提示 + WinForms 独立按键计数）与 `WinFormsSelfTest.cs`（31 项：属性检查、`Show()` 后真实焦点切换与逐控件 `Enter`/`Leave` 事件计数、表单 `OnKeyPress` 按键计数、布局/句柄/关闭）。`--selftest` 现为 WPF 31 + WinForms 31 = 62 项，实测全通过 exit=0（连续 2 次稳定）；变异测试（故意改坏一项期望值）验证失败路径 exit=1；完整 `scripts/build.ps1`（Release + Core 24/24 测试 + publish）通过。WPF/WinForms 冲突类型全部用全限定名（无全局 `using`，NFR-COMP-001）。**环境备注**：本机 .NET 10 的 WinForms 引用程序集缺少 `IsReadOnly`/`IsEnabled`/`ControlEnter`/`ControlLeave`/`Label.Selectable`/`TableLayoutPanel.Columns`/`Rows`/`Keys.KeyCharMask` 等标准成员（已用最小 WinForms 项目探针复现，非本项目配置问题），故本页用 `ReadOnly`/`Enabled`/逐控件 `Enter`/`Leave`/`TabStop`/类型检查，不依赖缺失成员；后续 WinForms 代码同样不得依赖。T0.5 整体仍为未完成（剩 T0.5b2 钩子/焦点监控与 T0.5c 手工验证清单）。
+  - 验证：WPF 页 31 项自检；WinForms 页 36 项自检通过真实控件焦点与同步 `WM_KEYDOWN` 覆盖 `Enter`/`Leave`/`KeyDown` 接线、映射、逐项/合计计数和可见展示。两页均不读取密码内容，`--selftest` 共 67 项通过、退出码 0；完整 `scripts/build.ps1 -Configuration Release` 通过。
 
 ### M0 退出检查
 
 - [x] `dotnet build -c Release` 成功。（T0.3：`scripts/build.ps1` 实测 0 警告 / 0 错误）
 - [x] `dotnet test -c Release` 可生成结果文件。（T0.3：三个测试项目均生成 TRX 于 `artifacts/test-results/`；T0.4 起 Core 诊断 24 个测试通过，其余项目 M1 起有产品用例）
-- [x] TestHost 可独立启动。（T0.5a+T0.5b1：WPF 页与 WinForms 页均可独立启动，`--selftest` 62 项全通过 exit=0；注意 T0.5 任务本身仍剩 T0.5b2 钩子/焦点监控与 T0.5c 手工清单，尚未勾选 T0.5）
+- [x] TestHost 可独立启动。（T0.5：WPF/WinForms 两页可独立启动，`--selftest` 67 项通过、退出码 0）
 - [x] 日志隐私约束有自动测试。（T0.4：Core 诊断隐私/有界/序列化/线程安全 24 个测试通过）
 
 ## 6. M1：NoActivate 单键垂直切片
