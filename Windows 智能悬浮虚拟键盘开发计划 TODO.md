@@ -220,11 +220,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`NativeFocusAdapter` 集中封装前台窗口、线程/进程、GUI 线程焦点和 caret、`ClientToScreen` 以及目标线程键盘布局；输出 Core `NativeFocusResult`，不改变前台或焦点。caret 转换为屏幕物理像素并复用有限/非零矩形校验，无效 caret 仅降级为空，原生加载和关键调用失败返回封闭状态。
   - 验证：Core 49/49、Windows 34/34、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖焦点身份、caret 两点坐标转换、键盘布局、无效 caret 降级、转换失败和原生 API 不可用。
 
-- [ ] **T2.5（P0，1-1.5 人日）实现 TargetStateCoordinator 状态机**
+- [x] **T2.5（P0，1-1.5 人日）实现 TargetStateCoordinator 状态机**
   - 实现 Disabled、Hidden、Evaluating、VisibleTracking、ManuallySuppressed、SettingsOpen、ShuttingDown。
   - 只接受最新版本结果。
   - 重复事件幂等，旧结果不可重新打开窗口。
   - 对应：FR-VIS-001、002、004。
+  - 实现：Core `TargetStateCoordinator` 串行维护 Disabled、Hidden、Evaluating、VisibleTracking、ManuallySuppressed、SettingsOpen、ShuttingDown；所有转换返回封闭 `TargetCoordinatorAction`，由 UI 边界执行显示、隐藏、清会话、取消或刷新。只接受严格递增的焦点版本，分类结果必须同时匹配 pending/latest 版本。手动关闭保存目标身份，同目标重复通知保持抑制，新 Editable 目标或用户显式显示解除抑制。
+  - 验证：Core 58/58、Windows 34/34、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖所有状态入口、Editable/NotEditable/Unknown、乱序结果、重复通知、手动抑制、新目标、暂停/恢复、设置、销毁和退出。
 
 - [ ] **T2.6（P0，0.5 人日）实现焦点防抖和目标失效**
   - 默认 50 ms 稳定窗口。

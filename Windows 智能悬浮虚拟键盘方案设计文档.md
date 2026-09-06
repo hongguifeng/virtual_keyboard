@@ -343,6 +343,8 @@ ShuttingDown
 
 协调器是唯一允许调用 Overlay 的显示、隐藏和移动方法的组件，避免多个模块争用窗口状态。
 
+T2.5 的 Core `TargetStateCoordinator` 将状态与副作用命令分离：状态转换仅返回 `TargetCoordinatorAction` 位标志，WPF/Windows 组合层负责执行 BeginEvaluation、ShowOrUpdateOverlay、HideOverlay、ClearTargetSession、CancelPendingWork、RefreshFocus。`Observe` 只接受严格递增版本，`ApplyClassification` 还必须匹配当前 pending/latest 版本，因此迟到结果和重复结果均无副作用。手动抑制保存 RuntimeId（不可用时使用进程和顶层 HWND 的保守弱身份），同目标通知不会重开键盘；新目标、用户显式显示或暂停后重新启用会解除抑制。
+
 ## 10. NoActivate 悬浮窗口设计
 
 ### 10.1 WPF 配置
