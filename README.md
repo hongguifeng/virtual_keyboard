@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M0（工程与测试基础）已完成——T0.3 构建/测试脚本、T0.4 隐私安全日志骨架（24 个自动测试）、T0.5 WPF/WinForms TestHost 均已验收；产品功能（M1 起）尚未实现。
+> 当前状态：M1（NoActivate 单键垂直切片）进行中——T1.1 最小 NoActivate Overlay 已验收；目标捕获、输入发送和发送前校验尚未实现。
 
 ## 先决条件
 

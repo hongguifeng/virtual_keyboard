@@ -378,6 +378,8 @@ SetWindowPos(
 
 不得在按键处理过程中调用 `Activate`、`Focus`、`SetForegroundWindow` 或把目标窗口强行带到前台。
 
+T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。适配器只接受 UI 线程调用并拒绝非正尺寸；目标会话和 `SendInput` 留在 T1.2/T1.3。
+
 ### 10.3 鼠标与触摸命中
 
 - MouseDown 只改变按压视觉状态。

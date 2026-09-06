@@ -126,13 +126,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T1.1（P0，0.75 人日）实现最小 OverlayWindowAdapter**
+- [x] **T1.1（P0，0.75 人日）实现最小 OverlayWindowAdapter**
   - 创建无边框 WPF 键盘窗口，只包含拖动区、关闭按钮和 `A` 键。
   - 在 `SourceInitialized` 设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`。
   - 处理 `WM_MOUSEACTIVATE -> MA_NOACTIVATE`。
   - 使用 `SetWindowPos + SWP_NOACTIVATE` 显示和移动。
   - 所有交互控件 `Focusable=false`、`IsTabStop=false`。
   - 对应：FR-VIS-003、005，FR-KEY-005。
+  - 验证：`VirtualKeyboard.Windows.Tests` 2/2 通过；`MinimalOverlayWindowTests` 在 STA 线程创建真实 WPF HWND，验证 `WS_EX_NOACTIVATE/WS_EX_TOOLWINDOW`、`WM_MOUSEACTIVATE → MA_NOACTIVATE`、`SetWindowPos` 物理像素矩形、移动不改变前台窗口和非法尺寸边界；`VirtualKeyboard.IntegrationTests` 1/1 验证窗口及交互控件的 NoActivate/不可聚焦配置。
 
 - [ ] **T1.2（P0，0.5 人日）建立最小 TargetSession**
   - 用户先聚焦 Notepad，再从托盘/调试入口执行“捕获当前目标并显示”。
