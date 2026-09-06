@@ -60,6 +60,22 @@ public sealed class MinimalOverlayWindowTests
         });
     }
 
+    [Fact]
+    public void CloseButtonClosesWindowAndDisposesOwnedResources()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new MainWindow();
+            window.ShowAt(-12000, -11000, 360, 176);
+            var closeButton = Assert.IsType<Button>(window.FindName("CloseButton"));
+
+            closeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.False(window.IsVisible);
+            Assert.True(window.IsDisposed);
+        });
+    }
+
     private static void RunOnStaThread(Action action)
     {
         Exception? failure = null;

@@ -35,6 +35,8 @@ public partial class MainWindow : Window, IDisposable
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
 
+    internal bool IsDisposed => _disposed;
+
     internal void ShowAt(int x, int y, int width, int height) => _overlay.ShowAt(x, y, width, height);
 
     private void OnDragAreaMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

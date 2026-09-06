@@ -386,6 +386,8 @@ T1.3 的单键发送实现位于 `VirtualKeyboard.Windows.SingleKeyInputSender`�
 
 T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 `ValidatedSingleKeyInputSender`。每次 A 键动作先确认期望 `SessionId` 仍是 `TargetSessionStore.Current`，再重新读取前台顶层窗口、进程和 GUI 线程焦点；任一不一致返回 `TargetInvalid` 并取消动作。校验成功后才调用 T1.3 发送器；整个路径不调用 `Activate`、`Focus` 或 `SetForegroundWindow`。捕获按钮和 A 按钮均为 NoActivate 控件。
 
+T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等，释放 Overlay 的 `HwndSource` hook 和诊断资源。M1 的单键发送为同步固定批次，不存在后台输入队列或跨批次保持的修饰键；托盘尚未引入，因此当前退出路径没有托盘或合成按键残留。M4 引入串行队列和修饰键后，退出清理将在 T4.7 扩展。
+
 ### 10.3 鼠标与触摸命中
 
 - MouseDown 只改变按压视觉状态。
