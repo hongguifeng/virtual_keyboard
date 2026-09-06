@@ -17,8 +17,11 @@ public partial class MainWindow : Window, IDisposable
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
     private readonly DiagnosticLogger _diagnostics;
-    private readonly ValidatedSingleKeyInputSender _validatedInput;
     private readonly InputFailureFeedbackFactory _failureFeedback;
+    private readonly KeyboardController _keyboardController;
+    private readonly LayoutActionDispatcher _actionDispatcher;
+    private readonly HotkeyInputSender _hotkeySender;
+    private readonly InputInjectionService _inputQueue;
     private bool _disposed;
 
     public MainWindow()
@@ -35,8 +38,20 @@ public partial class MainWindow : Window, IDisposable
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
         _diagnostics = new DiagnosticLogger();
         var validator = new TargetSessionValidator(_targetSessions, _targetCapture);
-        _validatedInput = new ValidatedSingleKeyInputSender(validator, new SingleKeyInputSender(_diagnostics), _diagnostics);
         _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
+        var keySender = new KeyInputSender(_diagnostics);
+        var validatedKeySender = new ValidatedKeyInputSender(validator, keySender, _diagnostics);
+        var capsLock = new CapsLockStateService(validatedKeySender);
+        _keyboardController = new KeyboardController(capsLock);
+        _hotkeySender = new HotkeyInputSender(_diagnostics);
+        _inputQueue = new InputInjectionService();
+        _actionDispatcher = new LayoutActionDispatcher(
+            validator,
+            _keyboardController,
+            keySender,
+            _hotkeySender,
+            new UnicodeTextInputSender(_diagnostics),
+            capsLock);
         LoadBuiltInLayout();
     }
 
@@ -108,17 +123,21 @@ public partial class MainWindow : Window, IDisposable
         {
             _overlay.InvalidateManualPosition();
             _targetSessions.Clear();
+            _keyboardController.ClearTargetSession();
+            ReloadLayoutForTarget(isPassword: false);
             SessionStatusText.Text = $"捕获失败：{result.Status}";
             return;
         }
 
         _overlay.InvalidateManualPosition();
         TargetSession session = _targetSessions.Replace(result.Snapshot!);
+        _inputQueue.SetCurrentSession(session.SessionId);
+        _keyboardController.SetTargetSession(session.SessionId);
         ReloadLayoutForTarget(session.IsPassword);
         SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
     }
 
-    private void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
+    private async void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
     {
         _ = sender;
         TargetSession? session = _targetSessions.Current;
@@ -128,26 +147,43 @@ public partial class MainWindow : Window, IDisposable
             SessionStatusText.Text = "密码输入中此按键不可用";
             return;
         }
-        if (!string.Equals(e.Key.Id, "key.a", StringComparison.Ordinal))
-        {
-            SessionStatusText.Text = "该按键尚未接入输入分发";
-            return;
-        }
         if (session is null)
         {
             SessionStatusText.Text = "请先捕获目标";
             return;
         }
 
-        InputSendResult result = _validatedInput.SendA(session.SessionId);
-        if (result.IsSuccess)
+        InputActionKind kind = e.Key.Action.Type switch
         {
-            SessionStatusText.Text = $"会话 {session.SessionId} · A 已发送";
+            LayoutActionTypes.Text => InputActionKind.Text,
+            LayoutActionTypes.Key => InputActionKind.Key,
+            LayoutActionTypes.Hotkey => InputActionKind.Hotkey,
+            LayoutActionTypes.Modifier => InputActionKind.Modifier,
+            _ => InputActionKind.Key,
+        };
+        QueuedInputResult queued = await _inputQueue.EnqueueAsync(
+            session.SessionId,
+            kind,
+            cancellation => ValueTask.FromResult(_actionDispatcher.Dispatch(session.SessionId, e.Key, cancellation)));
+        if (_disposed || _targetSessions.Current?.SessionId != session.SessionId)
+        {
+            return;
+        }
+        if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
+        {
+            SessionStatusText.Text = $"会话 {session.SessionId} · 按键已发送";
             return;
         }
 
-        InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
-        SessionStatusText.Text = feedback.Message;
+        if (queued.SendResult is InputSendResult result)
+        {
+            InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
+            SessionStatusText.Text = feedback.Message;
+        }
+        else
+        {
+            SessionStatusText.Text = "输入队列已停止或目标已变化";
+        }
     }
 
     private void LoadBuiltInLayout()
@@ -203,6 +239,9 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _overlay.DpiChanged -= OnOverlayDpiChanged;
+        _inputQueue.Dispose();
+        _keyboardController.Dispose();
+        _hotkeySender.Dispose();
         _overlay.Dispose();
         _diagnostics.Dispose();
         _disposed = true;
