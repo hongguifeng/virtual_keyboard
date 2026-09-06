@@ -8,11 +8,15 @@ Virtual Keyboard 统一构建入口（T0.3）。非交互式；任一步失败�
   2. dotnet restore（显式使用仓库根 NuGet.Config）
   3. dotnet build -c Release --no-restore
   4. dotnet test -c Release --no-build --no-restore（TRX 结果输出到 artifacts/test-results/）
-  5. dotnet publish App -c Release -r win-x64 --no-restore --self-contained false（framework-dependent，输出到 artifacts/package/win-x64/）
-  6. 生成版本化便携 ZIP 和 SHA-256 校验文件（输出到 artifacts/release/）
+  5. 非 -SkipPackage 时：dotnet publish App -c Release -r win-x64 --no-restore --self-contained false
+  6. 非 -SkipPackage 时：生成版本化便携 ZIP 和 SHA-256 校验文件（输出到 artifacts/release/）
 收尾：dotnet build-server shutdown（dotnet 缺失时安全跳过，不产生二次错误、不覆盖原始错误）
 #>
-param()
+param(
+  [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
+  [string]$Version = '1.0.0',
+  [switch]$SkipPackage
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
@@ -247,29 +251,32 @@ try {
                    '--results-directory', $testResultsDir, '--logger', 'trx')
   }
 
-  # 5. win-x64 发布（framework-dependent：显式 --self-contained false，运行需已安装 .NET 10 桌面运行时；
-  #    先经安全目录校验再清理旧发布输出）
-  $publishDir = Clear-SafeArtifactDirectory -Path $publishDir -ArtifactsRoot $artifactsRoot
-  New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
-  Invoke-Dotnet @('publish', $appProject, '-c', 'Release', '-r', 'win-x64',
-                 '--no-restore', '--self-contained', 'false', '-o', $publishDir)
+  if (-not $SkipPackage) {
+    # 5. win-x64 发布（framework-dependent：显式 --self-contained false，运行需已安装 .NET 10 桌面运行时）
+    $publishDir = Clear-SafeArtifactDirectory -Path $publishDir -ArtifactsRoot $artifactsRoot
+    New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
+    Invoke-Dotnet @('publish', $appProject, '-c', 'Release', '-r', 'win-x64',
+                   '--no-restore', '--self-contained', 'false', ("-p:Version=$Version"), '-o', $publishDir)
 
-  # 6. 生成版本化便携 ZIP 与 SHA-256 校验文件（ADR-007）
-  $releaseDir = Clear-SafeArtifactDirectory -Path $releaseDir -ArtifactsRoot $artifactsRoot
-  New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-  $archiveName = 'VirtualKeyboard-1.0.0-win-x64-framework-dependent.zip'
-  $archivePath = Join-Path $releaseDir $archiveName
-  Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $archivePath -CompressionLevel Optimal
-  $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
-  $checksumPath = "$archivePath.sha256"
-  [System.IO.File]::WriteAllText($checksumPath, "$archiveHash  $archiveName`n", [System.Text.UTF8Encoding]::new($false))
+    # 6. 生成版本化便携 ZIP 与 SHA-256 校验文件（ADR-007）
+    $releaseDir = Clear-SafeArtifactDirectory -Path $releaseDir -ArtifactsRoot $artifactsRoot
+    New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+    $archiveName = "VirtualKeyboard-$Version-win-x64-framework-dependent.zip"
+    $archivePath = Join-Path $releaseDir $archiveName
+    Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $archivePath -CompressionLevel Optimal
+    $archiveHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $checksumPath = "$archivePath.sha256"
+    [System.IO.File]::WriteAllText($checksumPath, "$archiveHash  $archiveName`n", [System.Text.UTF8Encoding]::new($false))
+  }
 
   Write-Host ''
-  Write-Host "构建完成。" -ForegroundColor Green
+  Write-Host "构建和测试完成。" -ForegroundColor Green
   Write-Host "  测试结果（TRX）：$testResultsDir"
-  Write-Host "  win-x64 发布输出：$publishDir"
-  Write-Host "  便携发布包：$archivePath"
-  Write-Host "  SHA-256：$checksumPath"
+  if (-not $SkipPackage) {
+    Write-Host "  win-x64 发布输出：$publishDir"
+    Write-Host "  便携发布包：$archivePath"
+    Write-Host "  SHA-256：$checksumPath"
+  }
 }
 finally {
   Shutdown-BuildServer

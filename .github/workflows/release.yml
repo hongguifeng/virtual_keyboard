@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.4xx
+      - name: Read version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          "value=$version" >> $env:GITHUB_OUTPUT
+      - name: Build, test, and package
+        shell: pwsh
+        run: .\scripts\build.ps1 -Version '${{ steps.version.outputs.value }}'
+      - name: Verify release package
+        shell: pwsh
+        run: .\scripts\verify-release.ps1 -Version '${{ steps.version.outputs.value }}'
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $zip = "artifacts/release/VirtualKeyboard-$version-win-x64-framework-dependent.zip"
+          gh release create $env:GITHUB_REF_NAME $zip "$zip.sha256" "artifacts/release/release-security.json" --verify-tag --generate-notes --title "Virtual Keyboard $version"

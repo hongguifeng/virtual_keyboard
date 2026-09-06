@@ -714,6 +714,8 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 ## 19. 发布后功能迭代
 
 - [x] `REL-022` 设置界面支持 English/简体中文切换，默认 English；语言写入兼容 schema v1 的 `uiLanguage` 字段，旧配置缺失时默认英语；设置窗口即时刷新，保存后主窗口提示和托盘菜单同步更新。自动验证覆盖默认值、旧配置迁移、持久化、非法枚举、设置窗口切换及双语托盘菜单。完整 Release 门禁：Core 234/234、Windows 210/210、Integration 37/37，构建/发布 0 warning/error，发布安全静态检查通过。
+- [x] `REL-023` 根 README 从用户视角以英语重写并作为默认页，新增简体中文版本；两版均使用 `docs/keyboard.png` 实际截图，覆盖安装、使用、设置、自定义组合键、权限边界、隐私及源码构建。
+- [x] `REL-024` GitHub Actions：main/PR 只执行 Release 构建与测试；仅 `v*` 版本 Tag 生成版本化 ZIP、SHA-256、安全报告并创建 GitHub Release。版本由 Tag 传入构建和校验脚本。已本地验证 `-SkipPackage` 门禁，以及以测试版本 2.3.4 生成并校验版本化包；Core 234/234、Windows 210/210、Integration 37/37，0 warning/error，工作流 YAML 解析通过。
 
 ## 18. 下一步启动清单
 

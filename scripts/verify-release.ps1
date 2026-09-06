@@ -1,12 +1,15 @@
 #requires -version 5.1
-param()
+param(
+  [ValidatePattern('^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$')]
+  [string]$Version = '1.0.0'
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $releaseDir = Join-Path $repoRoot 'artifacts\release'
 $publishDir = Join-Path $repoRoot 'artifacts\package\win-x64'
-$archiveName = 'VirtualKeyboard-1.0.0-win-x64-framework-dependent.zip'
+$archiveName = "VirtualKeyboard-$Version-win-x64-framework-dependent.zip"
 $archivePath = Join-Path $releaseDir $archiveName
 $checksumPath = "$archivePath.sha256"
 $exePath = Join-Path $publishDir 'VirtualKeyboard.App.exe'
