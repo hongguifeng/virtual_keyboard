@@ -707,6 +707,8 @@ T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 sche
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 
+T6.5 的 `SingleInstanceCoordinator` 以当前域/用户名和 Windows SessionId 的 SHA-256 截断摘要构造 `Local\\` 命名对象，避免在对象名中暴露原始账户信息。命名 Mutex 的首个持有者是主实例；同名 AutoResetEvent 是有界激活通道。第二实例不创建主窗口、托盘或监听器，只设置事件后退出；主实例通过已注册等待接收事件，再切换到 WPF Dispatcher 打开设置窗口。注册、事件句柄和 Mutex 均在应用退出时释放，Dispose 幂等。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

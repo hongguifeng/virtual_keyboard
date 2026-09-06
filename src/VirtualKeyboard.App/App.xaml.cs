@@ -12,10 +12,19 @@ namespace VirtualKeyboard.App;
 public partial class App : Application
 {
     private TrayIconController? _tray;
+    private SingleInstanceCoordinator? _singleInstance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        _singleInstance = SingleInstanceCoordinator.CreateDefault(() =>
+            Dispatcher.BeginInvoke(() => { if (MainWindow is MainWindow window) window.OpenSettingsWindow(); }));
+        if (!_singleInstance.IsPrimary)
+        {
+            _singleInstance.NotifyPrimary();
+            Shutdown();
+            return;
+        }
         var window = new MainWindow();
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -26,6 +35,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _tray?.Dispose();
+        _singleInstance?.Dispose();
         if (MainWindow is IDisposable disposable) disposable.Dispose();
         base.OnExit(e);
     }
