@@ -184,6 +184,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             EndSettingsSession();
             bool isEnabled = _configurationRepository.Current.Enabled;
             if (wasEnabled != isEnabled) _coordinator.SetEnabled(isEnabled);
+            Opacity = _configurationRepository.Current.Opacity;
             _diagnosticSink?.SetDetailedEnabled(_configurationRepository.Current.DetailedDiagnostics);
             LoadBuiltInLayout();
         }

@@ -358,7 +358,7 @@ T2.5 的 Core `TargetStateCoordinator` 将状态与副作用命令分离：状�
 - 普通按键 `Focusable=False`、`IsTabStop=False`
 - 设置窗口与键盘窗口分离；设置窗口允许正常激活
 
-不为了整体透明度强制设置 `AllowsTransparency=True`。MVP 优先使用 WPF `Opacity` 和普通不透明背景；如必须实现非矩形透明边缘，再单独测试 layered window 的渲染和命中行为。
+整窗透明度使用 `WindowStyle=None`、`AllowsTransparency=True` 与 WPF `Window.Opacity`。仅设置普通不透明窗口的视觉树 Opacity 在当前 WindowChrome 合成链路上会表现为内容变暗，因此不得作为整窗透明实现。透明窗口仍保留 `WindowChrome` 的 7 DIP 缩放边界以及 Overlay 的 `WS_EX_NOACTIVATE`/`MA_NOACTIVATE` 合约；自动测试必须同时确认透明模式、可缩放模式和不激活属性。
 
 ### 10.2 Win32 扩展样式和消息
 
@@ -706,7 +706,7 @@ T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，除基础字
 
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
-T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。界面 Slider 表示 0.00–0.70 的“透明程度”，保存时用 `opacity = 1 - transparency` 转换为 WPF 整窗 `Opacity` 0.30–1.00；不使用背景色或亮度模拟透明。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”。`KeyboardChordRecorder` 使用 `WH_KEYBOARD_LL` 捕获并抑制录制期间的 KeyDown/KeyUp：记录最多 8 个不同封闭键的首次 KeyDown 顺序，全部释放后生成 `chord`，因此 `Win+Tab` 不会先触发系统任务视图；失败、取消、切换项目/模式或关闭设置都会卸载 hook。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；主键区使用 16 份 Star、自定义区每列使用 2.5 份 Star，内部各列等分，使两区随窗口宽度同步缩放且不重叠。密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey/chord 发送路径。
+T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。界面 Slider 表示 0.00–0.70 的“透明程度”，保存时用 `opacity = 1 - transparency` 转换为 WPF 整窗 `Opacity` 0.30–1.00；MainWindow 启用 `AllowsTransparency=True`，不使用背景色或亮度模拟透明，设置关闭后立即重载当前 Opacity。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”。`KeyboardChordRecorder` 使用 `WH_KEYBOARD_LL` 捕获并抑制录制期间的 KeyDown/KeyUp：记录最多 8 个不同封闭键的首次 KeyDown 顺序，全部释放后生成 `chord`，因此 `Win+Tab` 不会先触发系统任务视图；失败、取消、切换项目/模式或关闭设置都会卸载 hook。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；主键区使用 16 份 Star、自定义区每列使用 2.5 份 Star，内部各列等分，使两区随窗口宽度同步缩放且不重叠。密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey/chord 发送路径。
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 

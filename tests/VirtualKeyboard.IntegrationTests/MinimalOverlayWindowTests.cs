@@ -23,6 +23,7 @@ public sealed class MinimalOverlayWindowTests
             using var window = new MainWindow();
 
             Assert.Equal(WindowStyle.None, window.WindowStyle);
+            Assert.True(window.AllowsTransparency);
             Assert.False(window.ShowInTaskbar);
             Assert.False(window.ShowActivated);
             Assert.True(window.Topmost);

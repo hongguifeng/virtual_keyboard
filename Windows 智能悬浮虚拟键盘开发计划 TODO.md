@@ -490,6 +490,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
   - 2026-09-06 二次反馈修正验证：覆盖透明度 Slider 装载、Ctrl+Shift+S 实体组合录制、7 个自定义键按 5+2 自动分列、无滚动容器、密码目标整体折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 27/27，build/publish 通过且 0 warning/error。
   - 2026-09-06 三次反馈修正：标准区使用 16 份 Star、自定义区每列使用 2.5 份 Star，移除会造成横向溢出的标准键固定最小列宽；620 DIP 窄窗口下两区共同缩放且不覆盖。透明程度 0%/70% 分别保存为整窗 Opacity 1.0/0.3。新增 `WH_KEYBOARD_LL` 完整 chord 录制，抑制录制期间系统处理并支持 Win+Tab，最多 8 个不同封闭键；发送时全部 KeyDown、逆序 KeyUp，覆盖短发送/异常清理、已保持或实体保持修饰键不重复释放及密码目标拒绝。完整 Release 门禁 Core 226/226、Windows 195/195、Integration 29/29，build/publish 通过且 0 warning/error。
+  - 2026-09-06 四次反馈修正：确认普通不透明 WPF 窗口仅设置视觉树 Opacity 在当前 WindowChrome 合成链路中表现为变暗；MainWindow 改为 `WindowStyle=None + AllowsTransparency=True` 的 WPF 透明窗口，使 0.30–1.00 Opacity 参与整窗桌面 Alpha 合成，设置关闭后立即应用当前值。集成测试同时约束透明窗口、可缩放模式和 NoActivate 配置；完整 Release 门禁 Core 226/226、Windows 195/195、Integration 29/29（共 450 项），build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。
