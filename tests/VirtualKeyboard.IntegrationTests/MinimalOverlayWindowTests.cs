@@ -114,6 +114,9 @@ public sealed class MinimalOverlayWindowTests
             var capture = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
             capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.ShowAt(-12000, -11000, 360, 176);
+            Assert.True(window.BeginManualMoveForCurrentSession());
+            Assert.True(window.EndManualMoveForCurrentSession());
+            Assert.True(window.HasManualPosition(1));
 
             var suggested = new NativeRectangle(-9000, -8000, -8600, -7800);
             IntPtr pointer = Marshal.AllocHGlobal(Marshal.SizeOf<NativeRectangle>());
@@ -129,6 +132,28 @@ public sealed class MinimalOverlayWindowTests
 
             Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
             Assert.Equal(new NativeRectangle(-9000, -8000, -8280, -7648), actual);
+            Assert.False(window.HasManualPosition(1));
+        });
+    }
+
+    [Fact]
+    public void CapturingNewSessionInvalidatesPreviousManualPosition()
+    {
+        RunOnStaThread(() =>
+        {
+            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, (nint)100, (nint)101);
+            using var window = new MainWindow(new StubCapture(target), new TargetSessionStore());
+            var capture = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
+            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.ShowAt(-12000, -11000, 360, 176);
+            Assert.True(window.BeginManualMoveForCurrentSession());
+            Assert.True(window.EndManualMoveForCurrentSession());
+            Assert.True(window.HasManualPosition(1));
+
+            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.Equal(2, window.CurrentTargetSession!.SessionId);
+            Assert.False(window.HasManualPosition(1));
         });
     }
 

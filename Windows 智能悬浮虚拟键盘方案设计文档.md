@@ -472,6 +472,8 @@ T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完�
 
 用户手动移动后，将物理矩形与当前 SessionId 绑定。目标会话变化或 DPI 变化时重新进入自动定位。
 
+T3.6 由 Core `ManualPositionTracker` 保存拖动起点、物理光标增量和绑定 SessionId；其他会话无法更新或结束该拖动。Overlay 使用 `GetCursorPos/GetWindowRect` 获取原生物理坐标并持续调用带 `SWP_NOACTIVATE` 的定位出口，WPF 拖动区仅捕获鼠标，不调用 `DragMove`。新会话、目标捕获失败、DPI 变化或退出会失效保存位置并恢复自动定位语义。
+
 ### 11.4 DPI 变化
 
 - Manifest 声明 `PerMonitorV2`。

@@ -111,6 +111,29 @@ public sealed class OverlayWindowAdapterTests
         });
     }
 
+    [Fact]
+    public void ManualMoveIsBoundToSessionAndDoesNotActivateOverlay()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new TestWindow();
+            using var adapter = new OverlayWindowAdapter(window);
+            adapter.ShowAt(-12000, -11000, 240, 120);
+
+            Assert.True(adapter.BeginManualMove(7));
+            Assert.False(adapter.UpdateManualMove(8));
+            Assert.False(adapter.EndManualMove(8));
+            Assert.True(adapter.UpdateManualMove(7));
+            Assert.True(adapter.EndManualMove(7));
+            Assert.True(adapter.TryGetManualPosition(7, out _));
+            Assert.False(adapter.TryGetManualPosition(8, out _));
+            Assert.NotEqual(adapter.Handle, GetForegroundWindow());
+
+            adapter.InvalidateManualPosition();
+            Assert.False(adapter.TryGetManualPosition(7, out _));
+        });
+    }
+
     private static void RunOnStaThread(Action action)
     {
         Exception? failure = null;

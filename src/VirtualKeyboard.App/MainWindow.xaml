@@ -16,7 +16,10 @@
                 <RowDefinition Height="54" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False" MouseLeftButtonDown="OnDragAreaMouseLeftButtonDown">
+            <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False"
+                  MouseLeftButtonDown="OnDragAreaMouseLeftButtonDown"
+                  MouseMove="OnDragAreaMouseMove"
+                  MouseLeftButtonUp="OnDragAreaMouseLeftButtonUp">
                 <TextBlock Text="Virtual Keyboard" VerticalAlignment="Center" Margin="6,0" Focusable="False" IsHitTestVisible="False" />
                 <Button x:Name="CloseButton" Content="×" Width="24" Height="22" HorizontalAlignment="Right" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
             </Grid>

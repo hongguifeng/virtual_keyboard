@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using VirtualKeyboard.Core.Geometry;
+using VirtualKeyboard.Core.Positioning;
 using CoreDpiScale = VirtualKeyboard.Core.Geometry.DpiScale;
 
 namespace VirtualKeyboard.Windows;
@@ -21,6 +22,7 @@ public sealed class OverlayWindowAdapter : IDisposable
     private static readonly IntPtr TopmostWindow = new(-1);
 
     private readonly Window _window;
+    private readonly ManualPositionTracker _manualPosition = new();
     private HwndSource? _source;
     private IntPtr _handle;
     private bool _disposed;
@@ -46,6 +48,37 @@ public sealed class OverlayWindowAdapter : IDisposable
 
     /// <summary>Raised after the system suggested rectangle is applied without activation.</summary>
     public event Action<OverlayDpiChangedNotification>? DpiChanged;
+
+    public bool BeginManualMove(long sessionId)
+    {
+        VerifyAccessAndState();
+        EnsureAttached();
+        if (!GetCursorPos(out NativePoint cursorPosition) || !GetWindowRect(_handle, out NativeSuggestedRect windowRect)) return false;
+        _manualPosition.Begin(
+            sessionId,
+            new PhysicalPixelRect(windowRect.Left, windowRect.Top, windowRect.Right - windowRect.Left, windowRect.Bottom - windowRect.Top),
+            new PhysicalPixelPoint(cursorPosition.X, cursorPosition.Y));
+        return true;
+    }
+
+    public bool UpdateManualMove(long sessionId)
+    {
+        VerifyAccessAndState();
+        if (!GetCursorPos(out NativePoint cursorPosition) ||
+            !_manualPosition.TryUpdate(sessionId, new PhysicalPixelPoint(cursorPosition.X, cursorPosition.Y), out PhysicalPixelRect rectangle)) return false;
+        SetPosition(
+            checked((int)Math.Round(rectangle.X)), checked((int)Math.Round(rectangle.Y)),
+            checked((int)Math.Round(rectangle.Width)), checked((int)Math.Round(rectangle.Height)),
+            NoActivatePositionFlag);
+        return true;
+    }
+
+    public bool EndManualMove(long sessionId) => _manualPosition.End(sessionId, out _);
+
+    public bool TryGetManualPosition(long sessionId, out PhysicalPixelRect rectangle) =>
+        _manualPosition.TryGet(sessionId, out rectangle);
+
+    public void InvalidateManualPosition() => _manualPosition.Invalidate();
 
     /// <summary>Shows the overlay at a physical-pixel rectangle without activating it.</summary>
     public void ShowAt(int x, int y, int width, int height)
@@ -84,6 +117,7 @@ public sealed class OverlayWindowAdapter : IDisposable
         }
 
         _window.Dispatcher.VerifyAccess();
+        _manualPosition.Invalidate();
         Detach();
         _window.SourceInitialized -= OnSourceInitialized;
         _window.Closed -= OnWindowClosed;
@@ -213,6 +247,9 @@ public sealed class OverlayWindowAdapter : IDisposable
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct NativeSuggestedRect(int Left, int Top, int Right, int Bottom);
 
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NativePoint(int X, int Y);
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr windowHandle, int index);
 
@@ -222,6 +259,14 @@ public sealed class OverlayWindowAdapter : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr windowHandle, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out NativePoint point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr windowHandle, out NativeSuggestedRect rectangle);
 }
 
 public readonly record struct OverlayDpiChangedNotification(CoreDpiScale DpiScale, PhysicalPixelRect SuggestedRectangle);

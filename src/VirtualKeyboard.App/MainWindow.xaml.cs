@@ -44,11 +44,48 @@ public partial class MainWindow : Window, IDisposable
 
     internal void ShowAt(int x, int y, int width, int height) => _overlay.ShowAt(x, y, width, height);
 
+    internal bool BeginManualMoveForCurrentSession() =>
+        _targetSessions.Current is TargetSession session && _overlay.BeginManualMove(session.SessionId);
+
+    internal bool EndManualMoveForCurrentSession() =>
+        _targetSessions.Current is TargetSession session && _overlay.EndManualMove(session.SessionId);
+
+    internal bool HasManualPosition(long sessionId) => _overlay.TryGetManualPosition(sessionId, out _);
+
     private void OnDragAreaMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _ = sender;
-        _ = e;
-        // DragMove 会激活 WPF 窗口；物理像素拖动在 T3.6 通过适配器实现。
+        if (sender is UIElement area && BeginManualMoveForCurrentSession())
+        {
+            area.CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void OnDragAreaMouseMove(object sender, MouseEventArgs e)
+    {
+        if (sender is not UIElement area || !area.IsMouseCaptured) return;
+        if (e.LeftButton != MouseButtonState.Pressed || _targetSessions.Current is not TargetSession session)
+        {
+            area.ReleaseMouseCapture();
+            _overlay.InvalidateManualPosition();
+            return;
+        }
+
+        _overlay.UpdateManualMove(session.SessionId);
+        e.Handled = true;
+    }
+
+    private void OnDragAreaMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not UIElement area || !area.IsMouseCaptured) return;
+        if (_targetSessions.Current is TargetSession session)
+        {
+            _overlay.UpdateManualMove(session.SessionId);
+            EndManualMoveForCurrentSession();
+        }
+
+        area.ReleaseMouseCapture();
+        e.Handled = true;
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e)
@@ -65,11 +102,13 @@ public partial class MainWindow : Window, IDisposable
         TargetCaptureResult result = _targetCapture.Capture();
         if (!result.IsCaptured)
         {
+            _overlay.InvalidateManualPosition();
             _targetSessions.Clear();
             SessionStatusText.Text = $"捕获失败：{result.Status}";
             return;
         }
 
+        _overlay.InvalidateManualPosition();
         TargetSession session = _targetSessions.Replace(result.Snapshot!);
         SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
     }
@@ -93,6 +132,7 @@ public partial class MainWindow : Window, IDisposable
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)
     {
+        _overlay.InvalidateManualPosition();
         if (_targetSessions.Current is null)
         {
             return;

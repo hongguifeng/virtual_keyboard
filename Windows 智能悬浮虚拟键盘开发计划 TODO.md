@@ -297,10 +297,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`OverlayWindowAdapter` 在现有 HWND hook 解析 `WM_DPICHANGED`，先以 `SWP_NOACTIVATE` 应用系统建议物理矩形，再发布包含 Core `DpiScale` 和建议矩形的通知；无效消息不应用，消费方异常不逃逸原生窗口过程。`MainWindow` 仅在存在当前 TargetSession 时以配置的 360×176 DIP 和新 DPI 重算物理尺寸，避免复用旧屏物理宽高，并在释放时注销通知。
   - 验证：Core 99/99、Windows 41/41、Integration 5/5，完整 Release 构建和 win-x64 发布通过；真实 WPF HWND 消息验证建议矩形、192 DPI scale、NoActivate、消费方异常隔离，以及当前会话下 360×176 DIP 重算为 720×352 物理像素。
 
-- [ ] **T3.6（P1，0.5 人日）实现当前会话的手动位置**
+- [x] **T3.6（P1，0.5 人日）实现当前会话的手动位置**
   - 拖动后绑定当前 SessionId。
   - 新目标或 DPI 变化时恢复自动定位。
   - 对应：FR-VIS-006。
+  - 实现：Core `ManualPositionTracker` 以物理光标增量计算窗口矩形，并将完成位置严格绑定单一 SessionId；错误会话不能更新/结束。`OverlayWindowAdapter` 通过 `GetCursorPos/GetWindowRect` 和 `SetWindowPos(SWP_NOACTIVATE)` 执行拖动，App 拖动区使用 mouse capture 而非会激活窗口的 `DragMove`。捕获失败、新会话、DPI 变化、取消或释放会清除相应状态。
+  - 验证：Core 104/104、Windows 42/42、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖物理增量、会话隔离、取消/失效、真实 HWND NoActivate 手动移动，以及新 SessionId/WM_DPICHANGED 清除旧手动位置。
 
 ### M3 测试矩阵
 
