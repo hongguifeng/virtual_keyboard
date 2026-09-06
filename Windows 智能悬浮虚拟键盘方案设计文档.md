@@ -713,6 +713,8 @@ T6.6 将退出固化为单向、幂等生命周期。`MainWindow.Dispose` 先把
 
 项目执行决策（2026-09-06）：M6 完成后跳过 M7，直接进入 M8。该决策只改变执行顺序，不改变发布质量事实；T7.1–T7.6 及 M7 退出检查保持未完成，M8 发布评审必须把缺失的隐私审计、压力、8 小时稳定性、权限负向和性能数据列为未证明项，不能用既有单元/集成测试替代。
 
+T8.4 采用 ADR-007 的 `win-x64` 框架依赖便携 ZIP，应用版本固定为 1.0.0。统一构建先发布到 `artifacts/package/win-x64`，再生成 `artifacts/release/VirtualKeyboard-1.0.0-win-x64-framework-dependent.zip` 及 UTF-8 no-BOM `.sha256` 文件。运行时写入只允许 `%LocalAppData%\\VirtualKeyboard`；升级和回滚只替换程序目录，卸载默认保留用户配置、布局、恢复文件和诊断数据。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

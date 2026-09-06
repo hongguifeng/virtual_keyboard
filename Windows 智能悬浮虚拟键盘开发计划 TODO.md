@@ -589,10 +589,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 每个 AC 记录环境、步骤、预期、实际、证据链接和缺陷 ID。
   - 失败项不得用“尽量兼容”直接豁免；必须修复或形成明确范围变更。
 
-- [ ] **T8.4（P0，0.75-1 人日）选择并实现 MVP 打包**
+- [x] **T8.4（P0，0.75-1 人日）选择并实现 MVP 打包**
   - 在自包含 EXE/MSI 与框架依赖部署中选择一种并记录 ADR。
   - 确认 LocalAppData、卸载、升级和用户布局保留策略。
   - 生成 win-x64 Release 包和校验值。
+  - 实现：ADR-007 选择 1.0.0 `win-x64` 框架依赖便携 ZIP；统一构建生成版本化 ZIP 和 UTF-8 no-BOM SHA-256 文件。程序目录只读，升级/回滚替换程序目录，卸载默认保留 `%LocalAppData%\\VirtualKeyboard` 用户数据。
+  - 验证：Core 206/206、Windows 154/154、Integration 24/24，Release 0 warning/error；win-x64 publish 与 ZIP 生成成功，ZIP 包含 App EXE/DLL 和内置布局，SHA-256 复算与 `.sha256` 一致（`3c5d1f267c2c90c614ce3ac6b41440039354db4837f5230b2f3d1fcdec6225e0`）。
 
 - [ ] **T8.5（P0，0.5 人日）执行发布安全检查**
   - 恶意软件扫描。

@@ -11,3 +11,4 @@
 | [0004](0004-input-three-paths.md) | 输入分 Text、Key、Hotkey/Modifier 三条独立路径 | 已采用 |
 | [0005](0005-geometry-physical-pixels.md) | 屏幕几何统一使用物理像素 | 已采用 |
 | [0006](0006-normal-user-permission-boundary.md) | MVP 以普通用户权限运行 | 已采用 |
+| [0007](0007-framework-dependent-portable-package.md) | MVP 使用框架依赖便携 ZIP | 已采用 |

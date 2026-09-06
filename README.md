@@ -51,6 +51,7 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 
 - 测试结果（TRX）：`artifacts/test-results/`
 - win-x64 发布（framework-dependent，运行需已安装 .NET 10 桌面运行时）：`artifacts/package/win-x64/`
+- 版本化便携 ZIP 与 SHA-256：`artifacts/release/`；选择、升级、卸载和回滚策略见 [ADR-007](docs/adr/0007-framework-dependent-portable-package.md)。
 - 以上目录均由 `.gitignore` 忽略，不进入仓库。
 
 ## 布局 schema
