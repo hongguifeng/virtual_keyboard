@@ -479,6 +479,8 @@ T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完�
 - 不把上一显示器的物理宽高直接复用到新显示器。
 - 单元测试覆盖 96、120、144、168、192 DPI 和负坐标。
 
+T3.5 由 `OverlayWindowAdapter` 的 HWND hook 处理真实 `WM_DPICHANGED`：先带 `SWP_NOACTIVATE` 应用 lParam 建议矩形作为过渡，再发布 Core 强类型 DPI/矩形通知。App 只有在当前 TargetSession 有效时才以配置 DIP 尺寸和新 `DpiScale` 重算物理宽高；没有会话或重算失败时保留系统建议矩形。消息处理不调用激活 API，事件消费异常被隔离在原生边界。
+
 ## 12. 输入注入设计
 
 ### 12.1 输入流水线

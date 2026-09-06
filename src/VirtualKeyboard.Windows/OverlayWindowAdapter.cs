@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using VirtualKeyboard.Core.Geometry;
+using CoreDpiScale = VirtualKeyboard.Core.Geometry.DpiScale;
 
 namespace VirtualKeyboard.Windows;
 
@@ -12,6 +14,7 @@ public sealed class OverlayWindowAdapter : IDisposable
     private const long NoActivateExtendedStyle = 0x08000000L;
     private const long ToolWindowExtendedStyle = 0x00000080L;
     private const int MouseActivateMessage = 0x0021;
+    private const int DpiChangedMessage = 0x02E0;
     private const int NoActivateMouseResult = 3;
     private const uint NoActivatePositionFlag = 0x0010;
     private const uint ShowWindowPositionFlag = 0x0040;
@@ -40,6 +43,9 @@ public sealed class OverlayWindowAdapter : IDisposable
 
     /// <summary>Gets the overlay HWND after the WPF source has been initialized.</summary>
     public IntPtr Handle => _handle;
+
+    /// <summary>Raised after the system suggested rectangle is applied without activation.</summary>
+    public event Action<OverlayDpiChangedNotification>? DpiChanged;
 
     /// <summary>Shows the overlay at a physical-pixel rectangle without activating it.</summary>
     public void ShowAt(int x, int y, int width, int height)
@@ -167,19 +173,45 @@ public sealed class OverlayWindowAdapter : IDisposable
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
     }
 
-    private static IntPtr WindowProcedure(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WindowProcedure(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         _ = hwnd;
-        _ = wParam;
-        _ = lParam;
         if (message == MouseActivateMessage)
         {
             handled = true;
             return new IntPtr(NoActivateMouseResult);
         }
 
+
+        if (message == DpiChangedMessage && lParam != IntPtr.Zero)
+        {
+            NativeSuggestedRect suggested = Marshal.PtrToStructure<NativeSuggestedRect>(lParam);
+            int width = suggested.Right - suggested.Left;
+            int height = suggested.Bottom - suggested.Top;
+            if (width > 0 && height > 0)
+            {
+                SetPosition(suggested.Left, suggested.Top, width, height, NoActivatePositionFlag);
+                uint packedDpi = unchecked((uint)wParam.ToInt64());
+                uint dpiX = packedDpi & 0xffff;
+                uint dpiY = (packedDpi >> 16) & 0xffff;
+                if (dpiX > 0 && dpiY > 0)
+                {
+                    var notification = new OverlayDpiChangedNotification(
+                        CoreDpiScale.FromDpi(dpiX, dpiY),
+                        new PhysicalPixelRect(suggested.Left, suggested.Top, width, height));
+                    try { DpiChanged?.Invoke(notification); }
+                    catch { /* A relayout consumer failure must not escape the native window procedure. */ }
+                }
+
+                handled = true;
+            }
+        }
+
         return IntPtr.Zero;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NativeSuggestedRect(int Left, int Top, int Right, int Bottom);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr(IntPtr windowHandle, int index);
@@ -191,3 +223,5 @@ public sealed class OverlayWindowAdapter : IDisposable
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr windowHandle, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 }
+
+public readonly record struct OverlayDpiChangedNotification(CoreDpiScale DpiScale, PhysicalPixelRect SuggestedRectangle);

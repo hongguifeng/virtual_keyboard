@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using VirtualKeyboard.Core.Diagnostics;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Input;
 using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
@@ -10,6 +11,7 @@ namespace VirtualKeyboard.App;
 /// <summary>Minimal non-activating keyboard window with explicit target capture.</summary>
 public partial class MainWindow : Window, IDisposable
 {
+    private static readonly DipSize ConfiguredOverlaySize = new(360, 176);
     private readonly OverlayWindowAdapter _overlay;
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
@@ -26,6 +28,7 @@ public partial class MainWindow : Window, IDisposable
     {
         InitializeComponent();
         _overlay = new OverlayWindowAdapter(this);
+        _overlay.DpiChanged += OnOverlayDpiChanged;
         _targetCapture = targetCapture ?? throw new ArgumentNullException(nameof(targetCapture));
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
         _diagnostics = new DiagnosticLogger();
@@ -36,6 +39,8 @@ public partial class MainWindow : Window, IDisposable
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
 
     internal bool IsDisposed => _disposed;
+
+    internal nint OverlayHandle => _overlay.Handle;
 
     internal void ShowAt(int x, int y, int width, int height) => _overlay.ShowAt(x, y, width, height);
 
@@ -86,6 +91,21 @@ public partial class MainWindow : Window, IDisposable
             : $"输入已取消：{result.Status}";
     }
 
+    private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)
+    {
+        if (_targetSessions.Current is null)
+        {
+            return;
+        }
+
+        PhysicalPixelSize size = change.DpiScale.ToPhysicalPixels(ConfiguredOverlaySize);
+        _overlay.Move(
+            checked((int)Math.Round(change.SuggestedRectangle.X)),
+            checked((int)Math.Round(change.SuggestedRectangle.Y)),
+            checked((int)Math.Round(size.Width)),
+            checked((int)Math.Round(size.Height)));
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         Dispose();
@@ -99,6 +119,7 @@ public partial class MainWindow : Window, IDisposable
             return;
         }
 
+        _overlay.DpiChanged -= OnOverlayDpiChanged;
         _overlay.Dispose();
         _diagnostics.Dispose();
         _disposed = true;

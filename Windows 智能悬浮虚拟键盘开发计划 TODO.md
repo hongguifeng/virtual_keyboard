@@ -290,10 +290,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Windows `MonitorDpiAdapter` 将物理锚点安全转换为 Win32 RECT，以 `MonitorFromRect(MONITOR_DEFAULTTONEAREST)` 选择显示器并读取 `rcMonitor/rcWork`；DPI 依次使用 `GetDpiForWindow`、`GetDpiForMonitor`、96 DPI 受控回退，输出 Core `MonitorMetrics` 和 `DpiSource`。负坐标不归零，非法几何和原生失败转换为封闭 `MonitorMetricsStatus`。
   - 验证：Core 99/99、Windows 39/39、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖负坐标显示器、任务栏工作区、窗口 DPI 优先、非对称显示器 DPI、96 回退、无显示器/信息失败、无效锚点和原生 API 不可用。
 
-- [ ] **T3.5（P0，0.5 人日）处理 WM_DPICHANGED**
+- [x] **T3.5（P0，0.5 人日）处理 WM_DPICHANGED**
   - 应用建议矩形作为过渡。
   - 基于当前 TargetSession 重新计算位置和尺寸。
   - 验证跨屏后不会沿用旧 DPI 的物理宽高。
+  - 实现：`OverlayWindowAdapter` 在现有 HWND hook 解析 `WM_DPICHANGED`，先以 `SWP_NOACTIVATE` 应用系统建议物理矩形，再发布包含 Core `DpiScale` 和建议矩形的通知；无效消息不应用，消费方异常不逃逸原生窗口过程。`MainWindow` 仅在存在当前 TargetSession 时以配置的 360×176 DIP 和新 DPI 重算物理尺寸，避免复用旧屏物理宽高，并在释放时注销通知。
+  - 验证：Core 99/99、Windows 41/41、Integration 5/5，完整 Release 构建和 win-x64 发布通过；真实 WPF HWND 消息验证建议矩形、192 DPI scale、NoActivate、消费方异常隔离，以及当前会话下 360×176 DIP 重算为 720×352 物理像素。
 
 - [ ] **T3.6（P1，0.5 人日）实现当前会话的手动位置**
   - 拖动后绑定当前 SessionId。

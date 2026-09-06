@@ -1,6 +1,8 @@
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Windows;
+using VirtualKeyboard.Core.Geometry;
+using CoreDpiScale = VirtualKeyboard.Core.Geometry.DpiScale;
 using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.Windows.Tests;
@@ -12,6 +14,7 @@ public sealed class OverlayWindowAdapterTests
     private const long ToolWindowExtendedStyle = 0x00000080L;
     private const int MouseActivateMessage = 0x0021;
     private const int NoActivateMouseResult = 3;
+    private const int DpiChangedMessage = 0x02E0;
 
     [Fact]
     public void ShowAtAppliesNativeContractWithoutBecomingForeground()
@@ -51,6 +54,60 @@ public sealed class OverlayWindowAdapterTests
             Assert.Throws<ArgumentOutOfRangeException>(() => adapter.ShowAt(0, 0, 0, 100));
             Assert.Throws<ArgumentOutOfRangeException>(() => adapter.ShowAt(0, 0, 100, 0));
             Assert.Equal(IntPtr.Zero, adapter.Handle);
+        });
+    }
+
+    [Fact]
+    public void DpiChangedAppliesSuggestedRectangleAndPublishesNewScaleWithoutActivation()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new TestWindow();
+            using var adapter = new OverlayWindowAdapter(window);
+            adapter.ShowAt(-12000, -11000, 240, 120);
+            OverlayDpiChangedNotification? observed = null;
+            adapter.DpiChanged += value => observed = value;
+            var suggested = new NativeRectangle(-9000, -8000, -8600, -7800);
+            IntPtr pointer = Marshal.AllocHGlobal(Marshal.SizeOf<NativeRectangle>());
+            try
+            {
+                Marshal.StructureToPtr(suggested, pointer, false);
+                IntPtr packedDpi = new((192 << 16) | 192);
+                SendMessage(adapter.Handle, DpiChangedMessage, packedDpi, pointer);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pointer);
+            }
+
+            Assert.Equal(suggested, GetRectangle(adapter.Handle));
+            Assert.NotEqual(adapter.Handle, GetForegroundWindow());
+            Assert.NotNull(observed);
+            Assert.Equal(new CoreDpiScale(2, 2), observed.Value.DpiScale);
+            Assert.Equal(new PhysicalPixelRect(-9000, -8000, 400, 200), observed.Value.SuggestedRectangle);
+        });
+    }
+
+    [Fact]
+    public void DpiRelayoutConsumerFailureDoesNotEscapeWindowProcedure()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new TestWindow();
+            using var adapter = new OverlayWindowAdapter(window);
+            adapter.ShowAt(-12000, -11000, 240, 120);
+            adapter.DpiChanged += _ => throw new InvalidOperationException("synthetic");
+            var suggested = new NativeRectangle(-9000, -8000, -8600, -7800);
+            IntPtr pointer = Marshal.AllocHGlobal(Marshal.SizeOf<NativeRectangle>());
+            try
+            {
+                Marshal.StructureToPtr(suggested, pointer, false);
+                Assert.Null(Record.Exception(() => SendMessage(adapter.Handle, DpiChangedMessage, new((144 << 16) | 144), pointer)));
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pointer);
+            }
         });
     }
 

@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using VirtualKeyboard.App;
@@ -103,6 +104,34 @@ public sealed class MinimalOverlayWindowTests
         });
     }
 
+    [Fact]
+    public void DpiChangedRecalculatesConfiguredDipSizeForCurrentSession()
+    {
+        RunOnStaThread(() =>
+        {
+            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, (nint)100, (nint)101);
+            using var window = new MainWindow(new StubCapture(target), new TargetSessionStore());
+            var capture = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
+            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.ShowAt(-12000, -11000, 360, 176);
+
+            var suggested = new NativeRectangle(-9000, -8000, -8600, -7800);
+            IntPtr pointer = Marshal.AllocHGlobal(Marshal.SizeOf<NativeRectangle>());
+            try
+            {
+                Marshal.StructureToPtr(suggested, pointer, false);
+                SendMessage(window.OverlayHandle, 0x02E0, new((192 << 16) | 192), pointer);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(pointer);
+            }
+
+            Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
+            Assert.Equal(new NativeRectangle(-9000, -8000, -8280, -7648), actual);
+        });
+    }
+
     private static void RunOnStaThread(Action action)
     {
         Exception? failure = null;
@@ -130,4 +159,14 @@ public sealed class MinimalOverlayWindowTests
     {
         public TargetCaptureResult Capture() => TargetCaptureResult.Success(snapshot);
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct NativeRectangle(int Left, int Top, int Right, int Bottom);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(nint hwnd, int message, nint wParam, nint lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(nint hwnd, out NativeRectangle rectangle);
 }
