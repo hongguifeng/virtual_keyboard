@@ -187,11 +187,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T2.1（P0，0.75 人日）实现 UIA 专用 MTA 线程**
+- [x] **T2.1（P0，0.75 人日）实现 UIA 专用 MTA 线程**
   - 创建可启动/停止的 FocusObservationService。
   - 在线程内注册/注销 FocusChanged handler。
   - 回调不访问 WPF UI，异常不会逃逸到进程边界。
   - 对应：FR-FOC-001、FR-APP-003。
+  - 实现：`FocusObservationService` 在专用后台 MTA 线程注册/注销 UI Automation FocusChanged handler；事件先进入有界信号再由同一 MTA 线程调用观察者，观察者异常隔离，Start/Stop/Dispose 可重复调用且生命周期等待有 5 秒上限。
+  - 验证：Windows.Tests 21/21、完整 Release 构建通过；覆盖 MTA 注册与回调线程、观察者异常隔离、重复启停/重启和注册失败清理。
 
 - [ ] **T2.2（P0，0.75 人日）实现 FocusSnapshot 和版本控制**
   - 每个事件生成单调递增 FocusVersion。

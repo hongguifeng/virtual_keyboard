@@ -388,6 +388,8 @@ T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 
 
 T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等，释放 Overlay 的 `HwndSource` hook 和诊断资源。M1 的单键发送为同步固定批次，不存在后台输入队列或跨批次保持的修饰键；托盘尚未引入，因此当前退出路径没有托盘或合成按键残留。M4 引入串行队列和修饰键后，退出清理将在 T4.7 扩展。
 
+T2.1 的 `FocusObservationService` 将 UI Automation 订阅集中到专用后台 MTA 线程。生产实现通过 `SystemFocusAutomationSource` 注册 `Automation.AddAutomationFocusChangedEventHandler`，回调只设置线程内信号；服务线程消费信号并调用观察者，避免 UIA 回调直接访问 WPF Dispatcher。注册、消费和注销异常均在服务边界隔离，Start/Stop/Dispose 具备幂等语义，并以 5 秒上限避免生命周期操作无限等待。T2.2 将在此通知上补充不可变 FocusSnapshot 与单调版本号。
+
 T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。Notepad、WPF TestHost、Chrome 的人工矩阵不纳入单元测试，通过 M1/T8.3 验收表记录。
 
 ### 10.3 鼠标与触摸命中
