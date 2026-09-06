@@ -388,6 +388,8 @@ T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 
 
 T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等，释放 Overlay 的 `HwndSource` hook 和诊断资源。M1 的单键发送为同步固定批次，不存在后台输入队列或跨批次保持的修饰键；托盘尚未引入，因此当前退出路径没有托盘或合成按键残留。M4 引入串行队列和修饰键后，退出清理将在 T4.7 扩展。
 
+T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。Notepad、WPF TestHost、Chrome 的人工矩阵不纳入单元测试，通过 M1/T8.3 验收表记录。
+
 ### 10.3 鼠标与触摸命中
 
 - MouseDown 只改变按压视觉状态。
