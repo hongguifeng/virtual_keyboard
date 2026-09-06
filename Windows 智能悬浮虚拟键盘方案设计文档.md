@@ -553,6 +553,8 @@ T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 H
 - 异常、取消和进程退出路径都调用安全释放。
 - CapsLock 默认发送 `VK_CAPITAL` 改变系统锁定状态，并在随后通过 `GetKeyState` 刷新 UI。
 
+T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-3 个互不重复的 Ctrl、Shift、Alt；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。一次性 Shift/Ctrl/Alt 的 UI 锁存策略和 CapsLock 状态刷新仍由 T5.4 `KeyboardController` 实现。
+
 ### 12.6 失败和 UIPI
 
 `SendInput` 返回数量少于请求数量时：

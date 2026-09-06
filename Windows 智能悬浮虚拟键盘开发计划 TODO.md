@@ -352,11 +352,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`KeyInputSender` 从目标焦点 HWND 解析线程和 HKL，以 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)` 获取 scan code；支持 Enter、Tab、Backspace、Escape、四方向及 Home/End、PageUp/PageDown、Insert/Delete。方向/导航键自动带 `KEYEVENTF_EXTENDEDKEY`；`KeyInputBuilder` 同时支持 VK/纯 scan-code 编码、默认 Down+Up 和独立 KeyDown/KeyUp。无效键、零 HWND、线程/HKL/映射失败均在原生发送前拒绝，短返回不重试，日志不含字符化按键结果。
   - 验证：Core 111/111、Windows 86/86、Integration 6/6；覆盖普通/扩展键批次快照、scan-code 模式、单独 Down/Up、目标 HWND→线程→HKL→映射调用链、真实 WPF HWND 原生映射、映射失败、短返回、原生不可用、无重试和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
-- [ ] **T4.5（P0，0.75 人日）实现 Hotkey/Modifier builder**
+- [x] **T4.5（P0，0.75 人日）实现 Hotkey/Modifier builder**
   - 修饰键顺序按下、逆序释放。
   - 记录并只释放本批次合成按下的修饰键。
   - 读取实体键当前状态，测试 Ctrl/Alt/Shift 冲突。
   - 对应：FR-INP-004、005，AC-011。
+  - 实现：`HotkeyInputSender` 快照 1-3 个唯一 Ctrl/Shift/Alt，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 继续负责 UI 一次性锁存和 CapsLock 状态同步。
+  - 验证：Core 111/111、Windows 114/114、Integration 6/6；覆盖三修饰键顺序/逆序快照、实体 Ctrl/Shift/Alt 冲突、可变列表快照、每个部分前缀的精确清理、零返回、异常与清理异常、取消前/准备中取消、无效/重复修饰键、线程/HKL/scan 映射失败、真实 `GetAsyncKeyState` 入口和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
 - [ ] **T4.6（P0，0.5 人日）实现输入失败和 UIPI 提示**
   - 检查 SendInput 返回数量。
