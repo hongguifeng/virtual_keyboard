@@ -27,6 +27,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly LayoutActionDispatcher _actionDispatcher;
     private readonly HotkeyInputSender _hotkeySender;
     private readonly InputInjectionService _inputQueue;
+    private int _repeatInputInFlight;
     private readonly TargetStateCoordinator _coordinator = new();
     private readonly LatestFocusSnapshotStore _latestFocusSnapshots = new();
     private readonly ConfigurationRepository _configurationRepository;
@@ -384,38 +385,43 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             return;
         }
 
-        InputActionKind kind = e.Key.Action.Type switch
+        if (e.IsRepeat && Interlocked.CompareExchange(ref _repeatInputInFlight, 1, 0) != 0) return;
+        try
         {
-            LayoutActionTypes.Text => InputActionKind.Text,
-            LayoutActionTypes.Key => InputActionKind.Key,
-            LayoutActionTypes.Hotkey => InputActionKind.Hotkey,
-            LayoutActionTypes.Chord => InputActionKind.Hotkey,
-            LayoutActionTypes.Modifier => InputActionKind.Modifier,
-            _ => InputActionKind.Key,
-        };
-        QueuedInputResult queued = await _inputQueue.EnqueueAsync(
-            session.SessionId,
-            kind,
-            cancellation => ValueTask.FromResult(_actionDispatcher.Dispatch(session.SessionId, e.Key, cancellation)));
-        if (_disposed || _targetSessions.Current?.SessionId != session.SessionId)
-        {
-            return;
-        }
-        LayoutView.UpdateState(_keyboardController.State);
-        if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
-        {
-            TitleStatusText.Text = string.Empty;
-            return;
-        }
+            InputActionKind kind = e.Key.Action.Type switch
+            {
+                LayoutActionTypes.Text => InputActionKind.Text,
+                LayoutActionTypes.Key => InputActionKind.Key,
+                LayoutActionTypes.Hotkey => InputActionKind.Hotkey,
+                LayoutActionTypes.Chord => InputActionKind.Hotkey,
+                LayoutActionTypes.Modifier => InputActionKind.Modifier,
+                _ => InputActionKind.Key,
+            };
+            QueuedInputResult queued = await _inputQueue.EnqueueAsync(
+                session.SessionId,
+                kind,
+                cancellation => ValueTask.FromResult(_actionDispatcher.Dispatch(session.SessionId, e.Key, cancellation)));
+            if (_disposed || _targetSessions.Current?.SessionId != session.SessionId) return;
+            LayoutView.UpdateState(_keyboardController.State);
+            if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
+            {
+                TitleStatusText.Text = string.Empty;
+                return;
+            }
 
-        if (queued.SendResult is InputSendResult result)
-        {
-            InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
-            TitleStatusText.Text = feedback.Message;
+            if (queued.SendResult is InputSendResult result)
+            {
+                InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
+                TitleStatusText.Text = feedback.Message;
+            }
+            else
+            {
+                TitleStatusText.Text = "输入队列已停止或目标已变化";
+            }
         }
-        else
+        finally
         {
-            TitleStatusText.Text = "输入队列已停止或目标已变化";
+            if (e.IsRepeat) Volatile.Write(ref _repeatInputInFlight, 0);
         }
     }
 

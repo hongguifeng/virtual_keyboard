@@ -34,6 +34,56 @@ public sealed class TouchInteractionTests
         });
     }
 
+    [Fact]
+    public void BackspaceShortPressInvokesOnceAndHeldPressRepeatsWithoutReleaseClick()
+    {
+        RunOnStaThread(() =>
+        {
+            var key = new KeyViewModel(
+                "key.backspace", "Backspace", 2, true,
+                new LayoutActionDefinition(LayoutActionTypes.Key, virtualKey: "Backspace"));
+            var button = new NonFocusableKeyButton(key);
+            var repeats = new List<bool>();
+            button.Invoked += (_, args) => repeats.Add(args.IsRepeat);
+
+            Assert.True(button.BeginGestureForTest());
+            Assert.True(button.EndGestureForTest(isInside: true));
+            Assert.Equal([false], repeats);
+
+            Assert.True(button.BeginGestureForTest());
+            Assert.True(button.RepeatTickForTest());
+            Assert.True(button.RepeatTickForTest());
+            Assert.False(button.EndGestureForTest(isInside: true));
+            Assert.Equal([false, true, true], repeats);
+
+            Assert.True(button.BeginGestureForTest());
+            Assert.True(button.RepeatTickForTest());
+            button.CancelGestureForTest();
+            Assert.False(button.RepeatTickForTest());
+            Assert.False(button.EndGestureForTest(isInside: true));
+            Assert.Equal([false, true, true, true], repeats);
+        });
+    }
+
+    [Fact]
+    public void OtherKeysNeverEnterRepeatMode()
+    {
+        RunOnStaThread(() =>
+        {
+            var key = new KeyViewModel(
+                "key.a", "A", 1, true,
+                new LayoutActionDefinition(LayoutActionTypes.Key, virtualKey: "A"));
+            var button = new NonFocusableKeyButton(key);
+            int invoked = 0;
+            button.Invoked += (_, _) => invoked++;
+
+            Assert.True(button.BeginGestureForTest());
+            Assert.False(button.RepeatTickForTest());
+            Assert.True(button.EndGestureForTest(isInside: true));
+            Assert.Equal(1, invoked);
+        });
+    }
+
     [Theory]
     [InlineData("OnPreviewMouseLeftButtonDown")]
     [InlineData("OnPreviewMouseLeftButtonUp")]

@@ -654,6 +654,8 @@ T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的
 
 `NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。普通 `key` 与组合、文本和 modifier 一样只发一次完整点击动作，dispatcher 随后以单个原生批次提交普通键 Down/Up。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
+REL-021 只为 action 为 `key/Backspace` 的按键启用 `AcceleratingKeyRepeatController` 和 WPF `DispatcherTimer`。按下先等待 450ms；首个重复动作后使用 140ms 间隔，后续每次乘 0.85，最低限制为 45ms。短按仍在有效释放时发送一次；一旦产生过重复 tick，释放不再补发。鼠标移出、触摸移出、LostCapture、隐藏、Unloaded 和 Cancel 都停止 timer 并重置状态。每个 tick 仍提交完整且原子的 Backspace Press，不把一个物理 Down 长期保持到目标中。`KeyInvokedEventArgs.IsRepeat` 区分重复动作；App 使用一个原子在途位丢弃尚未完成期间的新 tick，确保重复删除不进入有界队列形成积压，下一次 timer tick 可自然恢复。
+
 M5 review 修正增加 Windows `LayoutActionDispatcher`。动态 `KeyInvoked` 先进入 Core `InputInjectionService` 有界串行队列；消费者同步复核 SessionId、前台、焦点和密码策略，再把标准 key 送入 `KeyInputSender`，把显式或保持的 Shift/Ctrl/Alt/Win 组合送入 `HotkeyInputSender`，把 Unicode text 保持在 `UnicodeTextInputSender`；Fn 选择 key 的 `fnVirtualKey`，其他 modifier 更新控制器或经验证切换系统 CapsLock。未知键/修饰键在发送前拒绝。UI 不再硬编码仅发送 A；状态文本也不回显 label 或 text。退出顺序为停止队列、清理控制器、Dispose 热键安全闩锁、最后关闭诊断。
 动作完成或失败后，`KeyboardLayoutView.UpdateState` 使用同一 `KeyboardControllerState` 更新状态键视觉；因此再次点击释放、目标切换或 CapsLock 刷新不会留下过时高亮。
 

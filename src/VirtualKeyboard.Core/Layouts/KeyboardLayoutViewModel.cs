@@ -92,3 +92,54 @@ public sealed class KeyGestureController
         }
     }
 }
+
+/// <summary>Produces a bounded accelerating repeat schedule for a single held key.</summary>
+public sealed class AcceleratingKeyRepeatController
+{
+    public static readonly TimeSpan InitialDelay = TimeSpan.FromMilliseconds(450);
+    public static readonly TimeSpan StartingInterval = TimeSpan.FromMilliseconds(140);
+    public static readonly TimeSpan MinimumInterval = TimeSpan.FromMilliseconds(45);
+    private const double AccelerationFactor = 0.85;
+
+    private bool _active;
+    private bool _repeated;
+    private TimeSpan _nextDelay = InitialDelay;
+
+    public bool HasRepeated => _repeated;
+
+    public TimeSpan Begin()
+    {
+        _active = true;
+        _repeated = false;
+        _nextDelay = InitialDelay;
+        return _nextDelay;
+    }
+
+    public KeyRepeatTick Tick()
+    {
+        if (!_active) return new(false, _nextDelay);
+        _nextDelay = !_repeated
+            ? StartingInterval
+            : TimeSpan.FromMilliseconds(Math.Max(MinimumInterval.TotalMilliseconds, _nextDelay.TotalMilliseconds * AccelerationFactor));
+        _repeated = true;
+        return new(true, _nextDelay);
+    }
+
+    public bool Release(bool isInside)
+    {
+        bool invokeSingle = _active && isInside && !_repeated;
+        Reset();
+        return invokeSingle;
+    }
+
+    public void Cancel() => Reset();
+
+    private void Reset()
+    {
+        _active = false;
+        _repeated = false;
+        _nextDelay = InitialDelay;
+    }
+}
+
+public readonly record struct KeyRepeatTick(bool ShouldInvoke, TimeSpan NextDelay);

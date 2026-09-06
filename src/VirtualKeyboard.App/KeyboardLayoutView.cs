@@ -3,14 +3,22 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.App;
 
-public sealed class KeyInvokedEventArgs(KeyViewModel key) : EventArgs
+public sealed class KeyInvokedEventArgs(KeyViewModel key, bool isRepeat = false) : EventArgs
 {
     public KeyViewModel Key { get; } = key ?? throw new ArgumentNullException(nameof(key));
+
+    public bool IsRepeat { get; } = isRepeat;
+}
+
+internal sealed class KeyButtonInvokedEventArgs(bool isRepeat) : EventArgs
+{
+    internal bool IsRepeat { get; } = isRepeat;
 }
 
 /// <summary>Builds non-focusable weighted key rows from an immutable layout view model.</summary>
@@ -95,11 +103,10 @@ public sealed class KeyboardLayoutView : Grid
         return row;
     }
 
-    private void OnButtonInvoked(object? sender, EventArgs e)
+    private void OnButtonInvoked(object? sender, KeyButtonInvokedEventArgs e)
     {
-        _ = e;
         var button = (NonFocusableKeyButton)sender!;
-        KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
+        KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key, e.IsRepeat));
     }
 
     private static IEnumerable<NonFocusableKeyButton> DescendantButtons(DependencyObject root)
@@ -167,7 +174,7 @@ public sealed class CustomKeyColumnView : Grid
                 HorizontalContentAlignment = HorizontalAlignment.Center,
             };
             AutomationProperties.SetAutomationId(button, $"CustomKey{index}");
-            button.Invoked += (_, _) => KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
+            button.Invoked += (_, args) => KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key, args.IsRepeat));
             SetRow(button, index % KeysPerColumn);
             SetColumn(button, index / KeysPerColumn);
             Children.Add(button);
@@ -178,6 +185,8 @@ public sealed class CustomKeyColumnView : Grid
 internal sealed class NonFocusableKeyButton : Button
 {
     private readonly KeyGestureController _gesture = new();
+    private readonly AcceleratingKeyRepeatController? _repeat;
+    private readonly DispatcherTimer? _repeatTimer;
     private double _restingOpacity = 1;
 
     internal NonFocusableKeyButton(KeyViewModel key)
@@ -186,9 +195,21 @@ internal sealed class NonFocusableKeyButton : Button
         Focusable = false;
         IsTabStop = false;
         ClickMode = ClickMode.Release;
+        if (key.Action.Type == LayoutActionTypes.Key &&
+            key.Action.VirtualKey?.Equals("Backspace", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            _repeat = new AcceleratingKeyRepeatController();
+            _repeatTimer = new DispatcherTimer(DispatcherPriority.Input, Dispatcher);
+            _repeatTimer.Tick += OnRepeatTimerTick;
+            Unloaded += (_, _) => CancelGesture();
+            IsVisibleChanged += (_, args) =>
+            {
+                if (args.NewValue is false) CancelGesture();
+            };
+        }
     }
 
-    internal event EventHandler? Invoked;
+    internal event EventHandler<KeyButtonInvokedEventArgs>? Invoked;
 
     internal KeyViewModel Key { get; }
 
@@ -231,12 +252,14 @@ internal sealed class NonFocusableKeyButton : Button
         bool invoke = EndGesture(isInside);
         if (invoke)
         {
-            Invoked?.Invoke(this, EventArgs.Empty);
+            Invoked?.Invoke(this, new KeyButtonInvokedEventArgs(isRepeat: false));
         }
         return invoke;
     }
 
     internal void CancelGestureForTest() => CancelGesture();
+
+    internal bool RepeatTickForTest() => RepeatTick();
 
     protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
     {
@@ -262,7 +285,17 @@ internal sealed class NonFocusableKeyButton : Button
         ReleaseMouseCapture();
         if (invoke)
         {
-            Invoked?.Invoke(this, EventArgs.Empty);
+            Invoked?.Invoke(this, new KeyButtonInvokedEventArgs(isRepeat: false));
+        }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_repeat is not null && IsMouseCaptured && !IsMouseOver)
+        {
+            CancelGesture();
+            ReleaseMouseCapture();
         }
     }
 
@@ -292,7 +325,7 @@ internal sealed class NonFocusableKeyButton : Button
         e.TouchDevice.Capture(null);
         if (invoke)
         {
-            Invoked?.Invoke(this, EventArgs.Empty);
+            Invoked?.Invoke(this, new KeyButtonInvokedEventArgs(isRepeat: false));
         }
     }
 
@@ -302,6 +335,13 @@ internal sealed class NonFocusableKeyButton : Button
         if (e.TouchDevice.Captured == this)
         {
             e.Handled = true;
+            Point position = e.GetTouchPoint(this).Position;
+            if (_repeat is not null &&
+                (position.X < 0 || position.Y < 0 || position.X > ActualWidth || position.Y > ActualHeight))
+            {
+                CancelGesture();
+                e.TouchDevice.Capture(null);
+            }
         }
     }
 
@@ -325,21 +365,53 @@ internal sealed class NonFocusableKeyButton : Button
         }
         _restingOpacity = Opacity;
         Opacity = 0.65;
+        if (_repeat is not null && _repeatTimer is not null)
+        {
+            _repeatTimer.Interval = _repeat.Begin();
+            _repeatTimer.Start();
+        }
         return true;
     }
 
     private bool EndGesture(bool isInside)
     {
-        bool invoke = _gesture.Release(isInside);
+        bool releasedInside = _gesture.Release(isInside);
+        _repeatTimer?.Stop();
+        bool invoke = _repeat?.Release(releasedInside) ?? releasedInside;
         Opacity = _restingOpacity;
         return invoke;
     }
 
     private void CancelGesture()
     {
+        _repeatTimer?.Stop();
+        _repeat?.Cancel();
         if (_gesture.Cancel())
         {
             Opacity = _restingOpacity;
         }
+    }
+
+    private void OnRepeatTimerTick(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        RepeatTick();
+    }
+
+    private bool RepeatTick()
+    {
+        if (_repeat is null || _repeatTimer is null || !_gesture.IsPressed)
+        {
+            _repeatTimer?.Stop();
+            _repeat?.Cancel();
+            return false;
+        }
+
+        KeyRepeatTick tick = _repeat.Tick();
+        if (!tick.ShouldInvoke) return false;
+        _repeatTimer.Interval = tick.NextDelay;
+        Invoked?.Invoke(this, new KeyButtonInvokedEventArgs(isRepeat: true));
+        return true;
     }
 }
