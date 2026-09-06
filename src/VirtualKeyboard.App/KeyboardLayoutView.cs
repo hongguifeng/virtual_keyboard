@@ -222,9 +222,9 @@ internal sealed class NonFocusableKeyButton : Button
         IsModifierActive = active;
         if (active)
         {
-            Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x78, 0xD1));
+            Background = new SolidColorBrush(Color.FromRgb(0x28, 0x78, 0xF0));
             Foreground = Brushes.White;
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x04, 0x3F, 0x73));
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x75, 0xAE, 0xFF));
             BorderThickness = new Thickness(2);
             FontWeight = FontWeights.SemiBold;
         }

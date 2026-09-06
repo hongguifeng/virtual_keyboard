@@ -13,29 +13,100 @@
         MinHeight="280"
         Width="760"
         Height="340"
-        Background="#F4F4F4">
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        Foreground="#F4F7FB"
+        Background="Transparent">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="7" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="7" CornerRadius="14" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
-    <Border BorderBrush="#777777" BorderThickness="1" Padding="8">
+    <Window.Resources>
+        <SolidColorBrush x:Key="KeyboardKeyBrush" Color="#2A3546"/>
+        <SolidColorBrush x:Key="KeyboardKeyHoverBrush" Color="#35445A"/>
+        <SolidColorBrush x:Key="KeyboardKeyPressedBrush" Color="#1E2938"/>
+        <SolidColorBrush x:Key="KeyboardKeyBorderBrush" Color="#506078"/>
+        <SolidColorBrush x:Key="KeyboardAccentBrush" Color="#2878F0"/>
+        <SolidColorBrush x:Key="KeyboardAccentBorderBrush" Color="#75AEFF"/>
+        <Style TargetType="local:NonFocusableKeyButton">
+            <Setter Property="Background" Value="{StaticResource KeyboardKeyBrush}"/>
+            <Setter Property="Foreground" Value="#F5F7FB"/>
+            <Setter Property="BorderBrush" Value="{StaticResource KeyboardKeyBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="5,3"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="local:NonFocusableKeyButton">
+                        <Border x:Name="KeyChrome" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="KeyChrome" Property="Background" Value="{StaticResource KeyboardKeyHoverBrush}"/>
+                                <Setter TargetName="KeyChrome" Property="BorderBrush" Value="#7890AE"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="KeyChrome" Property="Background" Value="{StaticResource KeyboardKeyPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TitleButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="#DCE6F4"/>
+            <Setter Property="Background" Value="#263346"/>
+            <Setter Property="BorderBrush" Value="#46566D"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#34445B"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#1A2432"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Border x:Name="RootChrome" BorderBrush="#56677E" BorderThickness="1" CornerRadius="14" Padding="10" Background="#F2182230">
+        <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.42" Color="#05080D"/></Border.Effect>
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="28" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False"
+            <Grid x:Name="DragArea" Grid.Row="0" Background="Transparent" Focusable="False"
                   MouseLeftButtonDown="OnDragAreaMouseLeftButtonDown"
                   MouseMove="OnDragAreaMouseMove"
                   MouseLeftButtonUp="OnDragAreaMouseLeftButtonUp">
-                <TextBlock Text="Virtual Keyboard" VerticalAlignment="Center" Margin="6,0" Focusable="False" IsHitTestVisible="False" />
-                <TextBlock x:Name="TitleStatusText" VerticalAlignment="Center" Margin="150,0,100,0" Foreground="Firebrick"
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0" IsHitTestVisible="False">
+                    <Border Width="8" Height="8" CornerRadius="4" Background="#4F9BFF" Margin="0,0,8,0"/>
+                    <TextBlock Text="Virtual Keyboard" Foreground="#F7FAFF" FontWeight="SemiBold" FontSize="13"/>
+                </StackPanel>
+                <TextBlock x:Name="TitleStatusText" VerticalAlignment="Center" Margin="160,0,115,0" Foreground="#FF9B9B"
                            TextTrimming="CharacterEllipsis" Focusable="False" IsHitTestVisible="False" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="SettingsButton" Content="设置" Width="52" Height="22" Margin="0,0,6,0" Focusable="False" IsTabStop="False" Click="OnSettingsClick" />
-                    <Button x:Name="CloseButton" Content="×" Width="24" Height="22" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
+                    <Button x:Name="SettingsButton" Style="{StaticResource TitleButtonStyle}" Content="Settings" MinWidth="66" Height="24" Padding="9,0" Margin="0,0,6,0" Focusable="False" IsTabStop="False" Click="OnSettingsClick" />
+                    <Button x:Name="CloseButton" Style="{StaticResource TitleButtonStyle}" Content="×" Width="28" Height="24" FontSize="17" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
                 </StackPanel>
             </Grid>
-            <Grid x:Name="KeyboardBodyGrid" Grid.Row="1" Margin="0,6,0,0" ClipToBounds="True">
+            <Grid x:Name="KeyboardBodyGrid" Grid.Row="1" Margin="0,8,0,0" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="StandardKeyboardColumn" Width="16*"/>
                     <ColumnDefinition x:Name="CustomKeyboardColumn" Width="0*"/>

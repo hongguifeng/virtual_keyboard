@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using VirtualKeyboard.App;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Targeting;
@@ -57,6 +58,23 @@ public sealed class SettingsWindowTests
             Assert.Equal("Virtual Keyboard 设置", window.Title);
             Assert.Equal("启用键盘", Find<CheckBox>(window, "EnabledCheckBox").Content);
             Assert.Equal(UiLanguage.SimplifiedChinese, window.ReadConfiguration().UiLanguage);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void SettingsUsesModernCardAndAccentActionStyling()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            var window = new SettingsWindow(fixture.Repository);
+            var card = Find<Border>(window, "SettingsCard");
+            var save = Find<Button>(window, "SaveButton");
+
+            Assert.Equal(new CornerRadius(12), card.CornerRadius);
+            Assert.Equal(Color.FromRgb(0x28, 0x78, 0xF0), Assert.IsType<SolidColorBrush>(save.Background).Color);
+            Assert.Equal("Segoe UI Variable Text, Segoe UI", window.FontFamily.Source);
             window.Close();
         });
     }

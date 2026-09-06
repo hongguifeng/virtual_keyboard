@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using VirtualKeyboard.App;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Diagnostics;
@@ -207,6 +208,23 @@ public sealed class MinimalOverlayWindowTests
             using var exported = new MemoryStream();
             view.ExportCurrent(exported);
             Assert.True(exported.Length > 0);
+        });
+    }
+
+    [Fact]
+    public void KeyboardUsesRoundedDarkChromeAndStyledKeys()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
+            var chrome = Assert.IsType<Border>(window.FindName("RootChrome"));
+            var layout = Assert.IsType<KeyboardLayoutView>(window.FindName("LayoutView"));
+            var key = Descendants<NonFocusableKeyButton>(layout).First();
+
+            Assert.Equal(new CornerRadius(14), chrome.CornerRadius);
+            Assert.Equal(Color.FromArgb(0xF2, 0x18, 0x22, 0x30), Assert.IsType<SolidColorBrush>(chrome.Background).Color);
+            Assert.NotNull(key.Template);
+            Assert.Equal(Color.FromRgb(0x2A, 0x35, 0x46), Assert.IsType<SolidColorBrush>(key.Background).Color);
         });
     }
 
