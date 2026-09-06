@@ -1,3 +1,4 @@
+using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.Windows.Tests;
@@ -98,6 +99,57 @@ public sealed class FocusObservationServiceTests
         Assert.Null(Record.Exception(source.Raise));
     }
 
+    [Fact]
+    public void SnapshotIsCapturedAndPublishedOnObserverMtaThread()
+    {
+        var source = new FakeFocusAutomationSource();
+        var expected = new FocusSnapshot(
+            7,
+            DateTimeOffset.UtcNow,
+            42,
+            (nint)100,
+            new RuntimeIdentity([1, 2]),
+            FocusControlType.Edit,
+            true,
+            true,
+            false,
+            false);
+        var snapshots = new StubFocusSnapshotSource(expected);
+        using var observed = new ManualResetEventSlim(false);
+        FocusChangedNotification notification = default;
+        using var service = new FocusObservationService(source, snapshots, value =>
+        {
+            notification = value;
+            observed.Set();
+        });
+        service.Start();
+
+        source.Raise();
+
+        Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
+        Assert.Same(expected, notification.Snapshot);
+        Assert.Equal(source.RegisterThreadId, snapshots.CaptureThreadId);
+        Assert.Equal(ApartmentState.MTA, snapshots.CaptureApartment);
+    }
+
+    [Fact]
+    public void BurstWithinCapacityProducesOneNotificationPerSignal()
+    {
+        const int signalCount = 64;
+        var source = new FakeFocusAutomationSource();
+        using var observed = new CountdownEvent(signalCount);
+        using var service = new FocusObservationService(source, _ => observed.Signal());
+        service.Start();
+
+        for (int index = 0; index < signalCount; index++)
+        {
+            source.Raise();
+        }
+
+        Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
+        Assert.Equal(0, observed.CurrentCount);
+    }
+
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {
         private Action? _notification;
@@ -138,6 +190,19 @@ public sealed class FocusObservationServiceTests
         {
             Action notification = Assert.IsType<Action>(_notification);
             notification();
+        }
+    }
+
+    private sealed class StubFocusSnapshotSource(FocusSnapshot snapshot) : IFocusSnapshotSource
+    {
+        public int CaptureThreadId { get; private set; }
+        public ApartmentState CaptureApartment { get; private set; }
+
+        public FocusSnapshot Capture()
+        {
+            CaptureThreadId = Environment.CurrentManagedThreadId;
+            CaptureApartment = Thread.CurrentThread.GetApartmentState();
+            return snapshot;
         }
     }
 }

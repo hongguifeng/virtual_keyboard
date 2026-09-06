@@ -1,4 +1,5 @@
 using System.Windows.Automation;
+using VirtualKeyboard.Core.Targeting;
 
 namespace VirtualKeyboard.Windows;
 
@@ -6,25 +7,39 @@ namespace VirtualKeyboard.Windows;
 public sealed class FocusObservationService : IDisposable
 {
     private const int LifecycleTimeoutMilliseconds = 5_000;
+    private const int PendingFocusCapacity = 256;
 
     private readonly IFocusAutomationSource _source;
+    private readonly IFocusSnapshotSource _snapshotSource;
     private readonly Action<FocusChangedNotification>? _observer;
     private readonly object _gate = new();
     private readonly ManualResetEvent _started = new(false);
     private readonly ManualResetEvent _stopRequested = new(false);
-    private readonly AutoResetEvent _focusPending = new(false);
+    private readonly SemaphoreSlim _focusPending = new(0, PendingFocusCapacity);
     private Thread? _thread;
     private Exception? _startupError;
     private bool _disposed;
 
     public FocusObservationService(Action<FocusChangedNotification>? observer = null)
-        : this(new SystemFocusAutomationSource(), observer)
+        : this(
+            new SystemFocusAutomationSource(),
+            new SystemFocusSnapshotSource(new FocusSnapshotFactory(Environment.ProcessId)),
+            observer)
     {
     }
 
     internal FocusObservationService(IFocusAutomationSource source, Action<FocusChangedNotification>? observer = null)
+        : this(source, NullFocusSnapshotSource.Instance, observer)
+    {
+    }
+
+    internal FocusObservationService(
+        IFocusAutomationSource source,
+        IFocusSnapshotSource snapshotSource,
+        Action<FocusChangedNotification>? observer = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
+        _snapshotSource = snapshotSource ?? throw new ArgumentNullException(nameof(snapshotSource));
         _observer = observer;
     }
 
@@ -52,7 +67,7 @@ public sealed class FocusObservationService : IDisposable
             _startupError = null;
             _started.Reset();
             _stopRequested.Reset();
-            while (_focusPending.WaitOne(0))
+            while (_focusPending.Wait(0))
             {
             }
 
@@ -140,14 +155,21 @@ public sealed class FocusObservationService : IDisposable
                 return;
             }
 
-            WaitHandle[] handles = [_stopRequested, _focusPending];
+            WaitHandle[] handles = [_stopRequested, _focusPending.AvailableWaitHandle];
             while (WaitHandle.WaitAny(handles) == 1)
             {
+                if (!_focusPending.Wait(0))
+                {
+                    continue;
+                }
+
                 try
                 {
+                    FocusSnapshot? snapshot = _snapshotSource.Capture();
                     _observer?.Invoke(new FocusChangedNotification(
                         DateTimeOffset.UtcNow,
-                        Environment.CurrentManagedThreadId));
+                        Environment.CurrentManagedThreadId,
+                        snapshot));
                 }
                 catch
                 {
@@ -180,16 +202,23 @@ public sealed class FocusObservationService : IDisposable
     {
         try
         {
-            _focusPending.Set();
+            _focusPending.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Bounded backpressure: a burst cannot grow pending work beyond the fixed capacity.
         }
         catch (ObjectDisposedException)
         {
-            // A native callback already in flight may arrive just after unregistration/disposal.
+            // A late native callback may race with service disposal.
         }
     }
 }
 
-public readonly record struct FocusChangedNotification(DateTimeOffset OccurredAtUtc, int ObserverThreadId);
+public readonly record struct FocusChangedNotification(
+    DateTimeOffset OccurredAtUtc,
+    int ObserverThreadId,
+    FocusSnapshot? Snapshot);
 
 internal interface IFocusAutomationSource
 {
@@ -218,4 +247,27 @@ internal sealed class SystemFocusAutomationSource : IFocusAutomationSource
             _handler = null;
         }
     }
+}
+
+internal interface IFocusSnapshotSource
+{
+    FocusSnapshot? Capture();
+}
+
+internal sealed class SystemFocusSnapshotSource(FocusSnapshotFactory factory) : IFocusSnapshotSource
+{
+    public FocusSnapshot? Capture()
+    {
+        AutomationElement? element = AutomationElement.FocusedElement;
+        return element is not null && factory.TryCreate(element, out FocusSnapshot? snapshot)
+            ? snapshot
+            : null;
+    }
+}
+
+internal sealed class NullFocusSnapshotSource : IFocusSnapshotSource
+{
+    public static NullFocusSnapshotSource Instance { get; } = new();
+
+    public FocusSnapshot? Capture() => null;
 }

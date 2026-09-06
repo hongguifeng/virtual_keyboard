@@ -191,13 +191,12 @@ public sealed record FocusSnapshot(
     DateTimeOffset ObservedAt,
     int ProcessId,
     nint TopLevelHwnd,
-    int[]? RuntimeId,
-    string ControlType,
+    RuntimeIdentity? RuntimeId,
+    FocusControlType ControlType,
     bool HasKeyboardFocus,
     bool IsEnabled,
     bool IsOffscreen,
-    bool IsPassword,
-    NativeRect? BoundingRect);
+    bool IsPassword);
 
 public sealed record ClassificationResult(
     long Version,
@@ -224,6 +223,8 @@ public enum InputActionKind
     Modifier
 }
 ```
+
+`RuntimeIdentity` 对 RuntimeId 做深复制并只暴露副本；`FocusControlType` 是 Core 内封闭枚举，避免将 UIA 类型泄漏到核心层。`FocusSnapshotVersionGenerator` 使用 `Interlocked.Increment` 分配进程内单调版本号，在创建前过滤无效 PID、零 HWND 和自身进程。`FocusSnapshotFactory` 在 UIA MTA 观察线程读取上述白名单属性，禁止读取或记录 `Name`/`Value`；元素失效、无效操作和 COM 异常均返回无快照结果。BoundingRectangle 与 caret 不属于 T2.2 快照，分别在后续分类/锚点任务中按物理像素契约读取。
 
 DTO 中不得包含 AutomationElement 的 Value 或用户输入内容。AutomationElement/COM 引用不跨线程长期保存；需要时基于最新焦点重新获取和验证。
 

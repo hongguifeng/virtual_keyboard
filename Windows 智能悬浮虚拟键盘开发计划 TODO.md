@@ -195,11 +195,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`FocusObservationService` 在专用后台 MTA 线程注册/注销 UI Automation FocusChanged handler；事件先进入有界信号再由同一 MTA 线程调用观察者，观察者异常隔离，Start/Stop/Dispose 可重复调用且生命周期等待有 5 秒上限。
   - 验证：Windows.Tests 21/21、完整 Release 构建通过；覆盖 MTA 注册与回调线程、观察者异常隔离、重复启停/重启和注册失败清理。
 
-- [ ] **T2.2（P0，0.75 人日）实现 FocusSnapshot 和版本控制**
+- [x] **T2.2（P0，0.75 人日）实现 FocusSnapshot 和版本控制**
   - 每个事件生成单调递增 FocusVersion。
   - 只收集允许的元数据，不读取 Value。
   - 忽略虚拟键盘自身进程。
   - 对应：FR-FOC-002、006。
+  - 实现：`FocusSnapshot` 使用不可变 `RuntimeIdentity`、封闭的 `FocusControlType` 和版本/时间/窗口/状态字段；`FocusSnapshotVersionGenerator` 以进程内原子计数分配版本，并在创建前过滤无效 HWND、无效 PID和自身进程。`FocusSnapshotFactory` 仅读取 ProcessId、NativeWindowHandle、ControlType、RuntimeId、HasKeyboardFocus、IsEnabled、IsOffscreen、IsPassword；不读取 Name/Value。UIA 读取限定在观察线程，元素失效和 COM 异常转换为无快照结果。
+  - 验证：Core 33/33、Windows 26/26、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖版本单调性、RuntimeId 深复制、自进程过滤、真实 WPF HWND 元数据和 MTA 观察线程。BoundingRectangle/caret 锚点留待 T2.4/T3.2，在本任务不读取输入内容。
 
 - [ ] **T2.3（P0，1-1.5 人日）实现 EditabilityClassifier**
   - 支持 Editable/NotEditable/Unknown 和稳定 ReasonCode。
