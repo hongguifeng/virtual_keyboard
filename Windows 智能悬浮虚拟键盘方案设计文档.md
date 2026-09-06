@@ -296,6 +296,8 @@ NotEditable(NoEditableEvidence)
 
 ### 8.4 目标会话建立
 
+T2.4 的 `NativeFocusAdapter` 是前台/GUI 线程原生信息的统一只读边界：一次捕获返回前台 HWND、进程/线程 ID、焦点 HWND、目标线程 HKL 和可选 caret 屏幕矩形。`GUITHREADINFO.rcCaret` 仅在 caret HWND 有效时通过 `ClientToScreen` 转换；无效矩形降级为空，API 或坐标转换失败返回 `NativeFocusStatus`，不会向协调器抛出原生加载异常，也不会调用任何激活 API。
+
 分类成功后：
 
 1. 解析元素顶层 HWND 和进程 ID。

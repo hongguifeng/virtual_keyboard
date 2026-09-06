@@ -212,11 +212,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `EditabilityClassifier` 按身份、启用/焦点/离屏、只读、密码 Edit、ValuePattern、TextEditPattern、caret 和 TextPattern-only 顺序返回封闭的 `ClassificationReasonCode`；`ScreenRectangle` 拒绝 NaN/Infinity、超限、负尺寸和零矩形。Windows `EditabilityEvidenceFactory` 仅读取 Pattern 可用性与 `IsReadOnly`，不读取 Value/Text，并隔离 UIA/COM 异常。
   - 验证：Core 49/49、Windows 30/30、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖密码 Edit、ValuePattern、TextEditPattern、TextPattern-only、只读优先、焦点/启用/离屏、caret 归属及异常路径。
 
-- [ ] **T2.4（P0，0.75-1 人日）实现 NativeFocusAdapter**
+- [x] **T2.4（P0，0.75-1 人日）实现 NativeFocusAdapter**
   - 封装 GetForegroundWindow、GetWindowThreadProcessId、GetGUIThreadInfo、ClientToScreen。
   - 获取焦点 HWND、caret、目标线程键盘布局。
   - 原生错误转换为结果类型，不直接抛到协调器。
   - 对应：FR-FOC-004、FR-POS-001。
+  - 实现：`NativeFocusAdapter` 集中封装前台窗口、线程/进程、GUI 线程焦点和 caret、`ClientToScreen` 以及目标线程键盘布局；输出 Core `NativeFocusResult`，不改变前台或焦点。caret 转换为屏幕物理像素并复用有限/非零矩形校验，无效 caret 仅降级为空，原生加载和关键调用失败返回封闭状态。
+  - 验证：Core 49/49、Windows 34/34、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖焦点身份、caret 两点坐标转换、键盘布局、无效 caret 降级、转换失败和原生 API 不可用。
 
 - [ ] **T2.5（P0，1-1.5 人日）实现 TargetStateCoordinator 状态机**
   - 实现 Disabled、Hidden、Evaluating、VisibleTracking、ManuallySuppressed、SettingsOpen、ShuttingDown。
