@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.7 布局、状态、视图、密码与触摸实现任务已完成；完整键盘端到端输入及实体触摸屏仍待验收，权限/目标切换实机门禁与 M1-M3 交互式矩阵也仍待验收。
+> 当前状态：M6 已完成，M7 按项目决策跳过，M8 的验收表、打包和用户文档已完成。发布评审因自动焦点宿主未接线、实机矩阵/M7 证据缺失以及未签名/未有效扫描而拒绝当前候选版；该构建仅限内部验证。
 
 动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt 锁存与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
 修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/CapsLock 的活动态不会与实际发送状态分离。
@@ -59,6 +59,8 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 安装、启动、托盘、设置、布局、诊断隐私、升级/卸载和平台限制见 [内测使用与支持指南](docs/user-guide.md)。
 
 M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.md)、[DPI/多屏矩阵](docs/release/dpi-matrix-1.0.0.md)、[AC-001 至 AC-015 验收表](docs/release/acceptance-1.0.0.md)和[发布阻断清单](docs/release/known-issues-1.0.0.md)。
+
+当前发布决定见 [1.0.0 发布评审](docs/release/release-review-1.0.0.md)，版本变更见 [CHANGELOG](CHANGELOG.md)。
 
 ## 布局 schema
 
