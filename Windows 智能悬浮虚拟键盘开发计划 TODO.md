@@ -136,7 +136,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 验证：`VirtualKeyboard.Windows.Tests` 2/2 通过；`MinimalOverlayWindowTests` 在 STA 线程创建真实 WPF HWND，验证 `WS_EX_NOACTIVATE/WS_EX_TOOLWINDOW`、`WM_MOUSEACTIVATE → MA_NOACTIVATE`、`SetWindowPos` 物理像素矩形、移动不改变前台窗口和非法尺寸边界；`VirtualKeyboard.IntegrationTests` 1/1 验证窗口及交互控件的 NoActivate/不可聚焦配置。
 
 - [x] **T1.2（P0，0.5 人日）建立最小 TargetSession**
-  - 用户先聚焦 Notepad，再从托盘/调试入口执行“捕获当前目标并显示”。
+  - 用户先聚焦 Notepad，键盘自动识别目标并显示（早期托盘/调试捕获入口已在最终流程删除）。
   - 保存前台 HWND、进程 ID、焦点 HWND 和会话版本。
   - 不允许键盘自行激活目标。
   - 对应：FR-FOC-005。
@@ -302,7 +302,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 拖动后绑定当前 SessionId。
   - 新目标或 DPI 变化时恢复自动定位。
   - 对应：FR-VIS-006。
-  - 实现：Core `ManualPositionTracker` 以物理光标增量计算窗口矩形，并将完成位置严格绑定单一 SessionId；错误会话不能更新/结束。`OverlayWindowAdapter` 通过 `GetCursorPos/GetWindowRect` 和 `SetWindowPos(SWP_NOACTIVATE)` 执行拖动，App 拖动区使用 mouse capture 而非会激活窗口的 `DragMove`。捕获失败、新会话、DPI 变化、取消或释放会清除相应状态。
+  - 实现：Core `ManualPositionTracker` 以物理光标增量计算窗口矩形，并将完成位置严格绑定单一 SessionId；错误会话不能更新/结束。`OverlayWindowAdapter` 通过 `GetCursorPos/GetWindowRect` 和 `SetWindowPos(SWP_NOACTIVATE)` 执行拖动，App 拖动区使用 mouse capture 而非会激活窗口的 `DragMove`。焦点评估失败、新会话、DPI 变化、取消或释放会清除相应状态。
   - 验证：Core 104/104、Windows 42/42、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖物理增量、会话隔离、取消/失效、真实 HWND NoActivate 手动移动，以及新 SessionId/WM_DPICHANGED 清除旧手动位置。
 
 ### M3 测试矩阵
@@ -582,6 +582,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 当前证据：已盘点 Windows 11 Pro x64 build 26100，以及 Notepad、Chrome 152、Edge 152、VS Code 1.136.1；未执行真人交互，Windows 10 环境缺失。详见 `docs/release/compatibility-matrix-1.0.0.md`，任务保持未勾选。
   - 发布评审后修正：`REL-001` 已接通 MTA UIA 观察、无内容模式证据分类、RuntimeId 目标会话、DPI/工作区定位、自动显示/隐藏和手动抑制；Windows 155/155、Integration 25/25。状态为待实机验证，不等于 T8.1 完成。
   - 实测修正：发现当前桌面中的 UIA provider 未触发全局 FocusChanged，观察线程增加 250 ms 有界轮询兜底并按焦点身份/状态去重；新增事件缺失和重复快照测试。该修正仍不替代真人或跨系统兼容矩阵，T8.1 保持未勾选。
+  - 产品流程修正：删除早期调试用“捕获当前目标”按钮及 PID/HWND 状态展示，目标会话只由自动焦点评估建立；集成测试改走自动评估入口，T8.1 仍保持未勾选。
 
 - [ ] **T8.2（P0，0.75-1 人日）执行 DPI/多屏矩阵**
   - 100%、125%、150%、175%、200%。
@@ -614,7 +615,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 安装、启动、托盘、设置、布局、卸载。
   - 明确管理员窗口、安全桌面、IME 和第三方 provider 限制。
   - 提供诊断日志导出步骤，不要求用户提供输入内容。
-  - 实现：`docs/user-guide.md` 覆盖便携安装/哈希核对、启动与目标捕获、托盘、设置、布局、升级/卸载/回滚、权限/安全桌面/IME/provider/DPI 限制，以及只导出日志且排除 config/layout/recovery/输入内容的隐私步骤。
+  - 实现：`docs/user-guide.md` 覆盖便携安装/哈希核对、启动与自动目标识别、托盘、设置、布局、升级/卸载/回滚、权限/安全桌面/IME/provider/DPI 限制，以及只导出日志且排除 config/layout/recovery/输入内容的隐私步骤。
   - 说明：文档明确标记自动焦点监听和磁盘诊断尚未接入宿主、跨系统/应用/多屏/触摸证据缺失以及未签名内测范围，不把字段保存或自动测试写成实机验收完成。
   - 发布评审后修正：自动焦点和磁盘诊断现已接入；指南更新为仅压缩 `%LocalAppData%\\VirtualKeyboard\\logs\\*.jsonl`，继续禁止发送 config/layout/recovery 和任何输入内容。
   - 修正验证：Core 207/207、Windows 155/155、Integration 25/25，完整 Release 构建/发布通过；生产 App 受控启动生成 JSONL（已有 8 行增至 10 行），最后事件 `ClassificationCompleted`，实际顶层字段与固定白名单比对无额外字段。M7 独立隐私审计仍未执行。

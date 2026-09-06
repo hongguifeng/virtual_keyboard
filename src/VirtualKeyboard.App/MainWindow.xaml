@@ -14,7 +14,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="28" />
-                <RowDefinition Height="54" />
+                <RowDefinition Height="32" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False"
@@ -27,14 +27,8 @@
                     <Button x:Name="CloseButton" Content="×" Width="24" Height="22" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
                 </StackPanel>
             </Grid>
-            <Grid Grid.Row="1" Margin="0,8,0,0" Focusable="False">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Button x:Name="CaptureTargetButton" Content="捕获当前目标" Margin="0,0,8,0" Focusable="False" IsTabStop="False" Click="OnCaptureTargetClick" />
-                <TextBlock x:Name="SessionStatusText" Grid.Column="1" Text="尚未捕获目标" VerticalAlignment="Center" TextWrapping="Wrap" Focusable="False" />
-            </Grid>
+            <TextBlock x:Name="SessionStatusText" Grid.Row="1" Margin="6,8,6,0"
+                       Text="请点击可编辑输入框" VerticalAlignment="Center" TextWrapping="Wrap" Focusable="False" />
             <local:KeyboardLayoutView x:Name="LayoutView" Grid.Row="2" Margin="0,8,0,0" KeyInvoked="OnLayoutKeyInvoked" />
         </Grid>
     </Border>

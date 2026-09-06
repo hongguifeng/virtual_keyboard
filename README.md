@@ -6,6 +6,8 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 > 当前状态：M6 已完成，M7 按项目决策跳过，M8 的验收表、打包和用户文档已完成。发布评审后已接通自动焦点宿主，但仍缺实机矩阵/M7 证据且制品未签名、未有效扫描；该构建仍仅限内部验证。
 
 动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt 锁存与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
+
+目标会话完全由自动焦点识别建立，最终界面不再包含早期调试用的“捕获当前目标”按钮，也不会向用户显示 PID 或窗口句柄。
 修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/CapsLock 的活动态不会与实际发送状态分离。
 
 `VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。

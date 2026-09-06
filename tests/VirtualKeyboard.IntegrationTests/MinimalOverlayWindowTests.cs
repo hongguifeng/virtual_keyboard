@@ -5,8 +5,10 @@ using System.Windows;
 using System.Windows.Controls;
 using VirtualKeyboard.App;
 using VirtualKeyboard.Core.Diagnostics;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Core.Targeting;
+using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.IntegrationTests;
 
@@ -26,15 +28,13 @@ public sealed class MinimalOverlayWindowTests
 
             var dragArea = Assert.IsType<Grid>(window.FindName("DragArea"));
             var closeButton = Assert.IsType<Button>(window.FindName("CloseButton"));
-            var captureTargetButton = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
             var layoutView = Assert.IsType<KeyboardLayoutView>(window.FindName("LayoutView"));
             NonFocusableKeyButton[] keys = Descendants<NonFocusableKeyButton>(layoutView).ToArray();
             var keyAButton = Assert.Single(keys, button => button.Key.Id == "key.a");
             Assert.False(dragArea.Focusable);
             Assert.False(closeButton.Focusable);
             Assert.False(closeButton.IsTabStop);
-            Assert.False(captureTargetButton.Focusable);
-            Assert.False(captureTargetButton.IsTabStop);
+            Assert.Null(window.FindName("CaptureTargetButton"));
             Assert.False(keyAButton.Focusable);
             Assert.False(keyAButton.IsTabStop);
             Assert.All(keys, button =>
@@ -121,28 +121,20 @@ public sealed class MinimalOverlayWindowTests
     }
 
     [Fact]
-    public void CaptureButtonPublishesAndDisplaysTargetSession()
+    public void AutomaticFocusPublishesTargetSessionWithoutCaptureControl()
     {
         RunOnStaThread(() =>
         {
-            var snapshot = new TargetCaptureSnapshot(
-                new DateTimeOffset(2026, 9, 6, 1, 2, 3, TimeSpan.Zero),
-                42,
-                (nint)100,
-                (nint)101);
-            using var window = new MainWindow(new StubCapture(snapshot), new TargetSessionStore());
-            var captureButton = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
+            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
             var status = Assert.IsType<TextBlock>(window.FindName("SessionStatusText"));
 
-            captureButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
 
             TargetSession session = Assert.IsType<TargetSession>(window.CurrentTargetSession);
             Assert.Equal(1, session.SessionId);
             Assert.Equal(42, session.ProcessId);
-            Assert.Contains("会话 1", status.Text, StringComparison.Ordinal);
-            Assert.Contains("PID 42", status.Text, StringComparison.Ordinal);
-            Assert.Contains("0x64", status.Text, StringComparison.Ordinal);
-            Assert.Contains("0x65", status.Text, StringComparison.Ordinal);
+            Assert.Equal("输入目标已就绪", status.Text);
+            Assert.Null(window.FindName("CaptureTargetButton"));
         });
     }
 
@@ -167,10 +159,9 @@ public sealed class MinimalOverlayWindowTests
     {
         RunOnStaThread(() =>
         {
-            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, new IntPtr(100), new IntPtr(101));
             var sessions = new TargetSessionStore();
-            var window = new MainWindow(new StubCapture(target), sessions);
-            Assert.IsType<Button>(window.FindName("CaptureTargetButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var window = new MainWindow(new StubCapture(default), sessions);
+            Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
             Assert.NotNull(window.CurrentTargetSession);
 
             window.Dispose();
@@ -213,10 +204,8 @@ public sealed class MinimalOverlayWindowTests
     {
         RunOnStaThread(() =>
         {
-            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, (nint)100, (nint)101);
-            using var window = new MainWindow(new StubCapture(target), new TargetSessionStore());
-            var capture = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
-            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
+            Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
             window.ShowAt(-12000, -11000, 360, 176);
             Assert.True(window.BeginManualMoveForCurrentSession());
             Assert.True(window.EndManualMoveForCurrentSession());
@@ -241,24 +230,35 @@ public sealed class MinimalOverlayWindowTests
     }
 
     [Fact]
-    public void CapturingNewSessionInvalidatesPreviousManualPosition()
+    public void AutomaticTargetReplacementInvalidatesPreviousManualPosition()
     {
         RunOnStaThread(() =>
         {
-            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, (nint)100, (nint)101);
-            using var window = new MainWindow(new StubCapture(target), new TargetSessionStore());
-            var capture = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
-            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
+            Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
             window.ShowAt(-12000, -11000, 360, 176);
             Assert.True(window.BeginManualMoveForCurrentSession());
             Assert.True(window.EndManualMoveForCurrentSession());
             Assert.True(window.HasManualPosition(1));
 
-            capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(ApplyEditableFocus(window, version: 2, runtimeId: 8));
 
             Assert.Equal(2, window.CurrentTargetSession!.SessionId);
             Assert.False(window.HasManualPosition(1));
         });
+    }
+
+    private static bool ApplyEditableFocus(MainWindow window, long version, int runtimeId)
+    {
+        var snapshot = new FocusSnapshot(
+            version, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity([runtimeId]),
+            FocusControlType.Edit, true, true, false, false);
+        return window.ApplyEvaluatedFocusForTest(new(
+            FocusTargetEvaluationStatus.Evaluated,
+            snapshot,
+            new(version, Editability.Editable, ClassificationReasonCode.ValuePattern, false),
+            (nint)101,
+            new PhysicalPixelRect(300, 300, 100, 30)));
     }
 
     private static void RunOnStaThread(Action action)
@@ -300,9 +300,11 @@ public sealed class MinimalOverlayWindowTests
         }
     }
 
-    private sealed class StubCapture(TargetCaptureSnapshot snapshot) : IForegroundTargetCapture
+    private sealed class StubCapture(TargetCaptureSnapshot? snapshot) : IForegroundTargetCapture
     {
-        public TargetCaptureResult Capture() => TargetCaptureResult.Success(snapshot);
+        public TargetCaptureResult Capture() => snapshot is null
+            ? TargetCaptureResult.Failure(TargetCaptureStatus.NoForegroundWindow)
+            : TargetCaptureResult.Success(snapshot);
     }
 
     [StructLayout(LayoutKind.Sequential)]

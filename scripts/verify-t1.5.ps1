@@ -3,7 +3,7 @@
 T1.5 交互式验收脚本。
 
 在当前交互桌面中启动真实目标和发布后的虚拟键盘，通过物理鼠标点击 Overlay，
-记录点击前、捕获后、发送后的前台 HWND、焦点 HWND 和键盘 HWND。脚本不会输出
+记录点击前、自动目标就绪后、发送后的前台 HWND、焦点 HWND 和键盘 HWND。脚本不会输出
 目标输入内容；只比较 TestHost 的按键计数或目标控件长度变化。
 
 脚本只关闭自己启动的进程。Notepad/Chrome 场景会写入合成测试字符，并在完成后
@@ -251,12 +251,11 @@ function Start-Keyboard {
   $process = Start-Process -FilePath $script:resolvedDotnet -ArgumentList $appDll -PassThru
   try {
     $roots = Wait-AutomationRootsByProcessId -ProcessId $process.Id
-    $root = Find-RootContainingAutomationId -Roots $roots -AutomationId 'CaptureTargetButton'
+    $root = Find-RootContainingAutomationId -Roots $roots -AutomationId 'SessionStatusText'
     return [pscustomobject]@{
       Process = $process
       Root = $root
       Hwnd = [IntPtr]$root.Current.NativeWindowHandle
-      CaptureButton = Find-Descendant -Root $root -ControlType ([System.Windows.Automation.ControlType]::Button) -AutomationId 'CaptureTargetButton'
       KeyAButton = Find-Descendant -Root $root -ControlType ([System.Windows.Automation.ControlType]::Button) -AutomationId 'KeyAButton'
       Status = Find-Descendant -Root $root -ControlType ([System.Windows.Automation.ControlType]::Text) -AutomationId 'SessionStatusText'
     }
@@ -278,15 +277,15 @@ function Invoke-OverlayProbe {
   $metricBefore = & $ReadMetric
   $before = Get-FocusSnapshot -KeyboardHwnd $Keyboard.Hwnd
 
-  Write-Host '  请用真实鼠标点击 Overlay 的“捕获当前目标”（不要点击终端或目标窗口）。' -ForegroundColor Cyan
+  Write-Host '  正在等待 Overlay 自动识别当前输入目标。' -ForegroundColor Cyan
   $captureDeadline = (Get-Date).AddSeconds($InteractionTimeoutSeconds)
   do {
     $captureStatus = $Keyboard.Status.Current.Name
-    if ($captureStatus.StartsWith('会话 ', [StringComparison]::Ordinal)) { break }
+    if ($captureStatus -eq '输入目标已就绪') { break }
     Start-Sleep -Milliseconds 100
   } while ((Get-Date) -lt $captureDeadline)
-  if (-not $captureStatus.StartsWith('会话 ', [StringComparison]::Ordinal)) {
-    throw "等待真实鼠标捕获操作超时（$InteractionTimeoutSeconds 秒）。"
+  if ($captureStatus -ne '输入目标已就绪') {
+    throw "等待自动目标识别超时（$InteractionTimeoutSeconds 秒）。"
   }
   $captured = Get-FocusSnapshot -KeyboardHwnd $Keyboard.Hwnd
 
@@ -321,8 +320,7 @@ function Invoke-OverlayProbe {
     $Keyboard.Hwnd -ne $captured.Foreground -and
     $Keyboard.Hwnd -ne $sent.Foreground
   $metricOk = & $MetricPassed $metricBefore $metricAfter $RepeatCount
-  $statusOk = $captureStatus.StartsWith('会话 ', [StringComparison]::Ordinal) -and
-    $sendStatus.EndsWith('A 已发送', [StringComparison]::Ordinal)
+  $statusOk = $captureStatus -eq '输入目标已就绪' -and $sendStatus -eq '按键已发送'
   $passed = $foregroundPreserved -and $focusPreserved -and
     $keyboardNeverForeground -and $metricOk -and $statusOk
 

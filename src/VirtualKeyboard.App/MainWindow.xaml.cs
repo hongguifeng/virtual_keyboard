@@ -12,7 +12,7 @@ using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.App;
 
-/// <summary>Minimal non-activating keyboard window with explicit target capture.</summary>
+/// <summary>Non-activating keyboard window driven by automatic focus observation.</summary>
 public partial class MainWindow : Window, IDisposable, ITrayCommands
 {
     private static readonly DipSize ConfiguredOverlaySize = new(760, 340);
@@ -284,12 +284,14 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             evaluation.Classification.Value == Editability.Editable && evaluation.FocusHwnd != nint.Zero &&
             evaluation.Anchor is { IsValid: true } anchor)
         {
+            _overlay.InvalidateManualPosition();
             TargetSession session = _targetSessions.Replace(evaluation.Snapshot, evaluation.FocusHwnd, anchor);
             _diagnostics.Log(DiagnosticType.TargetSessionCreated, DiagnosticModule.State, targetProcessId: session.ProcessId);
             _inputQueue.SetCurrentSession(session.SessionId);
             _keyboardController.SetTargetSession(session.SessionId);
             ReloadLayoutForTarget(session.IsPassword);
             LayoutView.UpdateState(_keyboardController.State);
+            SessionStatusText.Text = session.IsPassword ? "密码输入目标已就绪" : "输入目标已就绪";
             if (!configuration.AutoShow) return;
             MonitorMetricsResult monitor = _monitorDpi.Capture(anchor, session.TopLevelHwnd);
             if (!monitor.IsCaptured) { ClearAutomaticTarget(); return; }
@@ -335,30 +337,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
     internal ConfigurationSaveResult SaveCurrentConfiguration() => _configurationRepository.Save(_configurationRepository.Current);
 
-    private void OnCaptureTargetClick(object sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        TargetCaptureResult result = _targetCapture.Capture();
-        if (!result.IsCaptured)
-        {
-            _overlay.InvalidateManualPosition();
-            _targetSessions.Clear();
-            _keyboardController.ClearTargetSession();
-            ReloadLayoutForTarget(isPassword: false);
-            SessionStatusText.Text = $"捕获失败：{result.Status}";
-            return;
-        }
-
-        _overlay.InvalidateManualPosition();
-        TargetSession session = _targetSessions.Replace(result.Snapshot!);
-        _inputQueue.SetCurrentSession(session.SessionId);
-        _keyboardController.SetTargetSession(session.SessionId);
-        LayoutView.UpdateState(_keyboardController.State);
-        ReloadLayoutForTarget(session.IsPassword);
-        SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
-    }
-
     private async void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
     {
         _ = sender;
@@ -371,7 +349,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         }
         if (session is null)
         {
-            SessionStatusText.Text = "请先捕获目标";
+            SessionStatusText.Text = "请先点击可编辑输入框";
             return;
         }
 
@@ -394,7 +372,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         LayoutView.UpdateState(_keyboardController.State);
         if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
         {
-            SessionStatusText.Text = $"会话 {session.SessionId} · 按键已发送";
+            SessionStatusText.Text = "按键已发送";
             return;
         }
 

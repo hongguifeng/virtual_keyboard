@@ -389,11 +389,11 @@ SetWindowPos(
 
 T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。适配器只接受 UI 线程调用并拒绝非正尺寸。
 
-T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForegroundTargetCapture`。适配器通过 `GetForegroundWindow` 获取前台顶层 HWND，再用 `GetWindowThreadProcessId` 获取进程 ID 和 GUI 线程，最后通过 `GetGUIThreadInfo` 获取焦点 HWND；任何句柄、线程或进程查询失败都返回可判定的 `TargetCaptureStatus`，不会读取标题、进程名或输入内容，也不会改变前台窗口。捕获本程序自身窗口时返回 `OwnProcess`。`VirtualKeyboard.Core.TargetSessionStore` 使用不可变 DTO 和锁保护的原子替换生成单调 `SessionId`；失败捕获会清空当前会话。`MainWindow` 的“捕获当前目标”按钮只展示 PID/HWND/会话号，保持 NoActivate 约束。`SendInput` 留在 T1.3。
+T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForegroundTargetCapture`。适配器通过 `GetForegroundWindow` 获取前台顶层 HWND，再用 `GetWindowThreadProcessId` 获取进程 ID 和 GUI 线程，最后通过 `GetGUIThreadInfo` 获取焦点 HWND；任何句柄、线程或进程查询失败都返回可判定的 `TargetCaptureStatus`，不会读取标题、进程名或输入内容，也不会改变前台窗口。捕获本程序自身窗口时返回 `OwnProcess`。`VirtualKeyboard.Core.TargetSessionStore` 使用不可变 DTO 和锁保护的原子替换生成单调 `SessionId`；该适配器在最终实现中用于发送前目标复核，早期 `MainWindow` 手动捕获按钮及 PID/HWND 展示已经删除。
 
 T1.3 的单键发送实现位于 `VirtualKeyboard.Windows.SingleKeyInputSender`。发送器为 `VK_A` 构造一个固定长度为 2 的 `INPUT` 数组（KeyDown 后 KeyUp），通过 `NativeInputApi` 调用一次 `SendInput` 并严格检查返回事件数：2 为成功，0 为失败，1 为部分失败；短返回不重试。原生 API 不可用时返回 `NativeUnavailable`。诊断只写入事件类型、目标 PID、请求/完成数量和错误码等结构化数字，不写入按键文本。发送器不执行目标校验、激活或焦点恢复，UI 接线必须在 T1.4 的发送前校验之后完成。
 
-T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 `ValidatedSingleKeyInputSender`。每次 A 键动作先确认期望 `SessionId` 仍是 `TargetSessionStore.Current`，再重新读取前台顶层窗口、进程和 GUI 线程焦点；任一不一致返回 `TargetInvalid` 并取消动作。校验成功后才调用 T1.3 发送器；整个路径不调用 `Activate`、`Focus` 或 `SetForegroundWindow`。捕获按钮和 A 按钮均为 NoActivate 控件。
+T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 `ValidatedSingleKeyInputSender`。每次 A 键动作先确认期望 `SessionId` 仍是 `TargetSessionStore.Current`，再重新读取前台顶层窗口、进程和 GUI 线程焦点；任一不一致返回 `TargetInvalid` 并取消动作。校验成功后才调用 T1.3 发送器；整个路径不调用 `Activate`、`Focus` 或 `SetForegroundWindow`。早期手动捕获按钮已从最终界面删除，目标会话只由自动焦点评估建立，动态按键均保持 NoActivate。
 
 T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等，释放 Overlay 的 `HwndSource` hook 和诊断资源。M1 的单键发送为同步固定批次，不存在后台输入队列或跨批次保持的修饰键；托盘尚未引入，因此当前退出路径没有托盘或合成按键残留。M4 引入串行队列和修饰键后，退出清理将在 T4.7 扩展。
 
@@ -403,7 +403,7 @@ TextEditPattern/TextPattern2 等较新的可选 UIA property ID 可能没有在�
 
 T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。
 
-真实应用矩阵使用 `scripts/verify-t1.5.ps1` 半自动采集：脚本负责启动 WPF TestHost、Notepad、隔离 Chrome input 和发布后的 Overlay，聚焦目标并等待测试者使用真实物理鼠标完成“捕获目标”和 `A` 点击；每次操作后自动采集前台 HWND、GUI 焦点 HWND、键盘 HWND，并只比较按键计数或文本长度，不保存输入内容。证据写入忽略版本控制的 `artifacts/t1.5/`。不得用 `mouse_event`、UIA InvokePattern 或直接窗口消息冒充此门禁：合成鼠标可能改变激活语义，嵌套的合成鼠标→SendInput 链也可能被系统或自动化宿主过滤。Windows 10 22H2 与 Windows 11 必须分别由真人鼠标执行并留证，才可完成 T1.5/M1 风险门禁。
+真实应用矩阵使用 `scripts/verify-t1.5.ps1` 半自动采集：脚本负责启动 WPF TestHost、Notepad、隔离 Chrome input 和发布后的 Overlay，聚焦目标，等待自动目标识别就绪，再由测试者使用真实物理鼠标点击 `A`；每次操作后自动采集前台 HWND、GUI 焦点 HWND、键盘 HWND，并只比较按键计数或文本长度，不保存输入内容。证据写入忽略版本控制的 `artifacts/t1.5/`。不得用 `mouse_event`、UIA InvokePattern 或直接窗口消息冒充此门禁：合成鼠标可能改变激活语义，嵌套的合成鼠标→SendInput 链也可能被系统或自动化宿主过滤。Windows 10 22H2 与 Windows 11 必须分别由真人鼠标执行并留证，才可完成 T1.5/M1 风险门禁。
 
 ### 10.3 鼠标与触摸命中
 
@@ -476,7 +476,7 @@ T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完�
 
 用户手动移动后，将物理矩形与当前 SessionId 绑定。目标会话变化或 DPI 变化时重新进入自动定位。
 
-T3.6 由 Core `ManualPositionTracker` 保存拖动起点、物理光标增量和绑定 SessionId；其他会话无法更新或结束该拖动。Overlay 使用 `GetCursorPos/GetWindowRect` 获取原生物理坐标并持续调用带 `SWP_NOACTIVATE` 的定位出口，WPF 拖动区仅捕获鼠标，不调用 `DragMove`。新会话、目标捕获失败、DPI 变化或退出会失效保存位置并恢复自动定位语义。
+T3.6 由 Core `ManualPositionTracker` 保存拖动起点、物理光标增量和绑定 SessionId；其他会话无法更新或结束该拖动。Overlay 使用 `GetCursorPos/GetWindowRect` 获取原生物理坐标并持续调用带 `SWP_NOACTIVATE` 的定位出口，WPF 拖动区仅捕获鼠标，不调用 `DragMove`。新会话、焦点评估失败、DPI 变化或退出会失效保存位置并恢复自动定位语义。
 
 ### 11.4 DPI 变化
 
@@ -523,7 +523,7 @@ T4.1 的 Core `InputInjectionService` 在流水线入口提供固定容量、多
 
 目标验证失败不调用 `SetForegroundWindow`，只返回 `TargetInvalid`。
 
-T4.2 将完整 UIA 身份纳入 `TargetSession`：FocusVersion、深复制 RuntimeIdentity、密码标志和可选物理锚点随会话原子发布；T1 手动捕获仍使用 RuntimeId 为空的弱身份路径。发送前先复核 SessionId、前台 HWND、进程和焦点 HWND，再从只接受更高版本的 `LatestFocusSnapshotStore` 比较 RuntimeId 与焦点/启用/离屏状态。DOM/控件重建或元数据不再可编辑时，本批次返回 TargetInvalid，并以封闭状态请求重新分类；不会尝试激活或修复窗口。
+T4.2 将完整 UIA 身份纳入 `TargetSession`：FocusVersion、深复制 RuntimeIdentity、密码标志和可选物理锚点随会话原子发布；最终用户流程只接受带 RuntimeId 的自动焦点会话。发送前先复核 SessionId、前台 HWND、进程和焦点 HWND，再从只接受更高版本的 `LatestFocusSnapshotStore` 比较 RuntimeId 与焦点/启用/离屏状态。DOM/控件重建或元数据不再可编辑时，本批次返回 TargetInvalid，并以封闭状态请求重新分类；不会尝试激活或修复窗口。
 
 ### 12.3 Text 路径
 
