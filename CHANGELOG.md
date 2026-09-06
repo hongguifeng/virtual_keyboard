@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.5 — 2026-09-07
+
+### 修复
+
+- 应用刚启动（键盘从未弹出、主窗口从未 `Show`）时从托盘右键菜单“打开设置”失败（1.0.4 用户反馈）：WPF 禁止把从未显示的窗口设为 Owner（`InvalidOperationException`），原实现无条件 `Owner = this`，导致必须等键盘弹出过一次后托盘设置入口才可用。修复：`OpenSettingsWindow` 仅在主窗口已显示（`IsLoaded`）时设置 Owner，否则设置窗口作为独立顶层模态窗口打开，后续行为不变。新增 2 个集成回归测试（未显示主窗口：不抛异常、Owner 为 null；已显示主窗口：Owner 保持），并已验证新测试对旧实现失败（`InvalidOperationException`）。
+- 完整 Release 门禁：Core 236、Windows 218、Integration 48（共 502）全部通过，构建 0 warning / 0 error。
+
+### 发布状态
+
+- 与 1.0.4 相同的限制：制品未签名，仅限内部测试。
+
 ## 1.0.4 — 2026-09-06
 
 ### 已实现

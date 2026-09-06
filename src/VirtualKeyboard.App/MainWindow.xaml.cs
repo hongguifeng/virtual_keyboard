@@ -199,7 +199,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (!BeginSettingsSession()) return false;
         try
         {
-            var settings = new SettingsWindow(_configurationRepository, _autoStart) { Owner = this };
+            var settings = new SettingsWindow(_configurationRepository, _autoStart);
+            // WPF 限制：从未 Show 过的窗口不能被设为 Owner，否则 InvalidOperationException。
+            // 应用刚启动（键盘从未弹出）时主窗口尚未显示，此时把设置窗口作为独立顶层窗口打开，
+            // 不设 Owner；主窗口显示过（IsLoaded）后再设 Owner。
+            if (IsLoaded) settings.Owner = this;
             settings.ShowDialog();
             return true;
         }

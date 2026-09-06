@@ -722,6 +722,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 - [x] `REL-026` 设置窗口“录制按键”按钮被简体中文两行提示文字覆盖的缺陷修复：窗口改为 `SizeToContent=Height`（保留 `MinHeight`），自定义键行改为 `Auto`，自定义键列表上限 210 DIP 且内部滚动。新增集成测试断言简体中文下按钮与提示文字不相交。完整 Release 门禁：Core 234/234、Windows 210/210、Integration 40/40，构建/发布 0 warning/error，发布安全静态检查通过。
 - [x] `REL-027` 1.0.2 回归修复：自定义按键组位于等权 `*` 行，在窗口实际高度下被压缩（约 74 DIP）远小于内容高度，内容溢出覆盖“拖动结束后保留位置”行。表单区 11 个行全部改为 `Auto`，行间垂直间距用各行上边距表达。强化集成测试：在窗口实际高度下 arrange 后校验自定义按键组不被压缩、录制按键按钮与提示文字不相交，并对 24 个命名控件两两断言无兄弟级矩形交叠（排除父子嵌套）；已验证该测试对 1.0.2 的 `*` 行布局会失败。
+- [x] `REL-028` 1.0.4 用户反馈修复：应用刚启动（键盘从未弹出、主窗口从未 `Show`）时从托盘右键菜单“打开设置”失败——WPF 禁止把从未显示的窗口设为 Owner（`InvalidOperationException`），原实现无条件 `Owner = this`。修复：`OpenSettingsWindow` 仅在 `IsLoaded` 时设置 Owner，否则设置窗口作为独立顶层模态窗口打开。新增集成测试 2 个（未 Show 主窗口不抛异常且 Owner 为 null；已 Show 主窗口 Owner 保持），并已验证该测试对旧实现报 `InvalidOperationException` 失败。完整 Release 门禁：Core 236/236、Windows 218/218、Integration 48/48（共 502），构建 0 warning/0 error，发布 1.0.5。
 
 ## 18. 下一步启动清单
 
