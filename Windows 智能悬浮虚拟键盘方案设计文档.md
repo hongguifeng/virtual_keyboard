@@ -531,6 +531,8 @@ T4.2 将完整 UIA 身份纳入 `TargetSession`：FocusVersion、深复制 Runti
 
 密码目标执行前，必须拒绝 `safeForPassword=false` 的布局动作。
 
+T4.3 的 `UnicodeTextInputBuilder` 直接枚举 UTF-16 code unit，每个单元生成 `KEYEVENTF_UNICODE` Down 和 `KEYEVENTF_UNICODE|KEYEVENTF_KEYUP`，`wVk=0`；emoji 的高低代理项保持原顺序。`UnicodeTextInputSender` 对非空文本只调用一次 SendInput，短返回失败且不重试；输入长度上限为 4096 code unit，日志 API 从不接收文本参数。不调用 VkKeyScan、IME 模拟或 WM_CHAR 回退。
+
 ### 12.4 Key 路径
 
 - 标准键使用 Virtual Key；需要区分左右/扩展键时同时提供 scan code 和 `KEYEVENTF_EXTENDEDKEY`。

@@ -335,11 +335,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`TargetSession` 扩展为 FocusVersion、RuntimeIdentity、密码标志和可选物理锚点；`TargetSessionStore` 保留 T1 Win32 弱身份入口并增加从 FocusSnapshot 建立完整会话的入口。`LatestFocusSnapshotStore` 只发布更高版本快照。`TargetSessionValidator` 在既有前台 HWND/进程/焦点 HWND/SessionId 校验后，对完整会话再验证快照版本、RuntimeId、焦点/启用/离屏状态；身份重建返回 `IdentityChangedRequiresReclassification`。发送器取消本次动作并触发重新分类回调，不调用激活 API。
   - 验证：Core 111/111、Windows 48/48、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖完整会话字段、快照版本门禁、RuntimeId 相同/变化/缺失/过旧、失焦元数据、零底层发送及单次重新分类通知。
 
-- [ ] **T4.3（P0，0.75 人日）实现 Unicode Text builder**
+- [x] **T4.3（P0，0.75 人日）实现 Unicode Text builder**
   - 使用 KEYEVENTF_UNICODE 构建 KeyDown/KeyUp。
   - 覆盖 BMP、中文、重音字符、emoji 和代理对。
   - 批量提交，不使用 VkKeyScan 或 WM_CHAR 回退。
   - 对应：FR-INP-002，AC-012。
+  - 实现：`UnicodeTextInputBuilder` 按 .NET 字符串的 UTF-16 code unit 顺序为每个单元生成 `wVk=0`、`KEYEVENTF_UNICODE` Down/Up；代理对不解码或重排。`UnicodeTextInputSender` 最多接受 4096 code unit，空文本零调用成功，非空文本单次 `SendInput`，严格区分成功/短返回/零返回/原生不可用且不重试。诊断仅写 PID、事件计数和错误码。
+  - 验证：Core 111/111、Windows 58/58、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖 ASCII、中文、重音字符、emoji、混合文本、空/Null/超长输入、单批提交、部分返回、无重试、原生 API 不可用和日志无文本。
 
 - [ ] **T4.4（P0，0.75 人日）实现 Key builder**
   - 支持 VK、scan code、扩展键、KeyDown/KeyUp。
