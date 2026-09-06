@@ -118,8 +118,8 @@ public sealed class KeyInputSenderTests
         Assert.Equal(4u, mapping.RequestedMapType);
         Assert.Equal(mapping.KeyboardLayout, mapping.RequestedMapLayout);
         Assert.Equal(1, input.Calls);
-        Assert.Equal(0u, input.LastBatch[0].Data.Keyboard.Flags);
-        Assert.Equal(0x0002u, input.LastBatch[1].Data.Keyboard.Flags);
+        AssertKeyboard(input.LastBatch[0], 0, (ushort)scanCode, 0x0008);
+        AssertKeyboard(input.LastBatch[1], 0, (ushort)scanCode, 0x000A);
     }
 
     [Theory]
@@ -141,8 +141,8 @@ public sealed class KeyInputSenderTests
         InputSendResult result = new KeyInputSender(input, mapping).Send(key, (nint)10);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(0x0001u, input.LastBatch[0].Data.Keyboard.Flags);
-        Assert.Equal(0x0003u, input.LastBatch[1].Data.Keyboard.Flags);
+        Assert.Equal(0x0009u, input.LastBatch[0].Data.Keyboard.Flags);
+        Assert.Equal(0x000Bu, input.LastBatch[1].Data.Keyboard.Flags);
     }
 
     [Fact]
@@ -154,13 +154,13 @@ public sealed class KeyInputSenderTests
         _ = new KeyInputSender(input, mapping).Send(WindowsKeyboardKey.Enter, (nint)10);
 
         Assert.All(input.LastBatch, item => Assert.Equal((ushort)0x1C, item.Data.Keyboard.ScanCode));
-        Assert.Equal(0x0001u, input.LastBatch[0].Data.Keyboard.Flags);
-        Assert.Equal(0x0003u, input.LastBatch[1].Data.Keyboard.Flags);
+        Assert.Equal(0x0009u, input.LastBatch[0].Data.Keyboard.Flags);
+        Assert.Equal(0x000Bu, input.LastBatch[1].Data.Keyboard.Flags);
     }
 
     [Theory]
-    [InlineData(KeyInputTransition.KeyDown, 0u)]
-    [InlineData(KeyInputTransition.KeyUp, 0x0002u)]
+    [InlineData(KeyInputTransition.KeyDown, 0x0008u)]
+    [InlineData(KeyInputTransition.KeyUp, 0x000Au)]
     public void SenderSupportsSingleDownOrUpBatch(KeyInputTransition transition, uint expectedFlags)
     {
         var input = new FakeInputApi { ReturnCount = 1 };
@@ -172,7 +172,7 @@ public sealed class KeyInputSenderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, result.RequestedEvents);
-        AssertKeyboard(Assert.Single(input.LastBatch), 0x09, 0x1C, expectedFlags);
+        AssertKeyboard(Assert.Single(input.LastBatch), 0, 0x1C, expectedFlags);
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public sealed class KeyInputSenderTests
         if (returnCount == 1)
         {
             NativeInput cleanup = Assert.Single(input.Batches[1]);
-            AssertKeyboard(cleanup, 0x0D, 0x1C, 0x0002);
+            AssertKeyboard(cleanup, 0, 0x1C, 0x000A);
         }
     }
 

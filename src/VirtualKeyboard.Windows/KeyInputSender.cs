@@ -228,7 +228,8 @@ public sealed class KeyInputSender
                 (mappedScanCode & 0xFF00) is 0xE000 or 0xE100;
             inputs = KeyInputBuilder.Build(
                 new ResolvedKeyInput(virtualKey, scanCode, isExtended),
-                transition);
+                transition,
+                KeyInputEncoding.ScanCode);
         }
         catch (Exception exception) when (IsNativeUnavailable(exception))
         {

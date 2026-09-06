@@ -545,7 +545,7 @@ T4.3 的 `UnicodeTextInputBuilder` 直接枚举 UTF-16 code unit，每个单元�
 - 每个非状态键默认发送 KeyDown + KeyUp。
 - 不用 `PostMessage(WM_CHAR)` 作为回退。
 
-T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。发送器支持完整 Press 以及独立 KeyDown/KeyUp；UI 普通键采用后者，在鼠标/触摸按下与释放之间保留真实生命周期，以兼容中文 IME 组合态。方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 scan code 和 `KEYEVENTF_EXTENDEDKEY`。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`。`LayoutActionDispatcher` 跟踪已成功 Down 的普通键，释放、取消、目标清理和退出均尽力发送对应 KeyUp。诊断只包含 PID、事件数量和错误码。
+T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通物理键输入使用 `wVk=0`、解析后的 `wScan` 和 `KEYEVENTF_SCANCODE`，避免计算出的目标布局扫描码被 Windows 忽略；KeyUp 叠加 `KEYEVENTF_KEYUP`。发送器支持完整 Press 以及独立 KeyDown/KeyUp；UI 普通键采用后者，在鼠标/触摸按下与释放之间保留真实生命周期，以兼容中文 IME 组合态。方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 `KEYEVENTF_EXTENDEDKEY`。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`。`LayoutActionDispatcher` 跟踪已成功 Down 的普通键，释放、取消、目标清理和退出均尽力发送对应 KeyUp。诊断只包含 PID、事件数量和错误码。
 
 ### 12.5 Hotkey 与修饰键
 
