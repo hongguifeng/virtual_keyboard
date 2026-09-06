@@ -54,6 +54,8 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 - 版本化便携 ZIP 与 SHA-256：`artifacts/release/`；选择、升级、卸载和回滚策略见 [ADR-007](docs/adr/0007-framework-dependent-portable-package.md)。
 - 以上目录均由 `.gitignore` 忽略，不进入仓库。
 
+当前 1.0.0 制品没有 Authenticode 签名，只能作为内测包。发布安全检查及未满足门禁见 [安全检查报告](docs/release/security-review-1.0.0.md)。
+
 ## 布局 schema
 
 `VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。

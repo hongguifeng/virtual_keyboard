@@ -715,6 +715,8 @@ T6.6 将退出固化为单向、幂等生命周期。`MainWindow.Dispose` 先把
 
 T8.4 采用 ADR-007 的 `win-x64` 框架依赖便携 ZIP，应用版本固定为 1.0.0。统一构建先发布到 `artifacts/package/win-x64`，再生成 `artifacts/release/VirtualKeyboard-1.0.0-win-x64-framework-dependent.zip` 及 UTF-8 no-BOM `.sha256` 文件。运行时写入只允许 `%LocalAppData%\\VirtualKeyboard`；升级和回滚只替换程序目录，卸载默认保留用户配置、布局、恢复文件和诊断数据。
 
+T8.5 增加显式应用清单与 `scripts/verify-release.ps1`。脚本校验 ZIP 哈希/安全路径/敏感文件、必需运行文件、EXE 嵌入的普通权限声明和 Authenticode 状态，并输出 `release-security.json`。当前 EXE 为 `asInvoker`、`uiAccess=false`、PerMonitorV2，受控启动前后发布目录哈希无变化；但本机 Defender 被禁用且 EXE 未签名，因此安全检查报告结论为“仅限未签名内测”，T8.5 保持未完成。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

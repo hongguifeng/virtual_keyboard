@@ -594,13 +594,15 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 确认 LocalAppData、卸载、升级和用户布局保留策略。
   - 生成 win-x64 Release 包和校验值。
   - 实现：ADR-007 选择 1.0.0 `win-x64` 框架依赖便携 ZIP；统一构建生成版本化 ZIP 和 UTF-8 no-BOM SHA-256 文件。程序目录只读，升级/回滚替换程序目录，卸载默认保留 `%LocalAppData%\\VirtualKeyboard` 用户数据。
-  - 验证：Core 206/206、Windows 154/154、Integration 24/24，Release 0 warning/error；win-x64 publish 与 ZIP 生成成功，ZIP 包含 App EXE/DLL 和内置布局，SHA-256 复算与 `.sha256` 一致（`3c5d1f267c2c90c614ce3ac6b41440039354db4837f5230b2f3d1fcdec6225e0`）。
+  - 验证：Core 206/206、Windows 154/154、Integration 24/24，Release 0 warning/error；win-x64 publish 与 ZIP 生成成功，ZIP 包含 App EXE/DLL 和内置布局，SHA-256 复算与 `.sha256` 一致。T8.5 清单更新后当前制品哈希为 `7c1bab9e85c34c2bd4e591decef602893cc7126a7f358b748f3ddf977cbc6373`。
 
 - [ ] **T8.5（P0，0.5 人日）执行发布安全检查**
   - 恶意软件扫描。
   - 签名可用时验证 Authenticode；不可用时明确标记内测包。
   - 验证包未声明管理员权限或 uiAccess。
   - 验证安装目录无运行时写入。
+  - 已实现：显式 `asInvoker`/`uiAccess=false`/PerMonitorV2 清单；发布校验脚本验证哈希、ZIP 路径、敏感文件、嵌入权限声明和签名状态。受控启动 3 秒前后发布目录文件哈希变化为 0。
+  - 未完成：当前 EXE `NotSigned`；本机 Defender 已禁用且无病毒库版本，MpCmdRun 退出码 0 不计作有效扫描证据。详见 `docs/release/security-review-1.0.0.md`，故本任务保持未勾选。
 
 - [ ] **T8.6（P0，0.5 人日）完成用户与支持文档**
   - 安装、启动、托盘、设置、布局、卸载。
