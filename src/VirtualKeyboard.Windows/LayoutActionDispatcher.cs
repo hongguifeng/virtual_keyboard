@@ -11,6 +11,7 @@ public sealed class LayoutActionDispatcher
     private readonly KeyboardController _controller;
     private readonly Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> _sendKey;
     private readonly Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> _sendHotkey;
+    private readonly Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult> _sendModifier;
     private readonly Func<string, int, InputSendResult> _sendText;
 
     public LayoutActionDispatcher(
@@ -27,6 +28,7 @@ public sealed class LayoutActionDispatcher
         ArgumentNullException.ThrowIfNull(textSender);
         _sendKey = keySender.Send;
         _sendHotkey = hotkeySender.Send;
+        _sendModifier = hotkeySender.SendModifierTransition;
         _sendText = textSender.Send;
     }
 
@@ -35,13 +37,15 @@ public sealed class LayoutActionDispatcher
         KeyboardController controller,
         Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> sendKey,
         Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> sendHotkey,
-        Func<string, int, InputSendResult> sendText)
+        Func<string, int, InputSendResult> sendText,
+        Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult>? sendModifier = null)
     {
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _controller = controller ?? throw new ArgumentNullException(nameof(controller));
         _sendKey = sendKey ?? throw new ArgumentNullException(nameof(sendKey));
         _sendHotkey = sendHotkey ?? throw new ArgumentNullException(nameof(sendHotkey));
         _sendText = sendText ?? throw new ArgumentNullException(nameof(sendText));
+        _sendModifier = sendModifier ?? ((_, _, _, _) => new(InputSendStatus.Succeeded, 1, 1, 0));
     }
 
     public InputSendResult Dispatch(long sessionId, KeyViewModel key, CancellationToken cancellationToken = default)
@@ -66,7 +70,7 @@ public sealed class LayoutActionDispatcher
         LayoutActionDefinition action = key.Action;
         if (action.Type == LayoutActionTypes.Modifier)
         {
-            return DispatchModifier(sessionId, action.Modifier);
+            return DispatchModifier(validation.Session!, action.Modifier);
         }
 
         WindowsKeyboardKey parsedKey = default;
@@ -123,7 +127,7 @@ public sealed class LayoutActionDispatcher
         return Rejected();
     }
 
-    private InputSendResult DispatchModifier(long sessionId, string? modifier)
+    private InputSendResult DispatchModifier(TargetSession session, string? modifier)
     {
         if (modifier is null)
         {
@@ -153,8 +157,38 @@ public sealed class LayoutActionDispatcher
         {
             return Rejected();
         }
-        _controller.ToggleModifier(parsed.Value);
-        return new(InputSendStatus.Succeeded, 0, 0, 0);
+        if (parsed == KeyboardModifier.Function)
+        {
+            _controller.ToggleModifier(parsed.Value);
+            return new(InputSendStatus.Succeeded, 0, 0, 0);
+        }
+
+        HotkeyModifier nativeModifier = parsed.Value switch
+        {
+            KeyboardModifier.Shift => HotkeyModifier.Shift,
+            KeyboardModifier.Control => HotkeyModifier.Control,
+            KeyboardModifier.Alt => HotkeyModifier.Alt,
+            KeyboardModifier.Windows => HotkeyModifier.Windows,
+            _ => throw new ArgumentOutOfRangeException(nameof(modifier)),
+        };
+        bool isLatched = parsed.Value switch
+        {
+            KeyboardModifier.Shift => _controller.State.ShiftLatched,
+            KeyboardModifier.Control => _controller.State.ControlLatched,
+            KeyboardModifier.Alt => _controller.State.AltLatched,
+            KeyboardModifier.Windows => _controller.State.WindowsLatched,
+            _ => false,
+        };
+        InputSendResult result = _sendModifier(
+            nativeModifier,
+            session.FocusHwnd,
+            isLatched ? KeyInputTransition.KeyUp : KeyInputTransition.KeyDown,
+            session.ProcessId);
+        if (result.IsSuccess)
+        {
+            _controller.ToggleModifier(parsed.Value);
+        }
+        return result;
     }
 
     private static bool TryParseKey(string? virtualKey, out WindowsKeyboardKey key)

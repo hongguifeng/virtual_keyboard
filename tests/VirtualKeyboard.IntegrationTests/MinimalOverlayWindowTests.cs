@@ -126,7 +126,8 @@ public sealed class MinimalOverlayWindowTests
             Assert.True(function.IsModifierActive);
             Assert.True(caps.IsModifierActive);
             Assert.Equal("F1", numberOne.Content);
-            Assert.True(shift.Opacity < 1);
+            Assert.Equal(System.Windows.Media.Brushes.White, shift.Foreground);
+            Assert.True(shift.BorderThickness.Left >= 2);
         });
     }
 
@@ -136,14 +137,13 @@ public sealed class MinimalOverlayWindowTests
         RunOnStaThread(() =>
         {
             using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
-            var status = Assert.IsType<TextBlock>(window.FindName("SessionStatusText"));
-
             Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
 
             TargetSession session = Assert.IsType<TargetSession>(window.CurrentTargetSession);
             Assert.Equal(1, session.SessionId);
             Assert.Equal(42, session.ProcessId);
-            Assert.Equal("输入目标已就绪", status.Text);
+            Assert.Null(window.FindName("SessionStatusText"));
+            Assert.Equal(string.Empty, Assert.IsType<TextBlock>(window.FindName("TitleStatusText")).Text);
             Assert.Null(window.FindName("CaptureTargetButton"));
         });
     }
@@ -214,7 +214,9 @@ public sealed class MinimalOverlayWindowTests
     {
         RunOnStaThread(() =>
         {
-            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore());
+            string root = Path.Combine(Path.GetTempPath(), $"VirtualKeyboard.DpiTest.{Guid.NewGuid():N}");
+            var repository = new ConfigurationRepository(new(Path.Combine(root, "config.json"), Path.Combine(root, "recovery")));
+            using var window = new MainWindow(new StubCapture(default), new TargetSessionStore(), repository);
             Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
             window.ShowAt(-12000, -11000, 360, 176);
             Assert.True(window.BeginManualMoveForCurrentSession());
@@ -236,6 +238,8 @@ public sealed class MinimalOverlayWindowTests
             Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
             Assert.Equal(new NativeRectangle(-9000, -8000, -7400, -7400), actual);
             Assert.False(window.HasManualPosition(1));
+            window.Dispose();
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         });
     }
 

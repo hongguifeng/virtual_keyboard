@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.Core.Configuration;
 
@@ -47,8 +48,7 @@ public static class ConfigurationDefaults
         layoutId: "builtin.qwerty.en-US",
         manualPositionMode: ManualPositionMode.UntilTargetChanges,
         detailedDiagnostics: false,
-        customKeyLabel: "",
-        customKeyText: "");
+        customKeys: []);
 }
 
 /// <summary>Loads recoverably and saves validated configuration with a flushed same-directory replacement.</summary>
@@ -271,15 +271,38 @@ public sealed class ConfigurationRepository
         public bool? DetailedDiagnostics { get; set; }
         public string? CustomKeyLabel { get; set; }
         public string? CustomKeyText { get; set; }
+        public List<RawCustomKey?>? CustomKeys { get; set; }
 
         [JsonIgnore]
         public bool HasAllRequiredValues => SchemaVersion.HasValue && Enabled.HasValue && AutoShow.HasValue && AutoHide.HasValue &&
             Opacity.HasValue && KeyboardWidthDip.HasValue && KeyboardHeightDip.HasValue && MarginDip.HasValue &&
-            LayoutId is not null && ManualPositionMode.HasValue && DetailedDiagnostics.HasValue;
+            LayoutId is not null && ManualPositionMode.HasValue && DetailedDiagnostics.HasValue &&
+            (CustomKeys is null || CustomKeys.All(static key => key?.HasAllRequiredValues == true));
 
-        public KeyboardConfiguration ToConfiguration() => new(
-            SchemaVersion!.Value, Enabled!.Value, AutoShow!.Value, AutoHide!.Value, Opacity!.Value,
-            KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
-            ManualPositionMode!.Value, DetailedDiagnostics!.Value, CustomKeyLabel ?? string.Empty, CustomKeyText ?? string.Empty);
+        public KeyboardConfiguration ToConfiguration()
+        {
+            IEnumerable<CustomKeyConfiguration> customKeys = CustomKeys is not null
+                ? CustomKeys.Select(static key => key!.ToConfiguration())
+                : !string.IsNullOrWhiteSpace(CustomKeyLabel) && !string.IsNullOrEmpty(CustomKeyText)
+                    ? [new(CustomKeyLabel, LayoutActionTypes.Text, CustomKeyText)]
+                    : [];
+            return new(
+                SchemaVersion!.Value, Enabled!.Value, AutoShow!.Value, AutoHide!.Value, Opacity!.Value,
+                KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
+                ManualPositionMode!.Value, DetailedDiagnostics!.Value, customKeys);
+        }
+    }
+
+    private sealed class RawCustomKey
+    {
+        public string? Label { get; set; }
+        public string? ActionType { get; set; }
+        public string? Input { get; set; }
+        public List<string>? Modifiers { get; set; }
+
+        [JsonIgnore]
+        public bool HasAllRequiredValues => Label is not null && ActionType is not null && Input is not null;
+
+        public CustomKeyConfiguration ToConfiguration() => new(Label, ActionType, Input, Modifiers);
     }
 }

@@ -23,7 +23,8 @@ public sealed class ConfigurationRepositoryTests
     public void SaveThenLoadRoundTripsCamelCaseConfiguration()
     {
         using var fixture = new Fixture();
-        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true, "邮箱", "user@example.com");
+        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true,
+            [new("邮箱", "text", "user@example.com"), new("保存", "hotkey", "S", ["Control", "Shift"])]);
 
         ConfigurationSaveResult saved = fixture.Repository.Save(expected);
         ConfigurationLoadResult loaded = fixture.Repository.Load();
@@ -41,8 +42,10 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(expected.LayoutId, loaded.Configuration.LayoutId);
         Assert.Equal(expected.ManualPositionMode, loaded.Configuration.ManualPositionMode);
         Assert.Equal(expected.DetailedDiagnostics, loaded.Configuration.DetailedDiagnostics);
-        Assert.Equal(expected.CustomKeyLabel, loaded.Configuration.CustomKeyLabel);
-        Assert.Equal(expected.CustomKeyText, loaded.Configuration.CustomKeyText);
+        Assert.Equal(2, loaded.Configuration.CustomKeys.Count);
+        Assert.Equal("邮箱", loaded.Configuration.CustomKeys[0].Label);
+        Assert.Equal("user@example.com", loaded.Configuration.CustomKeys[0].Input);
+        Assert.Equal(["Control", "Shift"], loaded.Configuration.CustomKeys[1].Modifiers);
         using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
         Assert.True(json.RootElement.TryGetProperty("schemaVersion", out _));
         Assert.True(json.RootElement.TryGetProperty("keyboardWidthDip", out _));
@@ -61,8 +64,25 @@ public sealed class ConfigurationRepositoryTests
         ConfigurationLoadResult loaded = fixture.Repository.Load();
 
         Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
-        Assert.Empty(loaded.Configuration.CustomKeyLabel);
-        Assert.Empty(loaded.Configuration.CustomKeyText);
+        Assert.Empty(loaded.Configuration.CustomKeys);
+    }
+
+    [Fact]
+    public void LegacySingleCustomTextKeyIsMigratedInMemory()
+    {
+        using var fixture = new Fixture();
+        File.WriteAllText(fixture.ConfigurationFile, """
+            {"schemaVersion":1,"enabled":true,"autoShow":true,"autoHide":true,"opacity":0.9,
+             "keyboardWidthDip":800,"keyboardHeightDip":300,"marginDip":8,"layoutId":"layout",
+             "manualPositionMode":"UntilTargetChanges","detailedDiagnostics":false,
+             "customKeyLabel":"邮箱","customKeyText":"user@example.com"}
+            """);
+
+        CustomKeyConfiguration migrated = Assert.Single(fixture.Repository.Load().Configuration.CustomKeys);
+
+        Assert.Equal("邮箱", migrated.Label);
+        Assert.Equal("text", migrated.ActionType);
+        Assert.Equal("user@example.com", migrated.Input);
     }
 
     [Fact]

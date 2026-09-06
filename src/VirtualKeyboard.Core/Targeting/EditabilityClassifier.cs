@@ -50,9 +50,9 @@ public static class EditabilityClassifier
             return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.ReadOnly);
         if (snapshot.IsPassword && snapshot.ControlType == FocusControlType.Edit)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.PasswordEdit);
-        if (evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
+        if (snapshot.ControlType == FocusControlType.Edit && evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.ValuePattern);
-        if (evidence.IsTextEditPatternAvailable)
+        if (snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document && evidence.IsTextEditPatternAvailable)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.TextEditPattern);
         if ((snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document) &&
             evidence.CaretRectangle is { IsValid: true } &&

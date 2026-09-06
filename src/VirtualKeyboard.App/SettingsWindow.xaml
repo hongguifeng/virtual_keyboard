@@ -1,14 +1,14 @@
 <Window x:Class="VirtualKeyboard.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Virtual Keyboard 设置" Width="460" Height="520"
+        Title="Virtual Keyboard 设置" Width="620" Height="650"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="16">
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Grid.Row="0">
             <Grid.RowDefinitions>
                 <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition Height="160"/><RowDefinition Height="Auto"/><RowDefinition/>
             </Grid.RowDefinitions>
             <CheckBox x:Name="EnabledCheckBox" Grid.Row="0" Content="启用键盘" Margin="0,4"/>
             <CheckBox x:Name="AutoShowCheckBox" Grid.Row="1" Content="自动显示" Margin="0,4"/>
@@ -19,8 +19,19 @@
             <StackPanel Grid.Row="6" Orientation="Horizontal"><Label Content="透明度 (0.30-1.00)" Width="130"/><TextBox x:Name="OpacityTextBox" Width="120"/></StackPanel>
             <StackPanel Grid.Row="7" Orientation="Horizontal"><Label Content="布局 ID" Width="130"/><TextBox x:Name="LayoutIdTextBox" Width="240"/></StackPanel>
             <StackPanel Grid.Row="8" Orientation="Horizontal"><Label Content="手动位置" Width="130"/><ComboBox x:Name="PositionModeComboBox" Width="180"/></StackPanel>
-            <StackPanel Grid.Row="9" Orientation="Horizontal"><Label Content="自定义键标签" Width="130"/><TextBox x:Name="CustomKeyLabelTextBox" Width="240" MaxLength="32"/></StackPanel>
-            <StackPanel Grid.Row="10" Orientation="Horizontal"><Label Content="自定义键输入内容" Width="130"/><TextBox x:Name="CustomKeyTextBox" Width="240" MaxLength="256"/></StackPanel>
+            <DataGrid x:Name="CustomKeysGrid" Grid.Row="9" AutoGenerateColumns="False" CanUserAddRows="False" Margin="0,6,0,2">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="自定义键标签" Binding="{Binding Label}" Width="120"/>
+                    <DataGridComboBoxColumn x:Name="ActionTypeColumn" Header="类型" SelectedItemBinding="{Binding ActionType}" Width="85"/>
+                    <DataGridTextColumn Header="输入内容/主键" Binding="{Binding Input}" Width="*"/>
+                    <DataGridTextColumn Header="修饰键（用 + 分隔）" Binding="{Binding Modifiers}" Width="150"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel Grid.Row="10" Orientation="Horizontal">
+                <Button Content="添加按键" Width="90" Margin="0,2,6,2" Click="OnAddCustomKeyClick"/>
+                <Button Content="删除选中" Width="90" Margin="0,2" Click="OnDeleteCustomKeyClick"/>
+                <TextBlock Text="类型支持 text、key、hotkey" Margin="12,5,0,0" Foreground="DimGray"/>
+            </StackPanel>
             <CheckBox x:Name="DiagnosticsCheckBox" Grid.Row="11" Content="启用详细诊断" Margin="0,4"/>
         </Grid>
         <TextBlock x:Name="StatusText" Grid.Row="1" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8"/>

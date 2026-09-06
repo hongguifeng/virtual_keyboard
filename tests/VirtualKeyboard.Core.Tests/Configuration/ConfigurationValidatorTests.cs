@@ -84,17 +84,27 @@ public sealed class ConfigurationValidatorTests
     }
 
     [Fact]
-    public void CustomKeyRequiresBoundedLabelAndTextPair()
+    public void CustomKeysRequireBoundedFieldsAndValidActions()
     {
-        KeyboardConfiguration missingText = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false, "Paste", "");
+        KeyboardConfiguration missingInput = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
+            [new("Paste", "text", "")]);
         KeyboardConfiguration oversized = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
-            new('L', ConfigurationSchemaLimits.MaximumCustomKeyLabelLength + 1), new('T', ConfigurationSchemaLimits.MaximumCustomKeyTextLength + 1));
+            [new(new('L', ConfigurationSchemaLimits.MaximumCustomKeyLabelLength + 1), "text", new('T', ConfigurationSchemaLimits.MaximumCustomKeyTextLength + 1))]);
 
-        Assert.Contains(ConfigurationValidator.Validate(missingText).Errors, error => error.Code == "config.customKeyPair");
+        Assert.Contains(ConfigurationValidator.Validate(missingInput).Errors, error => error.Code == "config.customKeyInput");
         ConfigurationValidationResult result = ConfigurationValidator.Validate(oversized);
-        Assert.Contains(result.Errors, error => error.Path == "$.customKeyLabel");
-        Assert.Contains(result.Errors, error => error.Path == "$.customKeyText");
+        Assert.Contains(result.Errors, error => error.Path == "$.customKeys[0].label");
+        Assert.Contains(result.Errors, error => error.Path == "$.customKeys[0].input");
         Assert.DoesNotContain(result.Errors, error => error.Message.Contains('T'));
+    }
+
+    [Fact]
+    public void CustomHotkeyAcceptsClosedModifierAndKeyNames()
+    {
+        KeyboardConfiguration valid = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
+            [new("保存", "hotkey", "S", ["Control", "Shift"]), new("回车", "key", "Enter")]);
+
+        Assert.True(ConfigurationValidator.Validate(valid).IsValid);
     }
 
     private static KeyboardConfiguration Default() =>

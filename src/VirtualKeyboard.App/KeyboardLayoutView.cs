@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.App;
@@ -84,7 +85,7 @@ public sealed class KeyboardLayoutView : Grid
             {
                 Content = key.Label,
                 Margin = new Thickness(2),
-                MinHeight = MinimumKeyHeight,
+                MinHeight = KeyboardLayoutView.MinimumKeyHeight,
                 FontSize = key.Label.Contains('\n', StringComparison.Ordinal) ? 12 : 16,
             };
             AutomationProperties.SetAutomationId(button, key.Id == "key.a" ? "KeyAButton" : key.Id);
@@ -119,6 +120,44 @@ public sealed class KeyboardLayoutView : Grid
     }
 }
 
+/// <summary>Hosts configured actions in a separate right-side column.</summary>
+public sealed class CustomKeyColumnView : StackPanel
+{
+    public CustomKeyColumnView()
+    {
+        Focusable = false;
+        KeyboardNavigation.SetIsTabStop(this, false);
+    }
+
+    public event EventHandler<KeyInvokedEventArgs>? KeyInvoked;
+
+    public void LoadKeys(IReadOnlyList<CustomKeyConfiguration> keys, bool passwordTarget)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        Children.Clear();
+        Visibility = !passwordTarget && keys.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (passwordTarget) return;
+
+        for (int index = 0; index < keys.Count; index++)
+        {
+            CustomKeyConfiguration configured = keys[index];
+            var key = new KeyViewModel(
+                $"key.custom.{index}", configured.Label, 1, false, configured.ToLayoutAction());
+            var button = new NonFocusableKeyButton(key)
+            {
+                Content = configured.Label,
+                Margin = new Thickness(2),
+                MinHeight = KeyboardLayoutView.MinimumKeyHeight,
+                FontSize = 14,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+            };
+            AutomationProperties.SetAutomationId(button, $"CustomKey{index}");
+            button.Invoked += (_, _) => KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
+            Children.Add(button);
+        }
+    }
+}
+
 internal sealed class NonFocusableKeyButton : Button
 {
     private readonly KeyGestureController _gesture = new();
@@ -143,9 +182,25 @@ internal sealed class NonFocusableKeyButton : Button
     internal void SetModifierActive(bool active)
     {
         IsModifierActive = active;
+        if (active)
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x78, 0xD1));
+            Foreground = Brushes.White;
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x04, 0x3F, 0x73));
+            BorderThickness = new Thickness(2);
+            FontWeight = FontWeights.SemiBold;
+        }
+        else
+        {
+            ClearValue(BackgroundProperty);
+            ClearValue(ForegroundProperty);
+            ClearValue(BorderBrushProperty);
+            ClearValue(BorderThicknessProperty);
+            ClearValue(FontWeightProperty);
+        }
         if (!_gesture.IsPressed)
         {
-            Opacity = active ? 0.78 : 1;
+            Opacity = 1;
         }
     }
 

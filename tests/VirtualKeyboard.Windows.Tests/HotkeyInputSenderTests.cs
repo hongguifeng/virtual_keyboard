@@ -76,6 +76,36 @@ public sealed class HotkeyInputSenderTests
         AssertEvent(batch[3], 0x5B, 0x0003);
     }
 
+    [Fact]
+    public void PersistentModifierSendsDownThenMainKeyWithoutDuplicateThenUp()
+    {
+        var input = new SequencedInputApi(1u, 2u, 1u);
+        using var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+
+        Assert.True(sender.SendModifierTransition(HotkeyModifier.Shift, (nint)10, KeyInputTransition.KeyDown).IsSuccess);
+        Assert.True(sender.Send([HotkeyModifier.Shift], WindowsKeyboardKey.D1, (nint)10).IsSuccess);
+        Assert.True(sender.SendModifierTransition(HotkeyModifier.Shift, (nint)10, KeyInputTransition.KeyUp).IsSuccess);
+
+        Assert.Equal(3, input.Batches.Count);
+        AssertEvent(input.Batches[0][0], 0x10, 0);
+        Assert.Equal(new ushort[] { 0x31, 0x31 }, input.Batches[1].Select(static item => item.Data.Keyboard.VirtualKey));
+        AssertEvent(input.Batches[2][0], 0x10, 0x0002);
+    }
+
+    [Fact]
+    public void DisposeReleasesPersistentModifiersInReverseOrder()
+    {
+        var input = new SequencedInputApi(1u, 1u, 2u);
+        var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+        Assert.True(sender.SendModifierTransition(HotkeyModifier.Control, (nint)10, KeyInputTransition.KeyDown).IsSuccess);
+        Assert.True(sender.SendModifierTransition(HotkeyModifier.Shift, (nint)10, KeyInputTransition.KeyDown).IsSuccess);
+
+        sender.Dispose();
+
+        Assert.Equal(new ushort[] { 0x10, 0x11 }, input.Batches[^1].Select(static item => item.Data.Keyboard.VirtualKey));
+        Assert.All(input.Batches[^1], static item => Assert.NotEqual(0u, item.Data.Keyboard.Flags & 0x0002));
+    }
+
     [Theory]
     [InlineData(0, new ushort[0])]
     [InlineData(1, new ushort[] { 0x11 })]

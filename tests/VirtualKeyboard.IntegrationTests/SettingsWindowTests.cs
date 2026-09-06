@@ -19,7 +19,8 @@ public sealed class SettingsWindowTests
         RunOnStaThread(() =>
         {
             using var fixture = new Fixture();
-            var expected = new KeyboardConfiguration(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true, "邮箱", "user@example.com");
+            var expected = new KeyboardConfiguration(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true,
+                [new("邮箱", "text", "user@example.com"), new("保存", "hotkey", "S", ["Control"])]);
             Assert.True(fixture.Repository.Save(expected).IsSaved);
             var window = new SettingsWindow(fixture.Repository);
 
@@ -28,29 +29,46 @@ public sealed class SettingsWindowTests
             Assert.Equal("900", Find<TextBox>(window, "WidthTextBox").Text);
             Assert.Equal("custom.layout", Find<TextBox>(window, "LayoutIdTextBox").Text);
             Assert.Equal(ManualPositionMode.Persistent, Find<ComboBox>(window, "PositionModeComboBox").SelectedItem);
-            Assert.Equal("邮箱", Find<TextBox>(window, "CustomKeyLabelTextBox").Text);
-            Assert.Equal("user@example.com", Find<TextBox>(window, "CustomKeyTextBox").Text);
+            var grid = Find<DataGrid>(window, "CustomKeysGrid");
+            Assert.Equal(2, grid.Items.Count);
+            Assert.Equal("邮箱", Assert.IsType<CustomKeyEditorItem>(grid.Items[0]).Label);
+            Assert.Equal("Control", Assert.IsType<CustomKeyEditorItem>(grid.Items[1]).Modifiers);
             window.Close();
         });
     }
 
     [Fact]
-    public void CustomKeyAppearsAboveInvertedTArrowsAndResizePersistsDimensions()
+    public void MultipleCustomActionsAppearInSeparateRightColumnAndResizePersistsDimensions()
     {
         RunOnStaThread(() =>
         {
             using var fixture = new Fixture();
             Assert.True(fixture.Repository.Save(new(1, true, true, true, 0.9, 800, 300, 8,
-                "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false, "邮箱", "user@example.com")).IsSaved);
+                "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false,
+                [new("邮箱", "text", "user@example.com"), new("保存", "hotkey", "S", ["Control"])] )).IsSaved);
             using var window = new MainWindow(new UnusedCapture(), new TargetSessionStore(), fixture.Repository);
             var layout = Find<KeyboardLayoutView>(window, "LayoutView");
-            var custom = Assert.IsType<NonFocusableKeyButton>(Assert.IsType<Grid>(layout.Children[2]).Children[^1]);
-            var up = Assert.IsType<NonFocusableKeyButton>(Assert.IsType<Grid>(layout.Children[3]).Children[^1]);
+            var customColumn = Find<CustomKeyColumnView>(window, "CustomKeysView");
+            var first = Assert.IsType<NonFocusableKeyButton>(customColumn.Children[0]);
+            var second = Assert.IsType<NonFocusableKeyButton>(customColumn.Children[1]);
+            var fourthRow = Assert.IsType<Grid>(layout.Children[3]);
+            var up = Assert.IsType<NonFocusableKeyButton>(fourthRow.Children[^2]);
 
-            Assert.Equal("key.custom", custom.Key.Id);
-            Assert.Equal(LayoutActionTypes.Text, custom.Key.Action.Type);
+            Assert.Equal("key.custom.0", first.Key.Id);
+            Assert.Equal(LayoutActionTypes.Text, first.Key.Action.Type);
+            Assert.Equal(LayoutActionTypes.Hotkey, second.Key.Action.Type);
             Assert.Equal("key.up", up.Key.Id);
-            Assert.False(custom.Key.SafeForPassword);
+            Assert.False(first.Key.SafeForPassword);
+
+            var password = new FocusSnapshot(1, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity([9]),
+                FocusControlType.Edit, true, true, false, true);
+            var passwordEvaluation = new FocusTargetEvaluation(FocusTargetEvaluationStatus.Evaluated, password,
+                new(1, Editability.Editable, ClassificationReasonCode.PasswordEdit, false), (nint)101,
+                new PhysicalPixelRect(300, 300, 100, 30));
+            Assert.True(window.ApplyEvaluatedFocusForTest(passwordEvaluation));
+            Assert.Equal(Visibility.Collapsed, customColumn.Visibility);
+            Assert.Empty(customColumn.Children);
+            Assert.Equal(Visibility.Collapsed, Find<ScrollViewer>(window, "CustomKeysScrollViewer").Visibility);
 
             window.ApplyCompletedResize(960, 420);
             Assert.Equal(960, fixture.Repository.Current.KeyboardWidthDip);

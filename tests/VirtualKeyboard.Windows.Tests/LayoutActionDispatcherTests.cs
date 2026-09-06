@@ -28,6 +28,7 @@ public sealed class LayoutActionDispatcherTests
         using Fixture fixture = Fixture.Create();
         Assert.True(fixture.Dispatch(Key("shift", new(LayoutActionTypes.Modifier, modifier: "Shift"))).IsSuccess);
         Assert.True(fixture.Dispatch(Key("control", new(LayoutActionTypes.Modifier, modifier: "Control"))).IsSuccess);
+        Assert.Equal([KeyInputTransition.KeyDown, KeyInputTransition.KeyDown], fixture.ModifierTransitions);
 
         InputSendResult result = fixture.Dispatch(Key("a", new(LayoutActionTypes.Key, virtualKey: "A")));
 
@@ -56,6 +57,7 @@ public sealed class LayoutActionDispatcherTests
 
         Assert.True(fixture.Dispatch(shift).IsSuccess);
         Assert.False(fixture.Controller.State.ShiftLatched);
+        Assert.Equal([KeyInputTransition.KeyDown, KeyInputTransition.KeyUp], fixture.ModifierTransitions);
         Assert.True(fixture.Dispatch(Key("one", new(LayoutActionTypes.Key, virtualKey: "D1"))).IsSuccess);
         Assert.Equal(1, fixture.KeyCalls);
     }
@@ -90,6 +92,19 @@ public sealed class LayoutActionDispatcherTests
 
         Assert.True(fixture.Dispatch(windows).IsSuccess);
         Assert.False(fixture.Controller.State.WindowsLatched);
+    }
+
+    [Fact]
+    public void FailedNativeModifierTransitionDoesNotChangeVisualState()
+    {
+        using Fixture fixture = Fixture.Create();
+        fixture.ModifierResult = new(InputSendStatus.Failed, 1, 0, 5);
+
+        InputSendResult result = fixture.Dispatch(Key("shift", new(LayoutActionTypes.Modifier, modifier: "Shift")));
+
+        Assert.False(result.IsSuccess);
+        Assert.False(fixture.Controller.State.ShiftLatched);
+        Assert.Equal([KeyInputTransition.KeyDown], fixture.ModifierTransitions);
     }
 
     [Fact]
@@ -185,7 +200,10 @@ public sealed class LayoutActionDispatcherTests
         public int KeyCalls { get; private set; }
         public int HotkeyCalls { get; private set; }
         public int TextCalls { get; private set; }
-        public int TotalSendCalls => KeyCalls + HotkeyCalls + TextCalls;
+        public int ModifierCalls { get; private set; }
+        public int TotalSendCalls => KeyCalls + HotkeyCalls + TextCalls + ModifierCalls;
+        public List<KeyInputTransition> ModifierTransitions { get; } = [];
+        public InputSendResult ModifierResult { get; set; } = new(InputSendStatus.Succeeded, 1, 1, 0);
         public WindowsKeyboardKey LastKey { get; private set; }
         public HotkeyModifier[] LastModifiers { get; private set; } = [];
         public nint LastFocusHwnd { get; private set; }
@@ -217,7 +235,8 @@ public sealed class LayoutActionDispatcherTests
                 controller,
                 holder.SendKey,
                 holder.SendHotkey,
-                holder.SendText);
+                holder.SendText,
+                holder.SendModifier);
             var fixture = new Fixture(session, controller, dispatcher, capsLock);
             holder.Target = fixture;
             return fixture;
@@ -261,6 +280,17 @@ public sealed class LayoutActionDispatcherTests
                 target.LastText = text;
                 target.LastProcessId = processId;
                 return Success();
+            }
+
+            public InputSendResult SendModifier(HotkeyModifier modifier, nint hwnd, KeyInputTransition transition, int processId)
+            {
+                Fixture target = Target!;
+                target.ModifierCalls++;
+                target.LastFocusHwnd = hwnd;
+                target.LastProcessId = processId;
+                target.ModifierTransitions.Add(transition);
+                Assert.True(Enum.IsDefined(modifier));
+                return target.ModifierResult;
             }
 
             private static InputSendResult Success() => new(InputSendStatus.Succeeded, 2, 2, 0);

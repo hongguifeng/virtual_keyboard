@@ -9,6 +9,17 @@ public sealed class EditabilityClassifierTests
         new(1, DateTimeOffset.UtcNow, 42, (nint)10, null, type, focused, enabled, offscreen, password);
 
     [Fact] public void ValuePatternWritableIsEditable() => Assert.Equal(Editability.Editable, Classify(Snapshot(), value: true).Value);
+    [Theory]
+    [InlineData(FocusControlType.Other)]
+    [InlineData(FocusControlType.Pane)]
+    [InlineData(FocusControlType.Window)]
+    public void WritableValuePatternOnNonEditControlsIsNotAnInputTarget(FocusControlType type)
+    {
+        ClassificationResult result = Classify(Snapshot(type), value: true);
+
+        Assert.Equal(Editability.NotEditable, result.Value);
+        Assert.Equal(ClassificationReasonCode.NoEditableEvidence, result.ReasonCode);
+    }
     [Fact] public void TextPatternOnlyIsUnknown() => Assert.Equal(Editability.Unknown, Classify(Snapshot(), text: true).Value);
     [Fact] public void PasswordEditIsEditableWithoutValuePattern() => Assert.Equal(Editability.Editable, Classify(Snapshot(password: true)).Value);
     [Theory]

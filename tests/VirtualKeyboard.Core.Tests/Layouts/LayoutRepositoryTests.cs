@@ -36,8 +36,20 @@ public sealed class LayoutRepositoryTests
             ["key.tab", "key.q", "key.w", "key.e", "key.r", "key.t", "key.y", "key.u", "key.i", "key.o", "key.p", "key.openBracket", "key.closeBracket", "key.backslash"],
             rows[1].Keys!.Select(key => key.Id));
         Assert.Equal(["key.left", "key.down", "key.right"], rows[4].Keys!.TakeLast(3).Select(key => key.Id));
-        Assert.Equal("key.up", rows[3].Keys![^1].Id);
+        Assert.Equal("key.up", rows[3].Keys![^2].Id);
+        Assert.Equal("key.delete", rows[3].Keys![^1].Id);
+        Assert.Equal(1.2, rows[3].Keys![^3].Width);
+        double upCenter = NormalizedCenter(rows[3].Keys!, "key.up");
+        double downCenter = NormalizedCenter(rows[4].Keys!, "key.down");
+        Assert.InRange(Math.Abs(upCenter - downCenter), 0, 0.01);
         Assert.DoesNotContain(keys, key => key.Id is "key.close" or "key.settings" or "key.drag");
+    }
+
+    private static double NormalizedCenter(IReadOnlyList<KeyboardKeyDefinition> keys, string id)
+    {
+        double preceding = keys.TakeWhile(key => key.Id != id).Sum(key => key.Width);
+        KeyboardKeyDefinition key = Assert.Single(keys, key => key.Id == id);
+        return (preceding + (key.Width / 2)) / keys.Sum(item => item.Width);
     }
 
     [Fact]

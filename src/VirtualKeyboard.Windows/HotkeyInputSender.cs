@@ -124,6 +124,7 @@ public sealed class HotkeyInputSender : IDisposable
     private readonly DiagnosticLogger? _diagnostics;
     private readonly SyntheticKeySafetyLatch _safetyLatch;
     private readonly object _sendGate = new();
+    private readonly Dictionary<HotkeyModifier, ResolvedKeyInput> _heldModifiers = [];
 
     public HotkeyInputSender(DiagnosticLogger? diagnostics = null)
         : this(
@@ -158,6 +159,94 @@ public sealed class HotkeyInputSender : IDisposable
         lock (_sendGate)
         {
             return SendCore(modifiers, key, targetFocusHwnd, targetProcessId, cancellationToken);
+        }
+    }
+
+    /// <summary>Sends and tracks a persistent synthetic modifier transition.</summary>
+    public InputSendResult SendModifierTransition(
+        HotkeyModifier modifier,
+        nint targetFocusHwnd,
+        KeyInputTransition transition,
+        int targetProcessId = -1)
+    {
+        lock (_sendGate)
+        {
+            if (_safetyLatch.IsBlocked)
+            {
+                return new(InputSendStatus.SafetyFaulted, 0, 0, GeneralFailureError);
+            }
+            if (!Enum.IsDefined(modifier) || targetFocusHwnd == nint.Zero ||
+                transition is not (KeyInputTransition.KeyDown or KeyInputTransition.KeyUp))
+            {
+                return InvalidInput(targetProcessId);
+            }
+
+            bool isDown = transition == KeyInputTransition.KeyDown;
+            if (isDown == _heldModifiers.ContainsKey(modifier))
+            {
+                return new(InputSendStatus.Succeeded, 0, 0, 0);
+            }
+
+            ResolvedKeyInput key = default;
+            NativeInput? plannedInput = null;
+            try
+            {
+                if (!_heldModifiers.TryGetValue(modifier, out key))
+                {
+                    uint targetThreadId = _mappingApi.GetWindowThreadProcessId(targetFocusHwnd, out _);
+                    nint keyboardLayout = targetThreadId == 0 ? nint.Zero : _mappingApi.GetKeyboardLayout(targetThreadId);
+                    if (keyboardLayout == nint.Zero) return InvalidInput(targetProcessId);
+                    key = Resolve((ushort)modifier, keyboardLayout, forceExtended: modifier == HotkeyModifier.Windows);
+                }
+
+                NativeInput input = KeyInputBuilder.Build(key, transition)[0];
+                plannedInput = input;
+                uint sent = _inputApi.SendInput([input]);
+                if (sent == 1)
+                {
+                    if (isDown) _heldModifiers.Add(modifier, key);
+                    else _heldModifiers.Remove(modifier);
+                    LogCompletion(InputSendStatus.Succeeded, targetProcessId, 1, 1, 0);
+                    return new(InputSendStatus.Succeeded, 1, 1, 0);
+                }
+
+                int errorCode = _inputApi.LastError;
+                if (!isDown)
+                {
+                    _heldModifiers.Remove(modifier);
+                    LatchUnreleasedKeys([input], targetProcessId, 1, 0, errorCode);
+                }
+                LogFailure(targetProcessId, 1, 0, errorCode);
+                return new(InputSendStatus.Failed, 1, 0, errorCode);
+            }
+            catch (ArgumentException)
+            {
+                return InvalidInput(targetProcessId);
+            }
+            catch (Exception exception)
+            {
+                if (plannedInput.HasValue)
+                {
+                    NativeInput cleanup = isDown
+                        ? KeyInputBuilder.Build(key, KeyInputTransition.KeyUp)[0]
+                        : plannedInput.Value;
+                    _heldModifiers.Remove(modifier);
+                    LatchUnreleasedKeys([cleanup], targetProcessId, 1, 0, GeneralFailureError);
+                }
+                InputSendStatus status = IsNativeUnavailable(exception) ? InputSendStatus.NativeUnavailable : InputSendStatus.Failed;
+                int errorCode = status == InputSendStatus.NativeUnavailable ? NativeUnavailableError : GeneralFailureError;
+                LogFailure(targetProcessId, plannedInput.HasValue ? 1 : 0, 0, errorCode);
+                return new(status, plannedInput.HasValue ? 1 : 0, 0, errorCode);
+            }
+        }
+    }
+
+    /// <summary>Best-effort releases all modifiers held by this sender.</summary>
+    public void ReleaseLatchedModifiers()
+    {
+        lock (_sendGate)
+        {
+            ReleaseLatchedModifiersCore();
         }
     }
 
@@ -207,7 +296,7 @@ public sealed class HotkeyInputSender : IDisposable
                 resolvedModifiers[index] = new ResolvedHotkeyModifier(
                     modifier,
                     Resolve((ushort)modifier, keyboardLayout, forceExtended: modifier == HotkeyModifier.Windows),
-                    (_modifierStateApi.GetAsyncKeyState((int)modifier) & 0x8000) != 0);
+                    _heldModifiers.ContainsKey(modifier) || (_modifierStateApi.GetAsyncKeyState((int)modifier) & 0x8000) != 0);
             }
             batch = HotkeyInputBuilder.Build(mainKey, resolvedModifiers);
         }
@@ -277,9 +366,21 @@ public sealed class HotkeyInputSender : IDisposable
     {
         lock (_sendGate)
         {
+            ReleaseLatchedModifiersCore();
             _safetyLatch.Dispose();
         }
         GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseLatchedModifiersCore()
+    {
+        if (_heldModifiers.Count == 0) return;
+        NativeInput[] releases = _heldModifiers.Values.Reverse()
+            .Select(static key => KeyInputBuilder.Build(key, KeyInputTransition.KeyUp)[0])
+            .ToArray();
+        _heldModifiers.Clear();
+        int released = TryBestEffortRelease(releases);
+        LatchUnreleasedKeys(releases.Skip(Math.Clamp(released, 0, releases.Length)), -1, releases.Length, released, GeneralFailureError);
     }
 
     private ResolvedKeyInput Resolve(ushort virtualKey, nint keyboardLayout, bool forceExtended)

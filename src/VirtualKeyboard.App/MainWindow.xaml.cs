@@ -196,7 +196,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _inputQueue.SetCurrentSession(0);
         _latestFocusSnapshots.Clear();
         _targetSessions.Clear();
-        _keyboardController.ClearTargetSession();
+        ClearKeyboardState();
         _overlay.Hide();
         return true;
     }
@@ -210,7 +210,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
-            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeyLabel, current.CustomKeyText));
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys));
         if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
@@ -218,7 +218,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             _inputQueue.SetCurrentSession(0);
             _latestFocusSnapshots.Clear();
             _targetSessions.Clear();
-            _keyboardController.ClearTargetSession();
+            ClearKeyboardState();
             _overlay.Hide();
         }
     }
@@ -289,13 +289,14 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             evaluation.Anchor is { IsValid: true } anchor)
         {
             _overlay.InvalidateManualPosition();
+            _hotkeySender.ReleaseLatchedModifiers();
             TargetSession session = _targetSessions.Replace(evaluation.Snapshot, evaluation.FocusHwnd, anchor);
             _diagnostics.Log(DiagnosticType.TargetSessionCreated, DiagnosticModule.State, targetProcessId: session.ProcessId);
             _inputQueue.SetCurrentSession(session.SessionId);
             _keyboardController.SetTargetSession(session.SessionId);
             ReloadLayoutForTarget(session.IsPassword);
             LayoutView.UpdateState(_keyboardController.State);
-            SessionStatusText.Text = session.IsPassword ? "密码输入目标已就绪" : "输入目标已就绪";
+            TitleStatusText.Text = string.Empty;
             if (!configuration.AutoShow) return;
             MonitorMetricsResult monitor = _monitorDpi.Capture(anchor, session.TopLevelHwnd);
             if (!monitor.IsCaptured) { ClearAutomaticTarget(); return; }
@@ -313,7 +314,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         {
             _inputQueue.SetCurrentSession(0);
             _targetSessions.Clear();
-            _keyboardController.ClearTargetSession();
+            ClearKeyboardState();
         }
         if (configuration.AutoHide && transition.Actions.HasFlag(TargetCoordinatorAction.HideOverlay)) _overlay.Hide();
     }
@@ -335,11 +336,17 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _latestFocusSnapshots.Clear();
         _inputQueue.SetCurrentSession(0);
         _targetSessions.Clear();
-        _keyboardController.ClearTargetSession();
+        ClearKeyboardState();
         if (_configurationRepository.Current.AutoHide) _overlay.Hide();
     }
 
     internal ConfigurationSaveResult SaveCurrentConfiguration() => _configurationRepository.Save(_configurationRepository.Current);
+
+    private void ClearKeyboardState()
+    {
+        _hotkeySender.ReleaseLatchedModifiers();
+        _keyboardController.ClearTargetSession();
+    }
 
     private async void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
     {
@@ -348,12 +355,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (session?.IsPassword == true &&
             (!e.Key.SafeForPassword || !PasswordActionPolicy.Check(e.Key.Action).IsAllowed))
         {
-            SessionStatusText.Text = "密码输入中此按键不可用";
+            TitleStatusText.Text = "密码输入中此按键不可用";
             return;
         }
         if (session is null)
         {
-            SessionStatusText.Text = "请先点击可编辑输入框";
+            TitleStatusText.Text = "请先点击可编辑输入框";
             return;
         }
 
@@ -376,18 +383,18 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         LayoutView.UpdateState(_keyboardController.State);
         if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
         {
-            SessionStatusText.Text = "按键已发送";
+            TitleStatusText.Text = string.Empty;
             return;
         }
 
         if (queued.SendResult is InputSendResult result)
         {
             InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
-            SessionStatusText.Text = feedback.Message;
+            TitleStatusText.Text = feedback.Message;
         }
         else
         {
-            SessionStatusText.Text = "输入队列已停止或目标已变化";
+            TitleStatusText.Text = "输入队列已停止或目标已变化";
         }
     }
 
@@ -398,11 +405,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (loaded.Layouts.TryGetValue(layoutId, out KeyboardLayoutDefinition? layout) ||
             loaded.Layouts.TryGetValue("builtin.qwerty.en-US", out layout))
         {
-            LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(AddConfiguredCustomKey(layout, _configurationRepository.Current)));
+            LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(layout));
+            LoadConfiguredCustomKeys(passwordTarget: false);
             return;
         }
 
-        SessionStatusText.Text = loaded.Issues.Count == 0
+        TitleStatusText.Text = loaded.Issues.Count == 0
             ? "未找到内置键盘布局"
             : $"布局加载失败：{loaded.Issues[0].Path} · {loaded.Issues[0].Code}";
     }
@@ -412,7 +420,14 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (LayoutView.Layout is not null)
         {
             LayoutView.LoadLayout(LayoutView.Layout, isPassword);
+            LoadConfiguredCustomKeys(isPassword);
         }
+    }
+
+    private void LoadConfiguredCustomKeys(bool passwordTarget)
+    {
+        CustomKeysView.LoadKeys(_configurationRepository.Current.CustomKeys, passwordTarget);
+        CustomKeysScrollViewer.Visibility = CustomKeysView.Visibility;
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)
@@ -441,30 +456,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             width, height, current.MarginDip, current.LayoutId, current.ManualPositionMode,
-            current.DetailedDiagnostics, current.CustomKeyLabel, current.CustomKeyText));
+            current.DetailedDiagnostics, current.CustomKeys));
         if (!saved.IsSaved)
         {
             _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         }
-    }
-
-    private static KeyboardLayoutDefinition AddConfiguredCustomKey(KeyboardLayoutDefinition layout, KeyboardConfiguration configuration)
-    {
-        IReadOnlyList<KeyboardLayoutRow>? sourceRows = layout.Rows;
-        if (string.IsNullOrWhiteSpace(configuration.CustomKeyLabel) || string.IsNullOrEmpty(configuration.CustomKeyText) ||
-            sourceRows is null || sourceRows.Count < 3 || sourceRows[2].Keys is not { } customRowKeys ||
-            customRowKeys.Count >= LayoutSchemaLimits.MaximumKeysPerRow ||
-            sourceRows.SelectMany(static row => row.Keys ?? []).Any(static key => key.Id == "key.custom"))
-        {
-            return layout;
-        }
-
-        KeyboardLayoutRow[] rows = sourceRows.Select((row, index) => index == 2
-            ? new KeyboardLayoutRow(row.Keys!.Append(new KeyboardKeyDefinition(
-                "key.custom", configuration.CustomKeyLabel, 1.6, false,
-                new LayoutActionDefinition(LayoutActionTypes.Text, value: configuration.CustomKeyText))))
-            : row).ToArray();
-        return new(layout.SchemaVersion, layout.Id, layout.Name, layout.Culture, rows);
     }
 
     protected override void OnClosed(EventArgs e)
@@ -487,6 +483,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _inputQueue.Dispose();
         _latestFocusSnapshots.Clear();
         _targetSessions.Clear();
+        _hotkeySender.ReleaseLatchedModifiers();
         _keyboardController.Dispose();
         _hotkeySender.Dispose();
         _overlay.DpiChanged -= OnOverlayDpiChanged;

@@ -64,8 +64,9 @@
       { "id": "key.comma", "label": "<\n,", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemComma" } },
       { "id": "key.period", "label": ">\n.", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemPeriod" } },
       { "id": "key.slash", "label": "?\n/", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemQuestion" } },
-      { "id": "key.shiftRight", "label": "Shift", "width": 2.2, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Shift" } },
-      { "id": "key.up", "label": "↑", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Up" } }
+      { "id": "key.shiftRight", "label": "Shift", "width": 1.2, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Shift" } },
+      { "id": "key.up", "label": "↑", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Up" } },
+      { "id": "key.delete", "label": "Del", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Delete" } }
     ],
     [
       { "id": "key.control", "label": "Ctrl", "width": 1.4, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Control" } },

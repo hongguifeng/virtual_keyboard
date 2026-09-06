@@ -210,8 +210,9 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - TextPattern-only 必须返回 Unknown 或 NotEditable，不能返回 Editable。
   - 添加元素失效、COM 异常和无穷/空矩形处理。
   - 对应：FR-FOC-003、004，AC-006、013。
-  - 实现：Core `EditabilityClassifier` 按身份、启用/焦点/离屏、只读、密码 Edit、ValuePattern、TextEditPattern、caret 和 TextPattern-only 顺序返回封闭的 `ClassificationReasonCode`；`ScreenRectangle` 拒绝 NaN/Infinity、超限、负尺寸和零矩形。Windows `EditabilityEvidenceFactory` 仅读取 Pattern 可用性与 `IsReadOnly`，不读取 Value/Text，并隔离 UIA/COM 异常。
+  - 实现：Core `EditabilityClassifier` 按身份、启用/焦点/离屏、只读、密码 Edit、Edit+ValuePattern、Edit/Document+TextEditPattern、caret 和 TextPattern-only 顺序返回封闭的 `ClassificationReasonCode`；桌面/资源管理器选择项等非 Edit 控件不得仅凭 ValuePattern 触发。Windows 证据层不读取 Value/Text，并隔离 UIA/COM 异常。
   - 验证：Core 49/49、Windows 30/30、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖密码 Edit、ValuePattern、TextEditPattern、TextPattern-only、只读优先、焦点/启用/离屏、caret 归属及异常路径。
+  - 2026-09-06 反馈修正验证：新增 Other/Pane/Window 即使暴露可写 ValuePattern 也不得触发的回归用例；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26，build/publish 通过且 0 warning/error。
 
 - [x] **T2.4（P0，0.75-1 人日）实现 NativeFocusAdapter**
   - 封装 GetForegroundWindow、GetWindowThreadProcessId、GetGUIThreadInfo、ClientToScreen。
@@ -415,14 +416,16 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - Review 修正：标准字母、数字和 Space 改走 `key` 而非 `text`，Windows 封闭键枚举扩展到 A-Z、D0-D9、Space 和状态键，避免后续 Shift/Ctrl/Alt 依赖跨语义路径的隐式转换。
   - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
   - 本次 review：补齐标准美式 OEM 标点、左右修饰键、Shift 双字符图例及右侧倒 T 方向布局，并增加 Win/Fn 功能层；完整 Release 门禁 Core 214/214、Windows 163/163、Integration 26/26，build/publish 通过且 0 warning/error。
+  - 2026-09-06 反馈修正：右 Shift 缩短，Up 左移并与 Down 中心对齐，Up 右侧补 Delete；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26，build/publish 通过且 0 warning/error。
 
 - [x] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - Shift、Ctrl、Alt 点击切换保持策略和 CapsLock 系统同步。
   - 实体键盘改变 CapsLock 后刷新标签。
   - 目标变化或退出时清理瞬时状态。
   - 对应：FR-INP-005。
-  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift/Control/Alt/Windows/Fn 第一次点击保持、再次点击释放，普通输入动作只读取而不消费；Windows 参与热键批次，Fn 只选择 `fnVirtualKey`。无目标拒绝准备动作，Session 替换、清空和 Dispose 清理全部保持状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
+  - 实现：Core `KeyboardController` 串行维护版本化状态快照；Shift/Control/Alt/Windows 首次点击真实发送 KeyDown、第二次发送 KeyUp，只有成功才更新蓝底白字加粗边框状态，目标清理和退出逆序释放且失败进入安全闩锁。Fn 只选择 `fnVirtualKey`。Windows `CapsLockStateService` 读取并切换系统 toggle bit。
   - 验证：覆盖 Shift/Ctrl/Alt 跨普通动作保持及二次点击释放、Shift+D1/D2 数字行组合、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
+  - 2026-09-06 反馈修正验证：覆盖真实修饰键 Down→普通键不重复 Down/Up→第二次点击 Up、原生失败不产生虚假高亮及退出逆序释放；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26。
 
 - [x] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
   - 宽度按权重计算，支持最小点击尺寸。
@@ -464,10 +467,10 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 ### TODO
 
 - [x] **T6.1（P0，0.75 人日）实现 Config schema 和验证**
-  - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关、自定义键标签与文本。
+  - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关、自定义键列表。
   - 设置合理范围，opacity 限制 30%-100%。
   - 对应：FR-CFG-001、002。
-  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；`ConfigurationValidator` 校验 schema v1、透明度 0.30–1.00、宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP、布局 ID 长度和封闭手动定位模式。Review 增补自定义键标签/文本成对校验与 32/256 长度上限，旧 schema v1 缺字段时安全禁用。
+  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；Review 将单个自定义文本键升级为最多 12 项的 `customKeys`，支持 text/key/hotkey 封闭动作、32/256 长度限制，并兼容迁移旧单键字段。
   - 验证：Core 199/199；覆盖默认配置、版本/模式、NaN/Infinity/所有数值边界、空/超长布局 ID 及错误消息不泄露 ID；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [x] **T6.2（P0，0.75 人日）实现 ConfigRepository**
@@ -482,10 +485,10 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 设置窗口独立且允许激活。
   - 打开期间状态机进入 SettingsOpen，忽略自身输入控件。
   - 保存前验证，保存失败保留内存状态并提示。
-  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段及自定义键标签/文本；保存前执行数值解析和 `ConfigurationValidator`，IO 失败保持窗口及有效内存配置并显示固定提示。打开期间复用 `TargetStateCoordinator.SettingsOpen`，使输入队列会话失效、清除目标/瞬时状态并隐藏 Overlay，关闭后回到 Hidden/Disabled 并重新组合布局；自定义文本键固定插入右侧方向区上方且密码模式隐藏。
+  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；自定义键通过可增删表格配置，在标准键盘右侧独立可滚动列显示，支持 text/key/hotkey，密码模式隐藏。打开设置会释放保持修饰键、使输入会话失效并隐藏 Overlay。
   - Review 增补：无边框 Overlay 通过 `WindowChrome` 支持拖动四边/四角缩放，`WM_EXITSIZEMOVE` 后一次性保存最终 DIP 尺寸，继续保持 `WS_EX_NOACTIVATE`。
   - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
-  - 本次 review 验证：覆盖自定义键配置往返/旧配置兼容/长度与成对校验、方向区上方布局、密码隐藏、最终缩放尺寸持久化；完整 Release 门禁 Core 214/214、Windows 163/163、Integration 26/26，build/publish 通过且 0 warning/error。
+  - 2026-09-06 反馈修正验证：覆盖多自定义键配置往返、旧单键配置迁移、动作白名单、右侧独立滚动列、密码目标整列折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26，build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

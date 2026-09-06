@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.Core.Configuration;
 
@@ -6,6 +7,30 @@ public enum ManualPositionMode
 {
     UntilTargetChanges,
     Persistent,
+}
+
+public sealed class CustomKeyConfiguration
+{
+    public CustomKeyConfiguration(string? label, string? actionType, string? input, IEnumerable<string>? modifiers = null)
+    {
+        Label = label ?? string.Empty;
+        ActionType = actionType ?? string.Empty;
+        Input = input ?? string.Empty;
+        Modifiers = Array.AsReadOnly((modifiers ?? []).ToArray());
+    }
+
+    public string Label { get; }
+    public string ActionType { get; }
+    public string Input { get; }
+    public IReadOnlyList<string> Modifiers { get; }
+
+    public LayoutActionDefinition ToLayoutAction() => ActionType switch
+    {
+        LayoutActionTypes.Text => new(LayoutActionTypes.Text, value: Input),
+        LayoutActionTypes.Key => new(LayoutActionTypes.Key, virtualKey: Input),
+        LayoutActionTypes.Hotkey => new(LayoutActionTypes.Hotkey, virtualKey: Input, modifiers: Modifiers),
+        _ => new(ActionType),
+    };
 }
 
 public sealed class KeyboardConfiguration
@@ -22,8 +47,7 @@ public sealed class KeyboardConfiguration
         string? layoutId,
         ManualPositionMode manualPositionMode,
         bool detailedDiagnostics,
-        string customKeyLabel = "",
-        string customKeyText = "")
+        IEnumerable<CustomKeyConfiguration>? customKeys = null)
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -36,8 +60,7 @@ public sealed class KeyboardConfiguration
         LayoutId = layoutId;
         ManualPositionMode = manualPositionMode;
         DetailedDiagnostics = detailedDiagnostics;
-        CustomKeyLabel = customKeyLabel ?? string.Empty;
-        CustomKeyText = customKeyText ?? string.Empty;
+        CustomKeys = Array.AsReadOnly((customKeys ?? []).ToArray());
     }
 
     public int SchemaVersion { get; }
@@ -51,8 +74,7 @@ public sealed class KeyboardConfiguration
     public string? LayoutId { get; }
     public ManualPositionMode ManualPositionMode { get; }
     public bool DetailedDiagnostics { get; }
-    public string CustomKeyLabel { get; }
-    public string CustomKeyText { get; }
+    public IReadOnlyList<CustomKeyConfiguration> CustomKeys { get; }
 }
 
 public sealed record ConfigurationValidationError(string Path, string Code, string Message);
@@ -80,6 +102,7 @@ public static class ConfigurationSchemaLimits
     public const int MaximumLayoutIdLength = 128;
     public const int MaximumCustomKeyLabelLength = 32;
     public const int MaximumCustomKeyTextLength = 256;
+    public const int MaximumCustomKeys = 12;
 }
 
 public static class ConfigurationValidator
@@ -110,22 +133,51 @@ public static class ConfigurationValidator
         {
             Add(errors, "$.manualPositionMode", "config.manualPositionMode", "The manual position mode is not supported.");
         }
-        bool hasCustomLabel = !string.IsNullOrWhiteSpace(configuration.CustomKeyLabel);
-        bool hasCustomText = !string.IsNullOrEmpty(configuration.CustomKeyText);
-        if (hasCustomLabel != hasCustomText)
+        if (configuration.CustomKeys.Count > ConfigurationSchemaLimits.MaximumCustomKeys)
         {
-            Add(errors, "$.customKey", "config.customKeyPair", "Custom key label and text must either both be present or both be empty.");
+            Add(errors, "$.customKeys", "config.customKeysCount", $"Custom keys cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeys} items.");
         }
-        if (configuration.CustomKeyLabel.Length > ConfigurationSchemaLimits.MaximumCustomKeyLabelLength)
+        for (int index = 0; index < Math.Min(configuration.CustomKeys.Count, ConfigurationSchemaLimits.MaximumCustomKeys); index++)
         {
-            Add(errors, "$.customKeyLabel", "config.customKeyLabel", $"Custom key label cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeyLabelLength} characters.");
-        }
-        if (configuration.CustomKeyText.Length > ConfigurationSchemaLimits.MaximumCustomKeyTextLength)
-        {
-            Add(errors, "$.customKeyText", "config.customKeyText", $"Custom key text cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeyTextLength} characters.");
+            ValidateCustomKey(configuration.CustomKeys[index], index, errors);
         }
 
         return new(errors);
+    }
+
+    private static void ValidateCustomKey(CustomKeyConfiguration key, int index, List<ConfigurationValidationError> errors)
+    {
+        string path = $"$.customKeys[{index}]";
+        if (string.IsNullOrWhiteSpace(key.Label) || key.Label.Length > ConfigurationSchemaLimits.MaximumCustomKeyLabelLength)
+        {
+            Add(errors, $"{path}.label", "config.customKeyLabel", $"Custom key label must contain between 1 and {ConfigurationSchemaLimits.MaximumCustomKeyLabelLength} characters.");
+        }
+        if (string.IsNullOrEmpty(key.Input) || key.Input.Length > ConfigurationSchemaLimits.MaximumCustomKeyTextLength)
+        {
+            Add(errors, $"{path}.input", "config.customKeyInput", $"Custom key input must contain between 1 and {ConfigurationSchemaLimits.MaximumCustomKeyTextLength} characters.");
+        }
+        if (key.ActionType is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey))
+        {
+            Add(errors, $"{path}.actionType", "config.customKeyAction", "Custom key action must be text, key, or hotkey.");
+            return;
+        }
+        if (key.ActionType != LayoutActionTypes.Hotkey && key.Modifiers.Count > 0)
+        {
+            Add(errors, $"{path}.modifiers", "config.customKeyModifiers", "Only hotkey actions may declare modifiers.");
+            return;
+        }
+        if (key.ActionType != LayoutActionTypes.Text && key.Input.Length > LayoutSchemaLimits.MaximumLabelLength)
+        {
+            Add(errors, $"{path}.input", "config.customKeyInput", "Custom key virtual key name is too long.");
+            return;
+        }
+
+        var synthetic = new KeyboardLayoutDefinition(1, "custom.validation", "Custom", "en-US",
+            [new KeyboardLayoutRow([new KeyboardKeyDefinition("custom", key.Label, 1, false, key.ToLayoutAction())])]);
+        if (!LayoutValidator.Validate(synthetic).IsValid)
+        {
+            Add(errors, path, "config.customKeyAction", "Custom key action is invalid.");
+        }
     }
 
     private static void ValidateFiniteRange(double value, double minimum, double maximum, string path, string code, List<ConfigurationValidationError> errors)

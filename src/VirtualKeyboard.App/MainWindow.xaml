@@ -20,7 +20,6 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="28" />
-                <RowDefinition Height="32" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False"
@@ -28,14 +27,21 @@
                   MouseMove="OnDragAreaMouseMove"
                   MouseLeftButtonUp="OnDragAreaMouseLeftButtonUp">
                 <TextBlock Text="Virtual Keyboard" VerticalAlignment="Center" Margin="6,0" Focusable="False" IsHitTestVisible="False" />
+                <TextBlock x:Name="TitleStatusText" VerticalAlignment="Center" Margin="150,0,100,0" Foreground="Firebrick"
+                           TextTrimming="CharacterEllipsis" Focusable="False" IsHitTestVisible="False" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="SettingsButton" Content="设置" Width="52" Height="22" Margin="0,0,6,0" Focusable="False" IsTabStop="False" Click="OnSettingsClick" />
                     <Button x:Name="CloseButton" Content="×" Width="24" Height="22" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
                 </StackPanel>
             </Grid>
-            <TextBlock x:Name="SessionStatusText" Grid.Row="1" Margin="6,8,6,0"
-                       Text="请点击可编辑输入框" VerticalAlignment="Center" TextWrapping="Wrap" Focusable="False" />
-            <local:KeyboardLayoutView x:Name="LayoutView" Grid.Row="2" Margin="0,8,0,0" KeyInvoked="OnLayoutKeyInvoked" />
+            <Grid Grid.Row="1" Margin="0,6,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <local:KeyboardLayoutView x:Name="LayoutView" Grid.Column="0" KeyInvoked="OnLayoutKeyInvoked" />
+                <ScrollViewer x:Name="CustomKeysScrollViewer" Grid.Column="1" Width="124" Margin="4,0,0,0"
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <local:CustomKeyColumnView x:Name="CustomKeysView" Width="120" KeyInvoked="OnLayoutKeyInvoked" />
+                </ScrollViewer>
+            </Grid>
         </Grid>
     </Border>
 </Window>
