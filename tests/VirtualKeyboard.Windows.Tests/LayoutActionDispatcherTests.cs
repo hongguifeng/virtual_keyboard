@@ -19,7 +19,36 @@ public sealed class LayoutActionDispatcherTests
         Assert.Equal(WindowsKeyboardKey.A, fixture.LastKey);
         Assert.Equal((nint)101, fixture.LastFocusHwnd);
         Assert.Equal(42, fixture.LastProcessId);
+        Assert.Equal([KeyInputTransition.Press], fixture.KeyTransitions);
         Assert.Equal(0, fixture.HotkeyCalls);
+    }
+
+    [Fact]
+    public void StandardKeyTransitionUsesValidatedKeyDownAndKeyUpPath()
+    {
+        using Fixture fixture = Fixture.Create();
+        KeyViewModel key = Key("a", new(LayoutActionTypes.Key, virtualKey: "A"));
+
+        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, key, KeyInputTransition.KeyDown).IsSuccess);
+        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, key, KeyInputTransition.KeyUp).IsSuccess);
+        Assert.Equal([KeyInputTransition.KeyDown, KeyInputTransition.KeyUp], fixture.KeyTransitions);
+    }
+
+    [Fact]
+    public void MomentaryKeyUpAndTargetCleanupReleaseTheValidatedKeyWithoutRevalidation()
+    {
+        using Fixture fixture = Fixture.Create();
+        KeyViewModel a = Key("a", new(LayoutActionTypes.Key, virtualKey: "A"));
+        KeyViewModel q = Key("q", new(LayoutActionTypes.Key, virtualKey: "Q"));
+
+        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, a, KeyInputTransition.KeyDown).IsSuccess);
+        Assert.True(fixture.Dispatcher.DispatchKeyTransition(0, a, KeyInputTransition.KeyUp).IsSuccess);
+        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, q, KeyInputTransition.KeyDown).IsSuccess);
+        fixture.Dispatcher.ReleaseMomentaryKeys();
+
+        Assert.Equal(
+            [KeyInputTransition.KeyDown, KeyInputTransition.KeyUp, KeyInputTransition.KeyDown, KeyInputTransition.KeyUp],
+            fixture.KeyTransitions);
     }
 
     [Fact]
@@ -256,6 +285,7 @@ public sealed class LayoutActionDispatcherTests
         public int ModifierCalls { get; private set; }
         public int TotalSendCalls => KeyCalls + HotkeyCalls + ChordCalls + TextCalls + ModifierCalls;
         public List<KeyInputTransition> ModifierTransitions { get; } = [];
+        public List<KeyInputTransition> KeyTransitions { get; } = [];
         public InputSendResult ModifierResult { get; set; } = new(InputSendStatus.Succeeded, 1, 1, 0);
         public WindowsKeyboardKey LastKey { get; private set; }
         public HotkeyModifier[] LastModifiers { get; private set; } = [];
@@ -312,7 +342,7 @@ public sealed class LayoutActionDispatcherTests
                 target.LastKey = key;
                 target.LastFocusHwnd = hwnd;
                 target.LastProcessId = processId;
-                Assert.Equal(KeyInputTransition.Press, transition);
+                target.KeyTransitions.Add(transition);
                 return Success();
             }
 

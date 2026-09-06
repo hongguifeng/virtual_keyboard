@@ -74,12 +74,12 @@ public sealed class MinimalOverlayWindowTests
             Assert.False(key.BeginGestureForTest());
             Assert.True(key.EndGestureForTest(isInside: true));
             Assert.False(key.EndGestureForTest(isInside: true));
-            Assert.Equal(1, invoked);
+            Assert.Equal(0, invoked);
 
             Assert.True(key.BeginGestureForTest());
             key.CancelGestureForTest();
             Assert.False(key.EndGestureForTest(isInside: true));
-            Assert.Equal(1, invoked);
+            Assert.Equal(0, invoked);
         });
     }
 
