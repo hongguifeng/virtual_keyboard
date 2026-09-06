@@ -29,7 +29,7 @@ public partial class App : Application
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         _tray = new TrayIconController(window);
-        window.ShowCurrentKeyboard();
+        window.StartAutomaticFocusObservation();
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -709,7 +709,7 @@ T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不�
 
 T6.5 的 `SingleInstanceCoordinator` 以当前域/用户名和 Windows SessionId 的 SHA-256 截断摘要构造 `Local\\` 命名对象，避免在对象名中暴露原始账户信息。命名 Mutex 的首个持有者是主实例；同名 AutoResetEvent 是有界激活通道。第二实例不创建主窗口、托盘或监听器，只设置事件后退出；主实例通过已注册等待接收事件，再切换到 WPF Dispatcher 打开设置窗口。注册、事件句柄和 Mutex 均在应用退出时释放，Dispose 幂等。
 
-T6.6 将退出固化为单向、幂等生命周期。`MainWindow.Dispose` 先把协调器置为 `ShuttingDown`，随后停止 `InputInjectionService`（拒绝新动作并终结队列）、清除 TargetSession、清理 `KeyboardController` 瞬时状态、释放 `HotkeyInputSender` 安全闩锁，再解除 DPI 事件并释放 Overlay 和诊断资源。应用退出阶段保存 Repository 当前快照，然后隐藏/释放 NotifyIcon，最后释放单实例等待和命名句柄。当前宿主尚未创建 UIA 订阅时无需额外注销；未来接入 FocusObservationService 时必须在输入队列之前加入同一退出序列。
+T6.6 将退出固化为单向、幂等生命周期。`MainWindow.Dispose` 先把协调器置为 `ShuttingDown`，注销并释放 `FocusObservationService`，随后停止 `InputInjectionService`（拒绝新动作并终结队列）、清除 TargetSession、清理 `KeyboardController` 瞬时状态、释放 `HotkeyInputSender` 安全闩锁，再解除 DPI 事件并释放 Overlay 和诊断资源。应用退出阶段保存 Repository 当前快照，然后隐藏/释放 NotifyIcon，最后释放单实例等待和命名句柄。
 
 项目执行决策（2026-09-06）：M6 完成后跳过 M7，直接进入 M8。该决策只改变执行顺序，不改变发布质量事实；T7.1–T7.6 及 M7 退出检查保持未完成，M8 发布评审必须把缺失的隐私审计、压力、8 小时稳定性、权限负向和性能数据列为未证明项，不能用既有单元/集成测试替代。
 
@@ -717,7 +717,9 @@ T8.4 采用 ADR-007 的 `win-x64` 框架依赖便携 ZIP，应用版本固定为
 
 T8.5 增加显式应用清单与 `scripts/verify-release.ps1`。脚本校验 ZIP 哈希/安全路径/敏感文件、必需运行文件、EXE 嵌入的普通权限声明和 Authenticode 状态，并输出 `release-security.json`。当前 EXE 为 `asInvoker`、`uiAccess=false`、PerMonitorV2，受控启动前后发布目录哈希无变化；但本机 Defender 被禁用且 EXE 未签名，因此安全检查报告结论为“仅限未签名内测”，T8.5 保持未完成。
 
-T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Windows 11 Pro build 26100、单逻辑屏 3840×2160、96 DPI，以及 Chrome/Edge/VS Code 已安装；未执行真人应用交互或跨系统/多屏矩阵。验收表逐项区分“部分自动证据”和“完整通过”，并把宿主自动焦点未接线、M7 缺失、跨环境缺失、诊断未接线及未签名/未扫描登记为 P0 Open；0 个 AC 完整通过。
+T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Windows 11 Pro build 26100、单逻辑屏 3840×2160、96 DPI，以及 Chrome/Edge/VS Code 已安装；未执行真人应用交互或跨系统/多屏矩阵。验收表逐项区分“部分自动证据”和“完整通过”，并把 M7 缺失、跨环境缺失、诊断未接线及未签名/未扫描登记为 P0 Open；0 个 AC 完整通过。
+
+发布评审后的 `REL-001` 修正把现有能力接入 App：`FocusObservationService` 在专用 MTA 线程合并事件并支持启动刷新；`FocusTargetEvaluator` 只读取进程、RuntimeId、ControlType、焦点/启用/离屏/密码标志、模式可用性、只读标志、边界矩形和 Win32 caret，不读取 Name/Value/Text。分类结果经单调版本协调器进入 WPF Dispatcher，建立带 RuntimeId 的 TargetSession，更新发送前身份快照，并使用 MonitorDpiAdapter + PlacementService 应用配置尺寸、透明度和边距。NotEditable/Unknown 使会话失效并按 autoHide 隐藏；手动关闭/托盘显示复用 ManuallySuppressed 状态。退出在停止输入前注销 UIA。
 
 ## 15. 诊断、隐私与安全设计
 

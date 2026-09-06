@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using VirtualKeyboard.App;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Targeting;
+using VirtualKeyboard.Core.Geometry;
+using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.IntegrationTests;
 
@@ -69,13 +71,63 @@ public sealed class SettingsWindowTests
     {
         RunOnStaThread(() =>
         {
-            using var window = new MainWindow();
+            using var fixture = new Fixture();
+            using var window = new MainWindow(new UnusedCapture(), new TargetSessionStore(), fixture.Repository);
             Assert.True(window.BeginSettingsSession());
             Assert.Equal(TargetCoordinatorState.SettingsOpen, window.CoordinatorState);
             Assert.Null(window.CurrentTargetSession);
             Assert.False(window.BeginSettingsSession());
             Assert.True(window.EndSettingsSession());
             Assert.Equal(TargetCoordinatorState.Hidden, window.CoordinatorState);
+        });
+    }
+
+    [Fact]
+    public void EvaluatedEditableFocusCreatesSessionPlacesOverlayAndNonEditableFocusClearsIt()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            using var window = new MainWindow(new UnusedCapture(), new TargetSessionStore(), fixture.Repository);
+            var editable = new FocusSnapshot(1, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity([1, 2]),
+                FocusControlType.Edit, true, true, false, false);
+            var editableEvaluation = new FocusTargetEvaluation(FocusTargetEvaluationStatus.Evaluated, editable,
+                new(1, Editability.Editable, ClassificationReasonCode.ValuePattern, false), (nint)101,
+                new PhysicalPixelRect(300, 300, 100, 30));
+
+            Assert.True(window.ApplyEvaluatedFocusForTest(editableEvaluation));
+            Assert.Equal(TargetCoordinatorState.VisibleTracking, window.CoordinatorState);
+            Assert.NotNull(window.CurrentTargetSession);
+            Assert.True(window.IsVisible);
+
+            Find<Button>(window, "CloseButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(TargetCoordinatorState.ManuallySuppressed, window.CoordinatorState);
+            Assert.False(window.IsVisible);
+            var repeated = editable with { Version = 2 };
+            Assert.True(window.ApplyEvaluatedFocusForTest(editableEvaluation with
+            {
+                Snapshot = repeated,
+                Classification = editableEvaluation.Classification with { Version = 2 }
+            }));
+            Assert.Equal(TargetCoordinatorState.ManuallySuppressed, window.CoordinatorState);
+            Assert.False(window.IsVisible);
+
+            var nextEdit = editable with { Version = 3, RuntimeId = new RuntimeIdentity([3]) };
+            Assert.True(window.ApplyEvaluatedFocusForTest(editableEvaluation with
+            {
+                Snapshot = nextEdit,
+                Classification = editableEvaluation.Classification with { Version = 3 }
+            }));
+            Assert.Equal(TargetCoordinatorState.VisibleTracking, window.CoordinatorState);
+            Assert.True(window.IsVisible);
+
+            var button = editable with { Version = 4, ControlType = FocusControlType.Button, RuntimeId = new RuntimeIdentity([4]) };
+            var buttonEvaluation = new FocusTargetEvaluation(FocusTargetEvaluationStatus.Evaluated, button,
+                new(4, Editability.NotEditable, ClassificationReasonCode.NoEditableEvidence, false), (nint)101, null);
+            Assert.True(window.ApplyEvaluatedFocusForTest(buttonEvaluation));
+            Assert.Equal(TargetCoordinatorState.Hidden, window.CoordinatorState);
+            Assert.Null(window.CurrentTargetSession);
+            Assert.False(window.IsVisible);
         });
     }
 
@@ -95,5 +147,10 @@ public sealed class SettingsWindowTests
         public string ConfigurationFile { get; }
         public ConfigurationRepository Repository { get; }
         public void Dispose() { if (Directory.Exists(_root)) Directory.Delete(_root, true); }
+    }
+
+    private sealed class UnusedCapture : IForegroundTargetCapture
+    {
+        public TargetCaptureResult Capture() => TargetCaptureResult.Failure(TargetCaptureStatus.NoForegroundWindow);
     }
 }

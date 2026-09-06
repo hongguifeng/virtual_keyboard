@@ -160,6 +160,20 @@ public sealed class FocusObservationServiceTests
     public void StabilityWindowIsFiftyMilliseconds() =>
         Assert.Equal(50, FocusObservationService.FocusStabilityMilliseconds);
 
+    [Fact]
+    public void RefreshRequestsCurrentFocusEvaluationWithoutNativeEvent()
+    {
+        var source = new FakeFocusAutomationSource();
+        using var observed = new ManualResetEventSlim(false);
+        using var service = new FocusObservationService(source, _ => observed.Set());
+
+        Assert.Throws<InvalidOperationException>(service.Refresh);
+        service.Start();
+        service.Refresh();
+
+        Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
+    }
+
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {
         private Action? _notification;

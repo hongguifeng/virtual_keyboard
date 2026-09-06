@@ -93,6 +93,18 @@ public sealed class FocusObservationService : IDisposable
         }
     }
 
+    /// <summary>Requests one bounded evaluation of the currently focused element.</summary>
+    public void Refresh()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_thread is not { IsAlive: true }) throw new InvalidOperationException("Focus observation is not running.");
+            try { _focusPending.Release(); }
+            catch (SemaphoreFullException) { }
+        }
+    }
+
     /// <summary>Requests shutdown and returns false only if the observer thread misses the bounded timeout.</summary>
     public bool Stop()
     {

@@ -7,10 +7,10 @@
 
 | AC | 环境与步骤 | 预期 | 实际/状态 | 证据 | 缺陷 |
 |---|---|---|---|---|---|
-| AC-001 Notepad 端到端 | Win10/11；聚焦 Notepad，自动显示并输入完整 QWERTY | 不抢焦点且输入正确 | 未执行；当前宿主仅手动捕获 | Integration NoActivate/布局组件测试；兼容矩阵 | REL-001、002 |
+| AC-001 Notepad 端到端 | Win10/11；聚焦 Notepad，自动显示并输入完整 QWERTY | 不抢焦点且输入正确 | 未执行；自动焦点宿主已接通但无真人证据 | Integration NoActivate/布局/自动焦点组件测试；兼容矩阵 | REL-001、002 |
 | AC-002 非可编辑元素隐藏 | 在目标应用从编辑框切到 Button/只读控件 | 自动隐藏并清除目标 | 部分；分类器/状态机自动测试通过，宿主未接线 | `EditabilityClassifierTests`、`TargetStateCoordinatorTests` | REL-001、002 |
 | AC-003 空白点击语义 | 编辑框后点击同应用空白区 | 按规格隐藏/清除 | 部分；状态规则自动覆盖，无真人 provider 证据 | Core 状态机测试 | REL-001、002 |
-| AC-004 手动抑制 | 自动显示后关闭，再聚焦同一/不同目标 | 同目标保持抑制，目标变化恢复 | 部分；Core 抑制测试通过，App 标题栏当前只隐藏 | `TargetStateCoordinatorTests` | REL-001 |
+| AC-004 手动抑制 | 自动显示后关闭，再聚焦同一/不同目标 | 同目标保持抑制，目标变化恢复 | 部分；Core 抑制与 App 接线自动测试通过，无真人证据 | `TargetStateCoordinatorTests`、Integration | REL-001 |
 | AC-005 浏览器输入框 | Chrome/Edge 地址栏、网页 text/password | 分类、定位、输入符合策略 | 未执行 | 环境已盘点，无交互证据 | REL-001、002 |
 | AC-006 只读正文不误弹 | 浏览器/应用只读正文和禁用控件 | 不显示 | 部分；分类证据规则自动测试通过 | `EditabilityClassifierTests` | REL-001、002 |
 | AC-007 VS Code 定位 | 编辑器、搜索框、命令面板 | 使用 caret/control/window 降级且可见 | 未执行 | VS Code 1.136.1 已安装，无实测 | REL-001、002 |
