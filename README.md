@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M3（定位、多显示器和 DPI）进行中，T3.1 强类型坐标契约已完成；M1 的 T1.5 跨应用人工矩阵及 M2 退出兼容矩阵仍待交互式验收。下一开发任务为 T3.2 AnchorResolver。
+> 当前状态：M3（定位、多显示器和 DPI）进行中，T3.1 强类型坐标契约和 T3.2 AnchorResolver 已完成；M1 的 T1.5 跨应用人工矩阵及 M2 退出兼容矩阵仍待交互式验收。下一开发任务为 T3.3 PlacementService。
 
 ## 先决条件
 

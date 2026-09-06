@@ -448,6 +448,8 @@ dip        = physicalPx * 96 / monitorDpi
 - 宽高非负；caret 允许窄矩形，但不得是完全无位置的零矩形。
 - 与目标显示器或目标窗口有交集；否则降级。
 
+T3.2 的 Core `AnchorResolver` 使用 `AnchorCandidate(PhysicalPixelRect, OwnerTopLevelHwnd)` 强制来源归属，依序返回首个有效 selection、Win32 caret 或 BoundingRectangle；每跳过一层就在封闭的 `AnchorFallbackReason` 位标志中记录。所有候选拒绝后，以有效工作区中心偏下位置生成 1×1 安全锚点；工作区自身无效时返回 `NoValidAnchor`，不会传播 NaN/Infinity 或猜测跨目标矩形。
+
 ### 11.3 候选布局算法
 
 1. 用 `MonitorFromRect(anchor, MONITOR_DEFAULTTONEAREST)` 获取目标显示器。

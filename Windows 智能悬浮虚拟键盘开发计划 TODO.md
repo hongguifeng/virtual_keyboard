@@ -265,11 +265,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `Geometry` 提供 `PhysicalPixelPoint`、`PhysicalPixelSize`、`PhysicalPixelRect`、`DipSize`、`DpiScale`，定位与 caret 路径已从通用 `ScreenRectangle` 迁移到物理像素强类型。DIP 尺寸构造时拒绝非有限/非正值，DPI scale 仅接受正值并集中执行 DIP↔物理像素转换；Core 无 WPF Rect/Point 引用。
   - 验证：Core 79/79、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖 96/120/144/168/192 DPI、非对称 DPI、负桌面坐标、NaN/Infinity、负尺寸、零矩形和超限坐标。
 
-- [ ] **T3.2（P0，0.75 人日）实现 AnchorResolver**
+- [x] **T3.2（P0，0.75 人日）实现 AnchorResolver**
   - 依次尝试 UIA selection/caret、Win32 caret、BoundingRectangle、安全默认锚点。
   - 校验 NaN、Infinity、零矩形、离谱坐标和跨目标矩形。
   - 每次降级产生 ReasonCode。
   - 对应：FR-POS-001，AC-007。
+  - 实现：Core `AnchorResolver` 严格按 UIA selection/caret、Win32 caret、UIA BoundingRectangle、安全默认点解析首个有效锚点。`AnchorCandidate` 必须归属于当前目标顶层 HWND，矩形必须通过物理像素校验并与目标窗口或工作区相交；安全默认点位于工作区水平中心、垂直 75%。`AnchorFallbackReason` 位标志完整记录被跳过的来源，无有效工作区时返回显式失败。
+  - 验证：Core 88/88、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖多段 selection 首个有效值、完整降级顺序、ReasonCode 组合、跨目标/屏外矩形、NaN/Infinity、零/负矩形、超限坐标和无有效安全锚点。
 
 - [ ] **T3.3（P0，1 人日）实现 PlacementService**
   - 生成 Bottom、Top、Right、Left 候选。
