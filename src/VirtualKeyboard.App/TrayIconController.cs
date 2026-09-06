@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Reflection;
 using VirtualKeyboard.Core.Configuration;
 using Forms = System.Windows.Forms;
 
@@ -44,12 +45,29 @@ internal sealed class TrayIconController : IDisposable
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = "Virtual Keyboard",
-            Icon = SystemIcons.Application,
+            Icon = LoadAppIcon(),
             ContextMenuStrip = menu,
             Visible = visible,
         };
         _notifyIcon.DoubleClick += OnShowKeyboard;
         RefreshState();
+    }
+
+    // The app icon is embedded as VirtualKeyboard.App.Assets.app.ico; the fallback keeps the tray
+    // functional if the resource is ever removed from the build.
+    private static Icon LoadAppIcon()
+    {
+        try
+        {
+            var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("VirtualKeyboard.App.Assets.app.ico");
+            if (stream is not null) { using (stream) { return new Icon(stream); } }
+        }
+        catch (Exception)
+        {
+            // Fall through to the system icon below.
+        }
+
+        return SystemIcons.Application;
     }
 
     internal Forms.ContextMenuStrip Menu => _notifyIcon.ContextMenuStrip!;

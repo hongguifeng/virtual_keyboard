@@ -5,6 +5,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         WindowStyle="None"
         AllowsTransparency="True"
+        Icon="pack://application:,,,/VirtualKeyboard.App;component/Assets/app.ico"
         ShowInTaskbar="False"
         ShowActivated="False"
         Topmost="True"
