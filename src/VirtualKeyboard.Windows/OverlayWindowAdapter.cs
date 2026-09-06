@@ -103,6 +103,12 @@ public sealed class OverlayWindowAdapter : IDisposable
         SetPosition(x, y, width, height, NoActivatePositionFlag);
     }
 
+    public void Hide()
+    {
+        VerifyAccessAndState();
+        _window.Hide();
+    }
+
     public void Close()
     {
         VerifyAccessAndState();

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Input;
@@ -22,6 +23,8 @@ public partial class MainWindow : Window, IDisposable
     private readonly LayoutActionDispatcher _actionDispatcher;
     private readonly HotkeyInputSender _hotkeySender;
     private readonly InputInjectionService _inputQueue;
+    private readonly TargetStateCoordinator _coordinator = new();
+    private readonly ConfigurationRepository _configurationRepository = new(ConfigurationRepositoryPaths.CreateDefault());
     private bool _disposed;
 
     public MainWindow()
@@ -51,12 +54,15 @@ public partial class MainWindow : Window, IDisposable
             keySender,
             _hotkeySender,
             new UnicodeTextInputSender(_diagnostics));
+        _configurationRepository.Load();
         LoadBuiltInLayout();
     }
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
 
     internal bool IsDisposed => _disposed;
+
+    internal TargetCoordinatorState CoordinatorState => _coordinator.State;
 
     internal nint OverlayHandle => _overlay.Handle;
 
@@ -112,6 +118,38 @@ public partial class MainWindow : Window, IDisposable
         _ = e;
         _overlay.Close();
     }
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        OpenSettingsWindow();
+    }
+
+    internal bool OpenSettingsWindow()
+    {
+        if (!BeginSettingsSession()) return false;
+        try
+        {
+            var settings = new SettingsWindow(_configurationRepository) { Owner = this };
+            settings.ShowDialog();
+            return true;
+        }
+        finally { EndSettingsSession(); }
+    }
+
+    internal bool BeginSettingsSession()
+    {
+        TargetStateTransition transition = _coordinator.OpenSettings();
+        if (!transition.Accepted) return false;
+        _inputQueue.SetCurrentSession(0);
+        _targetSessions.Clear();
+        _keyboardController.ClearTargetSession();
+        _overlay.Hide();
+        return true;
+    }
+
+    internal bool EndSettingsSession() => _coordinator.CloseSettings().Accepted;
 
     private void OnCaptureTargetClick(object sender, RoutedEventArgs e)
     {

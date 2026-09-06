@@ -477,10 +477,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `ConfigurationRepository` 限制 64 KiB/JSON 深度 8，兼容 BOM、拒绝注释和尾逗号、忽略未知字段；损坏或无效配置备份到 recovery 并回退安全默认值。保存使用同目录随机临时文件、`Flush(true)` 与 `File.Replace`/首次 `File.Move` 原子更新；保存失败删除临时文件并保留内存快照。
   - 验证：Core 206/206；覆盖默认值、camelCase 往返、BOM/未知字段、JSON 损坏恢复、schema 无效脱敏、保存验证拒绝和保存失败内存保持；完整 Release 构建和 win-x64 发布待本任务提交前执行。
 
-- [ ] **T6.3（P0，0.75 人日）实现 SettingsWindow**
+- [x] **T6.3（P0，0.75 人日）实现 SettingsWindow**
   - 设置窗口独立且允许激活。
   - 打开期间状态机进入 SettingsOpen，忽略自身输入控件。
   - 保存前验证，保存失败保留内存状态并提示。
+  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；保存前执行数值解析和 `ConfigurationValidator`，IO 失败保持窗口及有效内存配置并显示固定提示。打开期间复用 `TargetStateCoordinator.SettingsOpen`，使输入队列会话失效、清除目标/瞬时状态并隐藏 Overlay，关闭后回到 Hidden/Disabled。
+  - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

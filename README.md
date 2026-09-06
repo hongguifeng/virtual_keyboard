@@ -10,6 +10,8 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 
 `VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
 
+键盘标题栏的“设置”可打开独立、允许激活的设置窗口。窗口覆盖启用、自动显示/隐藏、尺寸、透明度、边距、布局、手动位置模式和详细诊断；保存前验证，持久化失败时窗口保持打开并提示，编辑后的有效配置仍保留在内存中。
+
 ## 先决条件
 
 - **操作系统**：Windows（64 位）。
@@ -88,7 +90,7 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
 ## 仓库结构
 
 ```
-src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置、托盘，暂未实现）
+src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置；托盘待实现）
 src/VirtualKeyboard.Core       平台无关核心（分类、状态、布局、配置，无 WPF/UIA/P-Invoke 引用）
 src/VirtualKeyboard.Windows    Windows 适配层（目标捕获、UIA、Overlay、定位和 SendInput）
 tests/VirtualKeyboard.Core.Tests

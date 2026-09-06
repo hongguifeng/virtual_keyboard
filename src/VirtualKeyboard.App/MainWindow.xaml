@@ -22,7 +22,10 @@
                   MouseMove="OnDragAreaMouseMove"
                   MouseLeftButtonUp="OnDragAreaMouseLeftButtonUp">
                 <TextBlock Text="Virtual Keyboard" VerticalAlignment="Center" Margin="6,0" Focusable="False" IsHitTestVisible="False" />
-                <Button x:Name="CloseButton" Content="×" Width="24" Height="22" HorizontalAlignment="Right" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="SettingsButton" Content="设置" Width="52" Height="22" Margin="0,0,6,0" Focusable="False" IsTabStop="False" Click="OnSettingsClick" />
+                    <Button x:Name="CloseButton" Content="×" Width="24" Height="22" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
+                </StackPanel>
             </Grid>
             <Grid Grid.Row="1" Margin="0,8,0,0" Focusable="False">
                 <Grid.ColumnDefinitions>

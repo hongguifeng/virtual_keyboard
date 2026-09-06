@@ -703,6 +703,8 @@ T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，字段覆盖
 
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
+T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段；数值使用 invariant culture 解析，保存前显式调用 `ConfigurationValidator`，再交给 Repository 持久化。验证或保存失败时窗口保持打开并显示不含用户值的固定提示；Repository 的有效内存快照不因 IO 失败回滚。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、清除 TargetSession 和瞬时修饰键并隐藏 Overlay，因此设置窗口及其输入控件的焦点不会建立输入目标，关闭后协调器回到 Hidden/Disabled 并等待焦点刷新。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型
