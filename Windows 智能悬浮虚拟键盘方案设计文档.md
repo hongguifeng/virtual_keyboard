@@ -580,7 +580,11 @@ Application Install Directory
 └─ layouts\*.json                      (用户布局)
 ```
 
-用户布局 ID 与内置布局冲突时，默认不覆盖内置布局；通过独立命名空间或显式 override 字段处理。
+用户布局 ID 与内置布局冲突时不覆盖内置布局；MVP 的自定义布局应使用独立 ID 命名空间，显式 override 仅作为未来扩展讨论，不属于当前 schema。
+
+T5.2 的 `LayoutRepositoryPaths.CreateDefault` 将内置目录固定解析为应用基目录下的 `layouts\builtin`，用户目录固定解析为当前用户 LocalAppData 下的 `VirtualKeyboard\layouts`。Repository 只枚举目录第一层按文件名不区分大小写排序的 `*.json`，始终先处理内置、再处理用户，因此内置 ID 和排序靠前的布局确定性优先；MVP 不开放 override 字段。读取操作不会写入安装目录或用户文件。
+
+每个布局文件限制为 1 MiB，JSON 最大深度为 16，禁止注释、尾随逗号、大小写不匹配字段和未知字段，并兼容 UTF-8 BOM。Repository 以规范化文件路径缓存最后一次有效的不可变快照；显式重新加载时，新文件只有通过 JSON/schema 校验且 ID 不冲突才替换缓存。相同文件损坏、暂时不可读或改成冲突 ID 时继续发布旧快照并标记 `RetainedPrevious`；文件被删除则从快照移除。目录枚举暂时失败时保留该来源现有缓存。Reload 通过单锁串行化，读者获得一次性只读字典快照，不会观察半更新状态。
 
 ### 13.2 布局 JSON 示例
 
@@ -631,7 +635,7 @@ Application Install Directory
 - `modifier` 只接受 `Shift`、`Control`、`Alt`、`CapsLock` 状态名。动作名和键名按 schema 规定的大小写解析；修饰键名和 virtual key 名由校验器按 ASCII 大小写不敏感匹配。
 - 出现 `command`、脚本或未知可执行动作时拒绝整个布局。
 - T5.1 的 `KeyboardLayoutDefinition`、`KeyboardLayoutRow`、`KeyboardKeyDefinition` 和 `LayoutActionDefinition` 在构造时复制集合，调用方后续修改源集合不会改变已验证模型。`LayoutValidator` 返回稳定错误 code、具体 JSON 字段路径及固定非敏感消息。
-- 校验失败继续使用最后一个有效布局并向用户显示错误的加载策略由 T5.2 `LayoutRepository` 实现。
+- `LayoutLoadIssue` 仅携带来源枚举、文件名、JSON 字段路径、稳定错误 code、固定消息和是否保留旧快照；不携带布局文本值或完整本机路径。校验失败继续使用最后一个有效布局，后续 UI 可直接使用这些非敏感字段显示错误。
 
 ### 13.4 视图生成
 

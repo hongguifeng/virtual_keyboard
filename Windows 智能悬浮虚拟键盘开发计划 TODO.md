@@ -398,11 +398,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core 中提供集合防御性复制的不可变 layout/row/key/action DTO，以及 schema v1 `LayoutValidator`；限制 16 行、每行 64 键、总计 256 键、文本 4096 UTF-16 code unit、热键 1-3 个唯一修饰键。action 仅接受 text/key/hotkey/modifier，严格校验字段组合、宽度、ID 唯一性和封闭键名，command/script/未知类型整份拒绝；错误只含字段路径和非敏感固定描述。
   - 验证：Core 133/133、Windows 139/139、Integration 6/6；覆盖四类有效 action、版本/行/按键/字符串/宽度边界、ID 唯一性、键编码、热键长度与重复修饰键、混合字段、command/script/未知动作拒绝及 text 错误不泄露内容；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T5.2（P0，0.75 人日）实现 LayoutRepository**
+- [x] **T5.2（P0，0.75 人日）实现 LayoutRepository**
   - 加载只读内置布局和 LocalAppData 用户布局。
   - schema 校验失败时保留最后有效布局。
   - 错误提示包含 JSON 字段路径，但不回显 text.value。
   - 对应：FR-CFG-003、005。
+  - 实现：`LayoutRepositoryPaths` 固定应用目录只读内置路径与当前用户 LocalAppData 路径；`LayoutRepository` 确定性地先内置后用户加载，拒绝 ID 覆盖，按规范化文件路径保存最后有效快照并串行发布只读字典。JSON 严格区分字段大小写、拒绝未知字段/注释/尾逗号，限制 1 MiB/深度 16，兼容 UTF-8 BOM；问题 DTO 只含来源、文件名、字段路径、固定 code/message 和旧快照保留标志。
+  - 验证：Core 145/145、Windows 139/139、Integration 6/6；覆盖内置/用户顺序、内置 ID 优先、UTF-8 BOM、未知字段和可执行动作拒绝、精确字段路径、text.value 脱敏、超大文件、损坏重载保留旧快照、删除文件移除快照及默认路径；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T5.3（P0，0.75 人日）实现内置 QWERTY 布局**
   - A-Z、0-9、Space、Backspace、Enter、Tab、Escape。
