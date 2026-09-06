@@ -2,7 +2,7 @@
 
 - 检查日期：2026-09-06
 - 制品：`VirtualKeyboard-1.0.0-win-x64-framework-dependent.zip`
-- SHA-256：`7c1bab9e85c34c2bd4e591decef602893cc7126a7f358b748f3ddf977cbc6373`
+- SHA-256：以每次构建生成的同名 `.sha256` 和 `release-security.json` 为准（ZIP 元数据会使重建哈希变化）
 - 结论：**未通过发布门禁，仅限未签名内测**
 
 ## 已证明
