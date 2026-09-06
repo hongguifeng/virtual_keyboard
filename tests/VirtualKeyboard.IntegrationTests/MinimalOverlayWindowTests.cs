@@ -236,8 +236,7 @@ public sealed class MinimalOverlayWindowTests
                 Marshal.FreeHGlobal(pointer);
             }
 
-            Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
-            Assert.Equal(new NativeRectangle(-9000, -8000, -7400, -7400), actual);
+            Assert.Equal(new PhysicalPixelRect(-9000, -8000, 1600, 600), window.LastDpiMoveRequest);
             Assert.False(window.HasManualPosition(1));
             window.Dispose();
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
@@ -279,7 +278,9 @@ public sealed class MinimalOverlayWindowTests
                 Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle automatic));
                 int width = automatic.Right - automatic.Left;
                 int height = automatic.Bottom - automatic.Top;
-                var moved = new NativeRectangle(automatic.Left + 20, automatic.Top + 20, automatic.Right + 20, automatic.Bottom + 20);
+                // Move toward the interior of the primary work area so the assertion also holds on a
+                // 1024x768 CI virtual desktop where the automatic rectangle may touch the right edge.
+                var moved = new NativeRectangle(automatic.Left - 20, automatic.Top - 20, automatic.Right - 20, automatic.Bottom - 20);
                 window.ShowAt(moved.Left, moved.Top, width, height);
                 Assert.True(window.BeginManualMoveForCurrentSession());
                 Assert.True(window.EndManualMoveForCurrentSession());

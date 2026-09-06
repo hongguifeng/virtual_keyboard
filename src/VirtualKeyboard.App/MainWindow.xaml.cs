@@ -36,6 +36,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly MonitorDpiAdapter _monitorDpi = new();
     private FocusObservationService? _focusObservation;
     private PhysicalPixelRect? _persistentManualPosition;
+    private PhysicalPixelRect? _lastDpiMoveRequest;
     private bool _disposed;
 
     public MainWindow()
@@ -103,6 +104,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     internal TargetCoordinatorState CoordinatorState => _coordinator.State;
     internal long InputQueueSessionId => _inputQueue.CurrentSessionId;
     internal bool IsAutomaticFocusRunning => _focusObservation?.IsRunning == true;
+    internal PhysicalPixelRect? LastDpiMoveRequest => _lastDpiMoveRequest;
 
     bool ITrayCommands.IsEnabled => _configurationRepository.Current.Enabled;
     UiLanguage ITrayCommands.UiLanguage => _configurationRepository.Current.UiLanguage;
@@ -474,11 +476,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
         KeyboardConfiguration configuration = _configurationRepository.Current;
         PhysicalPixelSize size = change.DpiScale.ToPhysicalPixels(new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip));
-        _overlay.Move(
-            checked((int)Math.Round(change.SuggestedRectangle.X)),
-            checked((int)Math.Round(change.SuggestedRectangle.Y)),
-            checked((int)Math.Round(size.Width)),
-            checked((int)Math.Round(size.Height)));
+        int x = checked((int)Math.Round(change.SuggestedRectangle.X));
+        int y = checked((int)Math.Round(change.SuggestedRectangle.Y));
+        int width = checked((int)Math.Round(size.Width));
+        int height = checked((int)Math.Round(size.Height));
+        _lastDpiMoveRequest = new(x, y, width, height);
+        _overlay.Move(x, y, width, height);
     }
 
     private static PhysicalPixelRect RestoreManualPosition(

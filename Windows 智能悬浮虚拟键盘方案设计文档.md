@@ -726,6 +726,8 @@ T8.4 采用 ADR-007 的 `win-x64` 框架依赖便携 ZIP。统一构建先发布
 
 REL-024 使用两个 Windows GitHub Actions 工作流。`ci.yml` 只在 main 推送和 pull request 时调用 `build.ps1 -SkipPackage`，执行还原、Release 构建和全部测试但不发布或压缩。`release.yml` 只由 `v*` Tag 触发，将去除前缀后的严格语义版本传给构建与安全校验脚本，生成 ZIP、SHA-256 和安全报告，并使用仓库令牌创建对应 GitHub Release；普通分支推送不会触发打包。
 
+CI 的 WPF 集成测试不得假设开发机的大屏工作区。DPI 用例记录并断言 App 计算后提交给 Overlay 的物理像素请求矩形，避免把 Windows 在小型虚拟桌面上的最终窗口夹紧误判为 DPI 算法错误；持久位置用例把窗口向工作区内部移动后再验证跨目标恢复，使本地显示器和 1024×768 CI 虚拟桌面采用同一产品语义。
+
 T8.5 增加显式应用清单与 `scripts/verify-release.ps1`。脚本校验 ZIP 哈希/安全路径/敏感文件、必需运行文件、EXE 嵌入的普通权限声明和 Authenticode 状态，并输出 `release-security.json`。当前 EXE 为 `asInvoker`、`uiAccess=false`、PerMonitorV2，受控启动前后发布目录哈希无变化；但本机 Defender 被禁用且 EXE 未签名，因此安全检查报告结论为“仅限未签名内测”，T8.5 保持未完成。
 
 T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Windows 11 Pro build 26100、单逻辑屏 3840×2160、96 DPI，以及 Chrome/Edge/VS Code 已安装；未执行真人应用交互或跨系统/多屏矩阵。验收表逐项区分“部分自动证据”和“完整通过”，并把 M7 缺失、跨环境缺失、诊断未接线及未签名/未扫描登记为 P0 Open；0 个 AC 完整通过。
