@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M1（NoActivate 单键垂直切片）进行中——T1.1 最小 NoActivate Overlay 已验收；目标捕获、输入发送和发送前校验尚未实现。
+> 当前状态：M1（NoActivate 单键垂直切片）进行中——T1.1 最小 NoActivate Overlay 与 T1.2 最小 TargetSession 捕获已验收；输入发送和发送前校验尚未实现。
 
 ## 先决条件
 
@@ -61,7 +61,7 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
 ```
 src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置、托盘，暂未实现）
 src/VirtualKeyboard.Core       平台无关核心（分类、状态、布局、配置，无 WPF/UIA/P-Invoke 引用）
-src/VirtualKeyboard.Windows    Windows 适配层（UIA、Win32、SendInput，暂未实现）
+src/VirtualKeyboard.Windows    Windows 适配层（目标捕获/Overlay 已实现；UIA、SendInput 暂未实现）
 tests/VirtualKeyboard.Core.Tests
 tests/VirtualKeyboard.Windows.Tests
 tests/VirtualKeyboard.IntegrationTests

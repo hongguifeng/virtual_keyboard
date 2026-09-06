@@ -378,7 +378,9 @@ SetWindowPos(
 
 不得在按键处理过程中调用 `Activate`、`Focus`、`SetForegroundWindow` 或把目标窗口强行带到前台。
 
-T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。适配器只接受 UI 线程调用并拒绝非正尺寸；目标会话和 `SendInput` 留在 T1.2/T1.3。
+T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。适配器只接受 UI 线程调用并拒绝非正尺寸。
+
+T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForegroundTargetCapture`。适配器通过 `GetForegroundWindow` 获取前台顶层 HWND，再用 `GetWindowThreadProcessId` 获取进程 ID 和 GUI 线程，最后通过 `GetGUIThreadInfo` 获取焦点 HWND；任何句柄、线程或进程查询失败都返回可判定的 `TargetCaptureStatus`，不会读取标题、进程名或输入内容，也不会改变前台窗口。捕获本程序自身窗口时返回 `OwnProcess`。`VirtualKeyboard.Core.TargetSessionStore` 使用不可变 DTO 和锁保护的原子替换生成单调 `SessionId`；失败捕获会清空当前会话。`MainWindow` 的“捕获当前目标”按钮只展示 PID/HWND/会话号，保持 NoActivate 约束。`SendInput` 留在 T1.3。
 
 ### 10.3 鼠标与触摸命中
 

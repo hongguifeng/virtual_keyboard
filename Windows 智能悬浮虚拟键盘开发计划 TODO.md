@@ -135,11 +135,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 对应：FR-VIS-003、005，FR-KEY-005。
   - 验证：`VirtualKeyboard.Windows.Tests` 2/2 通过；`MinimalOverlayWindowTests` 在 STA 线程创建真实 WPF HWND，验证 `WS_EX_NOACTIVATE/WS_EX_TOOLWINDOW`、`WM_MOUSEACTIVATE → MA_NOACTIVATE`、`SetWindowPos` 物理像素矩形、移动不改变前台窗口和非法尺寸边界；`VirtualKeyboard.IntegrationTests` 1/1 验证窗口及交互控件的 NoActivate/不可聚焦配置。
 
-- [ ] **T1.2（P0，0.5 人日）建立最小 TargetSession**
+- [x] **T1.2（P0，0.5 人日）建立最小 TargetSession**
   - 用户先聚焦 Notepad，再从托盘/调试入口执行“捕获当前目标并显示”。
   - 保存前台 HWND、进程 ID、焦点 HWND 和会话版本。
   - 不允许键盘自行激活目标。
   - 对应：FR-FOC-005。
+  - 实现：`NativeForegroundTargetCapture` 集中封装 `GetForegroundWindow`、`GetWindowThreadProcessId`、`GetGUIThreadInfo`；`TargetSessionStore` 原子发布不可变会话并生成单调 `SessionId`；Overlay 调试入口仅显示数字句柄和 PID，不读取标题或输入内容。
+  - 验证：Core 30/30、Windows 7/7、Integration 2/2 通过；覆盖成功捕获、无前台窗口、进程/焦点查询失败、自进程过滤、会话清空与并发替换。
 
 - [ ] **T1.3（P0，0.75 人日）实现单键发送和返回值检查**
   - `A` 键生成 KeyDown/KeyUp INPUT 数组。

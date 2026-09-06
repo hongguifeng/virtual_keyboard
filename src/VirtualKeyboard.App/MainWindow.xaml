@@ -6,20 +6,29 @@
         ShowActivated="False"
         Topmost="True"
         ResizeMode="NoResize"
-        Width="220"
-        Height="116"
+        Width="360"
+        Height="176"
         Background="#F4F4F4">
     <Border BorderBrush="#777777" BorderThickness="1" Padding="8">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="28" />
+                <RowDefinition Height="54" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid x:Name="DragArea" Grid.Row="0" Background="#D9E7F7" Focusable="False" MouseLeftButtonDown="OnDragAreaMouseLeftButtonDown">
                 <TextBlock Text="Virtual Keyboard" VerticalAlignment="Center" Margin="6,0" Focusable="False" IsHitTestVisible="False" />
                 <Button x:Name="CloseButton" Content="×" Width="24" Height="22" HorizontalAlignment="Right" Focusable="False" IsTabStop="False" Click="OnCloseClick" />
             </Grid>
-            <Button x:Name="KeyAButton" Grid.Row="1" Content="A" Margin="0,8,0,0" FontSize="22" Focusable="False" IsTabStop="False" Click="OnKeyAClick" />
+            <Grid Grid.Row="1" Margin="0,8,0,0" Focusable="False">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="CaptureTargetButton" Content="捕获当前目标" Margin="0,0,8,0" Focusable="False" IsTabStop="False" Click="OnCaptureTargetClick" />
+                <TextBlock x:Name="SessionStatusText" Grid.Column="1" Text="尚未捕获目标" VerticalAlignment="Center" TextWrapping="Wrap" Focusable="False" />
+            </Grid>
+            <Button x:Name="KeyAButton" Grid.Row="2" Content="A" Margin="0,8,0,0" FontSize="22" Focusable="False" IsTabStop="False" Click="OnKeyAClick" />
         </Grid>
     </Border>
 </Window>

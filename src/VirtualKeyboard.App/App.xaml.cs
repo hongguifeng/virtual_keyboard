@@ -14,6 +14,6 @@ public partial class App : Application
         base.OnStartup(e);
         var window = new MainWindow();
         MainWindow = window;
-        window.ShowAt(40, 40, 220, 116);
+        window.ShowAt(40, 40, 360, 176);
     }
 }
