@@ -592,7 +592,7 @@ T5.2 的 `LayoutRepositoryPaths.CreateDefault` 将内置目录固定解析为应
 
 每个布局文件限制为 1 MiB，JSON 最大深度为 16，禁止注释、尾随逗号、大小写不匹配字段和未知字段，并兼容 UTF-8 BOM。Repository 以规范化文件路径缓存最后一次有效的不可变快照；显式重新加载时，新文件只有通过 JSON/schema 校验且 ID 不冲突才替换缓存。相同文件损坏、暂时不可读或改成冲突 ID 时继续发布旧快照并标记 `RetainedPrevious`；文件被删除则从快照移除。目录枚举暂时失败时保留该来源现有缓存。Reload 通过单锁串行化，读者获得一次性只读字典快照，不会观察半更新状态。
 
-T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均以 `PreserveNewest` 复制到上述只读目录。布局共五行，主键区遵循标准美式 QWERTY 顺序：Escape/重音符与完整数字标点行、Tab/QWERTY/方括号/反斜杠行、CapsLock/ASDF/分号/引号/Enter 行、左右 Shift/ZXCV/逗号/句点/斜杠行，以及左右 Ctrl/Alt、Win、Space、Fn 底行。右 Shift 权重缩短为 1.2，Up 后增加 Delete，使 Up 与底行 Down 的归一化中心误差不超过 1%，形成正确倒 T。数字行的 1-0、减号、等号分别声明 F1-F12 `fnVirtualKey`。字母、数字、标点、空格及编辑/导航键均使用 `key`，使它们可直接参与 Shift/Ctrl/Alt/Win 键盘语义；状态键使用 `modifier`。Windows 封闭键枚举同步覆盖 A-Z、D0-D9、F1-F12、标准 OEM 标点、方向/导航键和所需状态键。Win/Fn 标记为密码目标不安全；其余标准输入键按密码策略处理。关闭、设置和拖动不在 JSON 中，不可能被布局解析成输入 action。
+T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均以 `PreserveNewest` 复制到上述只读目录。布局共五行，主键区遵循标准美式 QWERTY 顺序：Escape/重音符与完整数字标点行、Tab/QWERTY/方括号/反斜杠行、CapsLock/ASDF/分号/引号/Enter 行、左右 Shift/ZXCV/逗号/句点/斜杠行，以及左右 Ctrl/Alt、Win、Space、Fn 底行。右 Shift 权重为 1.8，Up 后为 Delete，使第四、第五行总权重同为 16，Up 与 Down 的归一化和实际渲染中心完全一致。数字行的 1-0、减号、等号分别声明 F1-F12 `fnVirtualKey`。字母、数字、标点、空格及编辑/导航键均使用 `key`，使它们可直接参与 Shift/Ctrl/Alt/Win 键盘语义；状态键使用 `modifier`。Windows 封闭键枚举同步覆盖 A-Z、D0-D9、F1-F12、标准 OEM 标点、方向/导航键和所需状态键。Win/Fn 标记为密码目标不安全；其余标准输入键按密码策略处理。关闭、设置和拖动不在 JSON 中，不可能被布局解析成输入 action。
 
 ### 13.2 布局 JSON 示例
 
@@ -705,7 +705,7 @@ T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，除基础字
 
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
-T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段；自定义键使用可增删表格编辑标签、动作类型、输入/主键和以 `+` 分隔的修饰键。数值和动作保存前显式验证，失败时窗口保持打开且不回显用户内容。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。主窗口用独立 `CustomKeyColumnView` 在标准键盘右侧生成可滚动按键列，整列不参与标准五行宽度计算，密码目标时折叠；每项继续复用目标复核、串行队列和 text/key/hotkey 发送路径。
+T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。不透明度由 0.30–1.00、步进 0.05 且显示百分比的 Slider 输入。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”；录制状态在 `PreviewKeyDown` 捕获实体主键及 `Keyboard.Modifiers`，通过 `KeyInterop.VirtualKeyFromKey` 映射到封闭 `WindowsKeyboardKey`，自动生成 key/hotkey 配置并以 `Ctrl+Shift+S` 等形式回显。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey 发送路径。
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 

@@ -1,14 +1,15 @@
 <Window x:Class="VirtualKeyboard.App.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Virtual Keyboard 设置" Width="620" Height="650"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        Title="Virtual Keyboard 设置" Width="700" Height="700"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        PreviewKeyDown="OnPreviewKeyDown">
     <Grid Margin="16">
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Grid.Row="0">
             <Grid.RowDefinitions>
                 <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition Height="160"/><RowDefinition Height="Auto"/><RowDefinition/>
+                <RowDefinition/><RowDefinition/><RowDefinition Height="220"/><RowDefinition/>
             </Grid.RowDefinitions>
             <CheckBox x:Name="EnabledCheckBox" Grid.Row="0" Content="启用键盘" Margin="0,4"/>
             <CheckBox x:Name="AutoShowCheckBox" Grid.Row="1" Content="自动显示" Margin="0,4"/>
@@ -16,23 +17,61 @@
             <StackPanel Grid.Row="3" Orientation="Horizontal"><Label Content="宽度 (DIP)" Width="130"/><TextBox x:Name="WidthTextBox" Width="120"/></StackPanel>
             <StackPanel Grid.Row="4" Orientation="Horizontal"><Label Content="高度 (DIP)" Width="130"/><TextBox x:Name="HeightTextBox" Width="120"/></StackPanel>
             <StackPanel Grid.Row="5" Orientation="Horizontal"><Label Content="边距 (DIP)" Width="130"/><TextBox x:Name="MarginTextBox" Width="120"/></StackPanel>
-            <StackPanel Grid.Row="6" Orientation="Horizontal"><Label Content="透明度 (0.30-1.00)" Width="130"/><TextBox x:Name="OpacityTextBox" Width="120"/></StackPanel>
+            <Grid Grid.Row="6" Margin="0,2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="240"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
+                <Label Content="透明度"/>
+                <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.30" Maximum="1.00" TickFrequency="0.05"
+                        IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="{Binding ElementName=OpacitySlider, Path=Value, StringFormat={}{0:P0}}"
+                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+            </Grid>
             <StackPanel Grid.Row="7" Orientation="Horizontal"><Label Content="布局 ID" Width="130"/><TextBox x:Name="LayoutIdTextBox" Width="240"/></StackPanel>
-            <StackPanel Grid.Row="8" Orientation="Horizontal"><Label Content="手动位置" Width="130"/><ComboBox x:Name="PositionModeComboBox" Width="180"/></StackPanel>
-            <DataGrid x:Name="CustomKeysGrid" Grid.Row="9" AutoGenerateColumns="False" CanUserAddRows="False" Margin="0,6,0,2">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="自定义键标签" Binding="{Binding Label}" Width="120"/>
-                    <DataGridComboBoxColumn x:Name="ActionTypeColumn" Header="类型" SelectedItemBinding="{Binding ActionType}" Width="85"/>
-                    <DataGridTextColumn Header="输入内容/主键" Binding="{Binding Input}" Width="*"/>
-                    <DataGridTextColumn Header="修饰键（用 + 分隔）" Binding="{Binding Modifiers}" Width="150"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            <StackPanel Grid.Row="10" Orientation="Horizontal">
-                <Button Content="添加按键" Width="90" Margin="0,2,6,2" Click="OnAddCustomKeyClick"/>
-                <Button Content="删除选中" Width="90" Margin="0,2" Click="OnDeleteCustomKeyClick"/>
-                <TextBlock Text="类型支持 text、key、hotkey" Margin="12,5,0,0" Foreground="DimGray"/>
+            <GroupBox Grid.Row="8" Header="自定义按键（最多 12 个）" Margin="0,8,0,4">
+                <Grid Margin="8">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <ListBox x:Name="CustomKeysList" DisplayMemberPath="Label" SelectionChanged="OnCustomKeySelectionChanged"/>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button x:Name="AddCustomKeyButton" Content="添加" Width="76" Margin="0,0,6,0" Click="OnAddCustomKeyClick"/>
+                            <Button x:Name="DeleteCustomKeyButton" Content="删除" Width="76" Click="OnDeleteCustomKeyClick"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="CustomKeyEditor" Grid.Column="2">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Label Content="按键名称"/>
+                        <TextBox x:Name="CustomKeyLabelTextBox" Grid.Column="1" Margin="0,2"/>
+                        <Label Grid.Row="1" Content="按下后"/>
+                        <ComboBox x:Name="CustomActionModeComboBox" Grid.Row="1" Grid.Column="1" Margin="0,2"
+                                  SelectionChanged="OnCustomActionModeChanged">
+                            <ComboBoxItem Content="输入文字" Tag="text"/>
+                            <ComboBoxItem Content="录制按键或组合键" Tag="shortcut"/>
+                        </ComboBox>
+                        <Grid x:Name="CustomTextEditor" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Label Content="文字内容"/>
+                            <TextBox x:Name="CustomTextTextBox" Grid.Column="1" AcceptsReturn="True" TextWrapping="Wrap"/>
+                        </Grid>
+                        <Grid x:Name="CustomShortcutEditor" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Visibility="Collapsed">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Label Content="已录制"/>
+                            <Border Grid.Column="1" BorderBrush="#A0A0A0" BorderThickness="1" Padding="8,5" Background="#F5F5F5">
+                                <TextBlock x:Name="RecordedShortcutText" Text="尚未录制"/>
+                            </Border>
+                            <Button x:Name="RecordShortcutButton" Grid.Row="1" Grid.Column="1" Content="开始录制"
+                                    Width="110" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnRecordShortcutClick"/>
+                        </Grid>
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="DimGray" TextWrapping="Wrap"
+                                   Text="录制时直接按下所需按键，例如 Ctrl+Shift+S；无需单独填写修饰键。"/>
+                    </Grid>
+                </Grid>
+            </GroupBox>
+            <StackPanel Grid.Row="9" Orientation="Horizontal">
+                <Label Content="手动位置" Width="130"/><ComboBox x:Name="PositionModeComboBox" Width="180"/>
+                <CheckBox x:Name="DiagnosticsCheckBox" Content="启用详细诊断" Margin="24,4,0,4"/>
             </StackPanel>
-            <CheckBox x:Name="DiagnosticsCheckBox" Grid.Row="11" Content="启用详细诊断" Margin="0,4"/>
         </Grid>
         <TextBlock x:Name="StatusText" Grid.Row="1" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">

@@ -37,10 +37,8 @@
             <Grid Grid.Row="1" Margin="0,6,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <local:KeyboardLayoutView x:Name="LayoutView" Grid.Column="0" KeyInvoked="OnLayoutKeyInvoked" />
-                <ScrollViewer x:Name="CustomKeysScrollViewer" Grid.Column="1" Width="124" Margin="4,0,0,0"
-                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <local:CustomKeyColumnView x:Name="CustomKeysView" Width="120" KeyInvoked="OnLayoutKeyInvoked" />
-                </ScrollViewer>
+                <local:CustomKeyColumnView x:Name="CustomKeysView" Grid.Column="1" Margin="4,0,0,0"
+                                           KeyInvoked="OnLayoutKeyInvoked" />
             </Grid>
         </Grid>
     </Border>

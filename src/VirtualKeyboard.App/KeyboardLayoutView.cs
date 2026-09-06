@@ -120,9 +120,12 @@ public sealed class KeyboardLayoutView : Grid
     }
 }
 
-/// <summary>Hosts configured actions in a separate right-side column.</summary>
-public sealed class CustomKeyColumnView : StackPanel
+/// <summary>Hosts configured actions in right-side columns aligned to the five keyboard rows.</summary>
+public sealed class CustomKeyColumnView : Grid
 {
+    public const int KeysPerColumn = 5;
+    public const double ColumnWidth = 120;
+
     public CustomKeyColumnView()
     {
         Focusable = false;
@@ -135,8 +138,20 @@ public sealed class CustomKeyColumnView : StackPanel
     {
         ArgumentNullException.ThrowIfNull(keys);
         Children.Clear();
+        RowDefinitions.Clear();
+        ColumnDefinitions.Clear();
         Visibility = !passwordTarget && keys.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (passwordTarget) return;
+
+        for (int row = 0; row < KeysPerColumn && keys.Count > 0; row++)
+        {
+            RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star), MinHeight = KeyboardLayoutView.MinimumKeyHeight });
+        }
+        int columnCount = (keys.Count + KeysPerColumn - 1) / KeysPerColumn;
+        for (int column = 0; column < columnCount; column++)
+        {
+            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColumnWidth) });
+        }
 
         for (int index = 0; index < keys.Count; index++)
         {
@@ -153,6 +168,8 @@ public sealed class CustomKeyColumnView : StackPanel
             };
             AutomationProperties.SetAutomationId(button, $"CustomKey{index}");
             button.Invoked += (_, _) => KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
+            SetRow(button, index % KeysPerColumn);
+            SetColumn(button, index / KeysPerColumn);
             Children.Add(button);
         }
     }

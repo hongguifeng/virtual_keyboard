@@ -416,7 +416,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - Review 修正：标准字母、数字和 Space 改走 `key` 而非 `text`，Windows 封闭键枚举扩展到 A-Z、D0-D9、Space 和状态键，避免后续 Shift/Ctrl/Alt 依赖跨语义路径的隐式转换。
   - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
   - 本次 review：补齐标准美式 OEM 标点、左右修饰键、Shift 双字符图例及右侧倒 T 方向布局，并增加 Win/Fn 功能层；完整 Release 门禁 Core 214/214、Windows 163/163、Integration 26/26，build/publish 通过且 0 warning/error。
-  - 2026-09-06 反馈修正：右 Shift 缩短，Up 左移并与 Down 中心对齐，Up 右侧补 Delete；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26，build/publish 通过且 0 warning/error。
+  - 2026-09-06 二次反馈修正：右 Shift 权重调整为 1.8，使第四、第五行总权重同为 16；自动测试同时断言归一化中心和 WPF 实际渲染中心，确保 Up 与 Down 完全对齐。
 
 - [x] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - Shift、Ctrl、Alt 点击切换保持策略和 CapsLock 系统同步。
@@ -485,10 +485,10 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 设置窗口独立且允许激活。
   - 打开期间状态机进入 SettingsOpen，忽略自身输入控件。
   - 保存前验证，保存失败保留内存状态并提示。
-  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；自定义键通过可增删表格配置，在标准键盘右侧独立可滚动列显示，支持 text/key/hotkey，密码模式隐藏。打开设置会释放保持修饰键、使输入会话失效并隐藏 Overlay。
+  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；透明度改用带百分比的 30%–100% Slider。自定义键改为列表加详情编辑器，组合键通过实体键盘录制并自动识别；主键盘右侧每列最多 5 键，超出后自动新增列且无滚动条，密码模式隐藏。打开设置会释放保持修饰键、使输入会话失效并隐藏 Overlay。
   - Review 增补：无边框 Overlay 通过 `WindowChrome` 支持拖动四边/四角缩放，`WM_EXITSIZEMOVE` 后一次性保存最终 DIP 尺寸，继续保持 `WS_EX_NOACTIVATE`。
   - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
-  - 2026-09-06 反馈修正验证：覆盖多自定义键配置往返、旧单键配置迁移、动作白名单、右侧独立滚动列、密码目标整列折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 26/26，build/publish 通过且 0 warning/error。
+  - 2026-09-06 二次反馈修正验证：覆盖透明度 Slider 装载、Ctrl+Shift+S 实体组合录制、7 个自定义键按 5+2 自动分列、无滚动容器、密码目标整体折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 27/27，build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

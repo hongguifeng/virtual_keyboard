@@ -427,7 +427,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private void LoadConfiguredCustomKeys(bool passwordTarget)
     {
         CustomKeysView.LoadKeys(_configurationRepository.Current.CustomKeys, passwordTarget);
-        CustomKeysScrollViewer.Visibility = CustomKeysView.Visibility;
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)

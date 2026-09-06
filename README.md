@@ -12,7 +12,7 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 
 `VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
 
-键盘标题栏的“设置”可打开独立、允许激活的设置窗口。自定义键表格最多配置 12 项，每项选择 `text`、`key` 或 `hotkey`，组合键分别填写主键与用 `+` 分隔的修饰键。保存后的按键显示在标准键盘右侧独立可滚动列，并在密码目标中隐藏。保存前统一验证，持久化失败时窗口保持打开并提示。
+键盘标题栏的“设置”可打开独立、允许激活的设置窗口。透明度使用 30%–100% 滑块调节。自定义键最多配置 12 项，界面只需选择“输入文字”或“录制按键或组合键”；录制时直接按下 `Ctrl+Shift+S` 等实际组合，无需理解或填写内部修饰键字段。保存后的按键每列最多 5 个，在标准键盘右侧自动新增列，不使用滚动条，并在密码目标中隐藏。
 
 应用启动后常驻系统托盘。托盘菜单提供启用/暂停、显示当前键盘、设置、重新加载布局和退出；键盘标题栏关闭按钮只隐藏可复用窗口，退出请使用托盘菜单。
 
@@ -72,7 +72,7 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 `VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。
 
-内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`。主键区按标准美式 QWERTY 顺序排列，包含完整数字与标点行、三行字母/标点区、左右 Shift/Ctrl/Alt、Space、Win、Fn、CapsLock，方向键在右侧采用倒 T 排列。Fn 是应用内部功能层开关：数字行 1-0、减号、等号切换为 F1-F12，不尝试发送厂商专用物理 Fn。标准键统一走可受 Shift/Ctrl/Alt/Win 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
+内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`。主键区按标准美式 QWERTY 顺序排列，包含完整数字与标点行、三行字母/标点区、左右 Shift/Ctrl/Alt、Space、Win、Fn、CapsLock，方向键在右侧采用倒 T 排列，Up 与 Down 使用相同水平中心。Fn 是应用内部功能层开关：数字行 1-0、减号、等号切换为 F1-F12，不尝试发送厂商专用物理 Fn。标准键统一走可受 Shift/Ctrl/Alt/Win 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
 
 `KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt/Win/Fn 点击开关状态。Shift/Ctrl/Alt/Win 第一次点击发送真实 KeyDown，第二次发送 KeyUp，只有发送成功才改变蓝底白字的高亮；普通按键不会自动清除。目标替换、暂停、设置和退出会强制释放程序保持的修饰键。Fn 仍是应用内功能层，CapsLock 读取并切换系统 toggle bit。
 
