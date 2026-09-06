@@ -13,10 +13,16 @@ jobs:
   build-and-test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.4xx
       - name: Build and test
         shell: pwsh
-        run: .\scripts\build.ps1 -SkipPackage
+        run: |
+          .\scripts\build.ps1 -SkipPackage 2>&1 | Tee-Object -FilePath artifacts-ci.log
+          if ($LASTEXITCODE -ne 0) {
+            $tail = (Get-Content -LiteralPath artifacts-ci.log -Tail 80) -join '%0A'
+            Write-Output "::error title=Build and test failed::$tail"
+            exit $LASTEXITCODE
+          }
