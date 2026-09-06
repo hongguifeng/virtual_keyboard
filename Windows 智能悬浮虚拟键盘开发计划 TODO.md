@@ -390,11 +390,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T5.1（P0，0.75 人日）定义版本化 Layout schema**
+- [x] **T5.1（P0，0.75 人日）定义版本化 Layout schema**
   - 定义 layout、row、key、action、width、safeForPassword。
   - 规定行数、按键数、文本长度、热键长度等上限。
   - 明确拒绝 command/script/未知可执行动作。
   - 对应：FR-KEY-002、003。
+  - 实现：Core 中提供集合防御性复制的不可变 layout/row/key/action DTO，以及 schema v1 `LayoutValidator`；限制 16 行、每行 64 键、总计 256 键、文本 4096 UTF-16 code unit、热键 1-3 个唯一修饰键。action 仅接受 text/key/hotkey/modifier，严格校验字段组合、宽度、ID 唯一性和封闭键名，command/script/未知类型整份拒绝；错误只含字段路径和非敏感固定描述。
+  - 验证：Core 133/133、Windows 139/139、Integration 6/6；覆盖四类有效 action、版本/行/按键/字符串/宽度边界、ID 唯一性、键编码、热键长度与重复修饰键、混合字段、command/script/未知动作拒绝及 text 错误不泄露内容；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T5.2（P0，0.75 人日）实现 LayoutRepository**
   - 加载只读内置布局和 LocalAppData 用户布局。

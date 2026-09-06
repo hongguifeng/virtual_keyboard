@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M4 的 T4.1-T4.7 输入引擎实现任务已完成，权限/目标切换实机门禁仍待验收；M1-M3 的交互式矩阵也仍待验收。下一开发任务为 T5.1 布局 schema。
+> 当前状态：M4 的 T4.1-T4.7 输入引擎实现任务及 M5 的 T5.1 版本化布局 schema 已完成，权限/目标切换实机门禁与 M1-M3 交互式矩阵仍待验收。下一开发任务为 T5.2 `LayoutRepository`。
 
 ## 先决条件
 
@@ -37,6 +37,10 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 - 测试结果（TRX）：`artifacts/test-results/`
 - win-x64 发布（framework-dependent，运行需已安装 .NET 10 桌面运行时）：`artifacts/package/win-x64/`
 - 以上目录均由 `.gitignore` 忽略，不进入仓库。
+
+## 布局 schema
+
+`VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO 与严格验证器。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。验证错误包含 JSON 风格字段路径，但不会回显 `text.value`。布局文件加载、最后有效布局回退及用户提示属于 T5.2，当前尚未接入。
 
 ## 测试宿主（TestHost）
 

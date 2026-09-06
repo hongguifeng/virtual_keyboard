@@ -621,15 +621,17 @@ Application Install Directory
 
 ### 13.3 校验规则
 
-- `schemaVersion` 必须受支持。
-- `id` 在布局内唯一，长度受限。
-- 每行至少一个按键，行数和总按键数设安全上限。
-- `width` 必须为有限正数，并设置合理最大值。
-- action 类型必须属于白名单。
-- `text.value` 限制长度；日志和错误信息不得回显其内容。
-- `hotkey` 键数设置上限且必须能映射。
+- `schemaVersion` 当前只接受整数 `1`；布局必须有 1-16 行，每行 1-64 键，总计不得超过 256 键。
+- layout `id` 长度为 1-128，key `id` 长度为 1-64，key `id` 在整个布局内区分大小写且唯一；`name`、`culture`、`label` 上限分别为 64、32、32 个 UTF-16 code unit，且均不得为空白。
+- `width` 必须是有限正数且不大于 `16`。`safeForPassword` 为每个 key 必填布尔语义，密码目标执行动作前仍由控制器执行该标志门禁。
+- action 是严格字段联合，只接受小写 `text`、`key`、`hotkey`、`modifier`；混入其他 action 类型的字段也视为无效。
+- `text` 只使用 `value`，长度为 1-4096 UTF-16 code unit；日志和校验错误仅给出 `$.rows[n][n].action.value` 路径，不得回显内容。
+- `key` 必须且只能声明 `virtualKey` 或 `scanCode` 之一。`scanCode` 范围为 1-65535；`virtualKey` 使用封闭集合：A-Z、0-9、Space、Backspace、Enter、Tab、Escape 和方向/导航键。
+- `hotkey` 使用与 `key` 相同的一个主键，并声明 1-3 个按顺序排列、互不重复的 `Shift`、`Control`、`Alt` 修饰键；总 chord 长度因此最多为 4。
+- `modifier` 只接受 `Shift`、`Control`、`Alt`、`CapsLock` 状态名。动作名和键名按 schema 规定的大小写解析；修饰键名和 virtual key 名由校验器按 ASCII 大小写不敏感匹配。
 - 出现 `command`、脚本或未知可执行动作时拒绝整个布局。
-- 校验失败继续使用最后一个有效布局，并向用户显示具体字段路径和非敏感错误。
+- T5.1 的 `KeyboardLayoutDefinition`、`KeyboardLayoutRow`、`KeyboardKeyDefinition` 和 `LayoutActionDefinition` 在构造时复制集合，调用方后续修改源集合不会改变已验证模型。`LayoutValidator` 返回稳定错误 code、具体 JSON 字段路径及固定非敏感消息。
+- 校验失败继续使用最后一个有效布局并向用户显示错误的加载策略由 T5.2 `LayoutRepository` 实现。
 
 ### 13.4 视图生成
 
