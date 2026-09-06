@@ -699,6 +699,8 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
 
 配置模型与运行时模型分离；运行时始终获得经过验证的不可变配置快照。
 
+T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，字段覆盖 schemaVersion、enabled、autoShow、autoHide、opacity、keyboardWidthDip、keyboardHeightDip、marginDip、layoutId、manualPositionMode 和 detailedDiagnostics。`ConfigurationValidator` 只接受 schema v1，透明度范围为 0.30–1.00，尺寸/边距采用有界 DIP 范围（宽 240–2000、高 120–1000、边距 0–128），布局 ID 为非空且不超过 128 个字符；手动位置模式为封闭枚举。验证错误不回显布局 ID，T6.2 负责 JSON 读取与默认值恢复。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

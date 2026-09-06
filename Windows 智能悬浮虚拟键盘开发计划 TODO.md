@@ -462,10 +462,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T6.1（P0，0.75 人日）实现 Config schema 和验证**
+- [x] **T6.1（P0，0.75 人日）实现 Config schema 和验证**
   - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关。
   - 设置合理范围，opacity 限制 30%-100%。
   - 对应：FR-CFG-001、002。
+  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；`ConfigurationValidator` 校验 schema v1、透明度 0.30–1.00、宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP、布局 ID 长度和封闭手动定位模式。
+  - 验证：Core 199/199；覆盖默认配置、版本/模式、NaN/Infinity/所有数值边界、空/超长布局 ID 及错误消息不泄露 ID；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T6.2（P0，0.75 人日）实现 ConfigRepository**
   - 使用 `%LocalAppData%\VirtualKeyboard\config.json`。
