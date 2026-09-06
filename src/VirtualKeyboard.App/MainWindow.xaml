@@ -1,13 +1,14 @@
 <Window x:Class="VirtualKeyboard.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:VirtualKeyboard.App"
         WindowStyle="None"
         ShowInTaskbar="False"
         ShowActivated="False"
         Topmost="True"
         ResizeMode="NoResize"
-        Width="360"
-        Height="176"
+        Width="760"
+        Height="340"
         Background="#F4F4F4">
     <Border BorderBrush="#777777" BorderThickness="1" Padding="8">
         <Grid>
@@ -31,7 +32,7 @@
                 <Button x:Name="CaptureTargetButton" Content="捕获当前目标" Margin="0,0,8,0" Focusable="False" IsTabStop="False" Click="OnCaptureTargetClick" />
                 <TextBlock x:Name="SessionStatusText" Grid.Column="1" Text="尚未捕获目标" VerticalAlignment="Center" TextWrapping="Wrap" Focusable="False" />
             </Grid>
-            <Button x:Name="KeyAButton" Grid.Row="2" Content="A" Margin="0,8,0,0" FontSize="22" Focusable="False" IsTabStop="False" Click="OnKeyAClick" />
+            <local:KeyboardLayoutView x:Name="LayoutView" Grid.Row="2" Margin="0,8,0,0" KeyInvoked="OnLayoutKeyInvoked" />
         </Grid>
     </Border>
 </Window>

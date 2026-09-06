@@ -26,7 +26,9 @@ public sealed class MinimalOverlayWindowTests
             var dragArea = Assert.IsType<Grid>(window.FindName("DragArea"));
             var closeButton = Assert.IsType<Button>(window.FindName("CloseButton"));
             var captureTargetButton = Assert.IsType<Button>(window.FindName("CaptureTargetButton"));
-            var keyAButton = Assert.IsType<Button>(window.FindName("KeyAButton"));
+            var layoutView = Assert.IsType<KeyboardLayoutView>(window.FindName("LayoutView"));
+            NonFocusableKeyButton[] keys = Descendants<NonFocusableKeyButton>(layoutView).ToArray();
+            var keyAButton = Assert.Single(keys, button => button.Key.Id == "key.a");
             Assert.False(dragArea.Focusable);
             Assert.False(closeButton.Focusable);
             Assert.False(closeButton.IsTabStop);
@@ -34,6 +36,44 @@ public sealed class MinimalOverlayWindowTests
             Assert.False(captureTargetButton.IsTabStop);
             Assert.False(keyAButton.Focusable);
             Assert.False(keyAButton.IsTabStop);
+            Assert.All(keys, button =>
+            {
+                Assert.False(button.Focusable);
+                Assert.False(button.IsTabStop);
+                Assert.True(button.MinHeight >= KeyboardLayoutView.MinimumKeyHeight);
+            });
+        });
+    }
+
+    [Fact]
+    public void LayoutUsesStarWeightsAndExplicitGestureLifecycle()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new MainWindow();
+            var layoutView = Assert.IsType<KeyboardLayoutView>(window.FindName("LayoutView"));
+            Grid firstRow = Assert.IsType<Grid>(layoutView.Children[0]);
+            Assert.All(firstRow.ColumnDefinitions, column =>
+            {
+                Assert.True(column.Width.IsStar);
+                Assert.True(column.MinWidth >= KeyboardLayoutView.MinimumKeyWidth);
+            });
+            Assert.Equal(1.2, firstRow.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(1.0, firstRow.ColumnDefinitions[1].Width.Value);
+
+            NonFocusableKeyButton key = Assert.IsType<NonFocusableKeyButton>(firstRow.Children[1]);
+            int invoked = 0;
+            key.Invoked += (_, _) => invoked++;
+            Assert.True(key.BeginGestureForTest());
+            Assert.False(key.BeginGestureForTest());
+            Assert.True(key.EndGestureForTest(isInside: true));
+            Assert.False(key.EndGestureForTest(isInside: true));
+            Assert.Equal(1, invoked);
+
+            Assert.True(key.BeginGestureForTest());
+            key.CancelGestureForTest();
+            Assert.False(key.EndGestureForTest(isInside: true));
+            Assert.Equal(1, invoked);
         });
     }
 
@@ -131,7 +171,7 @@ public sealed class MinimalOverlayWindowTests
             }
 
             Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
-            Assert.Equal(new NativeRectangle(-9000, -8000, -8280, -7648), actual);
+            Assert.Equal(new NativeRectangle(-9000, -8000, -7480, -7320), actual);
             Assert.False(window.HasManualPosition(1));
         });
     }
@@ -177,6 +217,22 @@ public sealed class MinimalOverlayWindowTests
         if (failure is not null)
         {
             ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+            foreach (T descendant in Descendants<T>(child))
+            {
+                yield return descendant;
+            }
         }
     }
 

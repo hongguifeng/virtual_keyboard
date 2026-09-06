@@ -423,11 +423,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift 在可打印动作后释放，Control/Alt 在下一动作后一次性释放；无目标拒绝消费，Session 替换、清空和 Dispose 清理全部瞬时状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
   - 验证：Core 160/160、Windows 146/146、Integration 6/6；覆盖 Shift 可打印消费、Ctrl/Alt 一次性消费、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
+- [x] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
   - 宽度按权重计算，支持最小点击尺寸。
   - MouseDown/Up/Cancel 保证一次点击最多一次动作。
   - 按键不获取焦点，不进入 Tab 导航。
   - 对应：FR-KEY-004、005。
+  - 实现：Core 将已验证布局映射为只读 row/key 视图模型，并以 `KeyGestureController` 约束 Idle→Pressed→Release/Cancel；WPF 视图按 JSON width 创建 Star 列、按行创建 Star 高度，最小键 36×36 DIP。所有按键禁止焦点/Tab，重复按下、键外释放、取消和捕获丢失均不会重复触发，按下态使用不透明度反馈。
+  - 验证：Core 164/164、Windows 146/146、Integration 7/7；覆盖模型拒绝未验证布局、权重/动作映射、重复 Down、键内/键外 Up、Cancel、WPF Star 权重、最小点击尺寸、全键 NoFocus/NoTab 和 200% DPI 尺寸；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T5.6（P0，0.5 人日）实现密码目标策略**
   - `safeForPassword=false` 的键隐藏或禁用。

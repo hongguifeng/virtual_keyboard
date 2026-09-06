@@ -647,6 +647,10 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 
 `KeyboardController` 将布局模型映射为不可变 `KeyViewModel` 集合。宽度采用 Grid 星号或等价权重算法；最小点击尺寸、间距和字体由主题资源控制。视图只绑定动作 ID，不直接持有原生 VK 常量处理逻辑。
 
+T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽，行列最小尺寸均为 36 DIP，窗口配置尺寸扩大到 760×340 DIP 以容纳完整 MVP 布局。
+
+`NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
+
 ## 14. 配置设计
 
 ### 14.1 路径

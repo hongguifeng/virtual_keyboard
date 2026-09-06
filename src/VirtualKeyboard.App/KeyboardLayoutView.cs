@@ -1,0 +1,174 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using VirtualKeyboard.Core.Layouts;
+
+namespace VirtualKeyboard.App;
+
+public sealed class KeyInvokedEventArgs(KeyViewModel key) : EventArgs
+{
+    public KeyViewModel Key { get; } = key ?? throw new ArgumentNullException(nameof(key));
+}
+
+/// <summary>Builds non-focusable weighted key rows from an immutable layout view model.</summary>
+public sealed class KeyboardLayoutView : Grid
+{
+    public const double MinimumKeyWidth = 36;
+    public const double MinimumKeyHeight = 36;
+
+    public KeyboardLayoutView()
+    {
+        Focusable = false;
+        KeyboardNavigation.SetIsTabStop(this, false);
+    }
+
+    public event EventHandler<KeyInvokedEventArgs>? KeyInvoked;
+
+    public KeyboardLayoutViewModel? Layout { get; private set; }
+
+    public void LoadLayout(KeyboardLayoutViewModel layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        Layout = layout;
+        Children.Clear();
+        RowDefinitions.Clear();
+
+        for (int rowIndex = 0; rowIndex < layout.Rows.Count; rowIndex++)
+        {
+            RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star), MinHeight = MinimumKeyHeight });
+            Grid row = CreateRow(layout.Rows[rowIndex]);
+            SetRow(row, rowIndex);
+            Children.Add(row);
+        }
+    }
+
+    private Grid CreateRow(KeyboardRowViewModel rowModel)
+    {
+        var row = new Grid { Focusable = false };
+        for (int keyIndex = 0; keyIndex < rowModel.Keys.Count; keyIndex++)
+        {
+            KeyViewModel key = rowModel.Keys[keyIndex];
+            row.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = new GridLength(key.Width, GridUnitType.Star),
+                MinWidth = MinimumKeyWidth,
+            });
+            var button = new NonFocusableKeyButton(key)
+            {
+                Content = key.Label,
+                Margin = new Thickness(2),
+                MinHeight = MinimumKeyHeight,
+                FontSize = 16,
+            };
+            AutomationProperties.SetAutomationId(button, key.Id == "key.a" ? "KeyAButton" : key.Id);
+            button.Invoked += OnButtonInvoked;
+            SetColumn(button, keyIndex);
+            row.Children.Add(button);
+        }
+        return row;
+    }
+
+    private void OnButtonInvoked(object? sender, EventArgs e)
+    {
+        _ = e;
+        var button = (NonFocusableKeyButton)sender!;
+        KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
+    }
+}
+
+internal sealed class NonFocusableKeyButton : Button
+{
+    private readonly KeyGestureController _gesture = new();
+    private double _restingOpacity = 1;
+
+    internal NonFocusableKeyButton(KeyViewModel key)
+    {
+        Key = key ?? throw new ArgumentNullException(nameof(key));
+        Focusable = false;
+        IsTabStop = false;
+        ClickMode = ClickMode.Release;
+    }
+
+    internal event EventHandler? Invoked;
+
+    internal KeyViewModel Key { get; }
+
+    internal bool IsGesturePressed => _gesture.IsPressed;
+
+    internal bool BeginGestureForTest() => BeginGesture();
+
+    internal bool EndGestureForTest(bool isInside)
+    {
+        bool invoke = EndGesture(isInside);
+        if (invoke)
+        {
+            Invoked?.Invoke(this, EventArgs.Empty);
+        }
+        return invoke;
+    }
+
+    internal void CancelGestureForTest() => CancelGesture();
+
+    protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseLeftButtonDown(e);
+        if (BeginGesture() && CaptureMouse())
+        {
+            e.Handled = true;
+        }
+        else
+        {
+            CancelGesture();
+        }
+    }
+
+    protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseLeftButtonUp(e);
+        if (!IsMouseCaptured)
+        {
+            return;
+        }
+        bool invoke = EndGesture(IsMouseOver);
+        ReleaseMouseCapture();
+        e.Handled = true;
+        if (invoke)
+        {
+            Invoked?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        CancelGesture();
+        base.OnLostMouseCapture(e);
+    }
+
+    private bool BeginGesture()
+    {
+        if (!_gesture.Begin())
+        {
+            return false;
+        }
+        _restingOpacity = Opacity;
+        Opacity = 0.65;
+        return true;
+    }
+
+    private bool EndGesture(bool isInside)
+    {
+        bool invoke = _gesture.Release(isInside);
+        Opacity = _restingOpacity;
+        return invoke;
+    }
+
+    private void CancelGesture()
+    {
+        if (_gesture.Cancel())
+        {
+            Opacity = _restingOpacity;
+        }
+    }
+}

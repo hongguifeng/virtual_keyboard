@@ -3,6 +3,7 @@ using System.Windows.Input;
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Input;
+using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
 
@@ -11,7 +12,7 @@ namespace VirtualKeyboard.App;
 /// <summary>Minimal non-activating keyboard window with explicit target capture.</summary>
 public partial class MainWindow : Window, IDisposable
 {
-    private static readonly DipSize ConfiguredOverlaySize = new(360, 176);
+    private static readonly DipSize ConfiguredOverlaySize = new(760, 340);
     private readonly OverlayWindowAdapter _overlay;
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
@@ -36,6 +37,7 @@ public partial class MainWindow : Window, IDisposable
         var validator = new TargetSessionValidator(_targetSessions, _targetCapture);
         _validatedInput = new ValidatedSingleKeyInputSender(validator, new SingleKeyInputSender(_diagnostics), _diagnostics);
         _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
+        LoadBuiltInLayout();
     }
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
@@ -115,10 +117,14 @@ public partial class MainWindow : Window, IDisposable
         SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
     }
 
-    private void OnKeyAClick(object sender, RoutedEventArgs e)
+    private void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
     {
         _ = sender;
-        _ = e;
+        if (!string.Equals(e.Key.Id, "key.a", StringComparison.Ordinal))
+        {
+            SessionStatusText.Text = $"{e.Key.Label} 尚未接入输入分发";
+            return;
+        }
         TargetSession? session = _targetSessions.Current;
         if (session is null)
         {
@@ -135,6 +141,21 @@ public partial class MainWindow : Window, IDisposable
 
         InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
         SessionStatusText.Text = feedback.Message;
+    }
+
+    private void LoadBuiltInLayout()
+    {
+        var repository = new LayoutRepository(LayoutRepositoryPaths.CreateDefault(AppContext.BaseDirectory));
+        LayoutReloadResult loaded = repository.Reload();
+        if (loaded.Layouts.TryGetValue("builtin.qwerty.en-US", out KeyboardLayoutDefinition? layout))
+        {
+            LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(layout));
+            return;
+        }
+
+        SessionStatusText.Text = loaded.Issues.Count == 0
+            ? "未找到内置键盘布局"
+            : $"布局加载失败：{loaded.Issues[0].Path} · {loaded.Issues[0].Code}";
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)

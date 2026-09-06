@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.4 布局加载和键盘状态控制已完成，权限/目标切换实机门禁与 M1-M3 交互式矩阵仍待验收。下一开发任务为 T5.5 相对布局和按键交互。
+> 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.5 布局、状态和相对键盘视图已完成，权限/目标切换实机门禁与 M1-M3 交互式矩阵仍待验收。下一开发任务为 T5.6 密码目标策略。
 
 ## 先决条件
 
@@ -45,6 +45,8 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`，包含 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Ctrl、Alt 和 CapsLock。标准键统一走可受 Shift/Ctrl/Alt 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
 
 `KeyboardController` 保存与目标会话绑定的一次性 Shift/Ctrl/Alt 状态：Ctrl/Alt 在下一输入动作取用后清除，Shift 只在可打印键或文本动作后清除；目标替换、清空及退出都会清理瞬时状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
+
+`KeyboardLayoutView` 从 JSON 对应的不可变视图模型生成五行按键，行列都使用星号权重，最小按键尺寸为 36×36 DIP。每个按键均不可聚焦、不可进入 Tab 导航；按下时显示状态，释放到键外、丢失鼠标捕获或取消不会触发动作，同一按下最多触发一次。
 
 ## 测试宿主（TestHost）
 
