@@ -34,9 +34,13 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (MainWindow is MainWindow window)
+        {
+            window.Dispose();
+            window.SaveCurrentConfiguration();
+        }
         _tray?.Dispose();
         _singleInstance?.Dispose();
-        if (MainWindow is IDisposable disposable) disposable.Dispose();
         base.OnExit(e);
     }
 }

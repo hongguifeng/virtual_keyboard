@@ -66,6 +66,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     internal bool IsDisposed => _disposed;
 
     internal TargetCoordinatorState CoordinatorState => _coordinator.State;
+    internal long InputQueueSessionId => _inputQueue.CurrentSessionId;
 
     bool ITrayCommands.IsEnabled => _configurationRepository.Current.Enabled;
     void ITrayCommands.SetEnabled(bool enabled) => SetApplicationEnabled(enabled);
@@ -191,6 +192,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         KeyboardConfiguration configuration = _configurationRepository.Current;
         _overlay.ShowAt(40, 40, checked((int)Math.Round(configuration.KeyboardWidthDip)), checked((int)Math.Round(configuration.KeyboardHeightDip)));
     }
+
+    internal ConfigurationSaveResult SaveCurrentConfiguration() => _configurationRepository.Save(_configurationRepository.Current);
 
     private void OnCaptureTargetClick(object sender, RoutedEventArgs e)
     {
@@ -319,13 +322,15 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             return;
         }
 
-        _overlay.DpiChanged -= OnOverlayDpiChanged;
+        _disposed = true;
+        _coordinator.Shutdown();
         _inputQueue.Dispose();
+        _targetSessions.Clear();
         _keyboardController.Dispose();
         _hotkeySender.Dispose();
+        _overlay.DpiChanged -= OnOverlayDpiChanged;
         _overlay.Dispose();
         _diagnostics.Dispose();
-        _disposed = true;
         GC.SuppressFinalize(this);
     }
 }

@@ -163,6 +163,27 @@ public sealed class MinimalOverlayWindowTests
     }
 
     [Fact]
+    public void DisposeTransitionsToShutdownClearsTargetAndStopsInputIdempotently()
+    {
+        RunOnStaThread(() =>
+        {
+            var target = new TargetCaptureSnapshot(DateTimeOffset.UtcNow, 42, new IntPtr(100), new IntPtr(101));
+            var sessions = new TargetSessionStore();
+            var window = new MainWindow(new StubCapture(target), sessions);
+            Assert.IsType<Button>(window.FindName("CaptureTargetButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.NotNull(window.CurrentTargetSession);
+
+            window.Dispose();
+            window.Dispose();
+
+            Assert.True(window.IsDisposed);
+            Assert.Equal(TargetCoordinatorState.ShuttingDown, window.CoordinatorState);
+            Assert.Equal(0, window.InputQueueSessionId);
+            Assert.Null(window.CurrentTargetSession);
+        });
+    }
+
+    [Fact]
     public void DiagnosticsViewDisplaysAllowListedMetadataAndExportsCurrentReport()
     {
         RunOnStaThread(() =>

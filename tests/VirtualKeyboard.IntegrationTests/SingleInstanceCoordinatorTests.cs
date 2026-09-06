@@ -32,5 +32,8 @@ public sealed class SingleInstanceCoordinatorTests
 
         Assert.True(primary.IsPrimary);
         Assert.Equal(0, Volatile.Read(ref activations));
+
+        using var replacement = SingleInstanceCoordinator.CreateForTest(scope, static () => { });
+        Assert.True(replacement.IsPrimary);
     }
 }

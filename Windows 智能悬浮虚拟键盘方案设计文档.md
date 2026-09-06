@@ -709,6 +709,8 @@ T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不�
 
 T6.5 的 `SingleInstanceCoordinator` 以当前域/用户名和 Windows SessionId 的 SHA-256 截断摘要构造 `Local\\` 命名对象，避免在对象名中暴露原始账户信息。命名 Mutex 的首个持有者是主实例；同名 AutoResetEvent 是有界激活通道。第二实例不创建主窗口、托盘或监听器，只设置事件后退出；主实例通过已注册等待接收事件，再切换到 WPF Dispatcher 打开设置窗口。注册、事件句柄和 Mutex 均在应用退出时释放，Dispose 幂等。
 
+T6.6 将退出固化为单向、幂等生命周期。`MainWindow.Dispose` 先把协调器置为 `ShuttingDown`，随后停止 `InputInjectionService`（拒绝新动作并终结队列）、清除 TargetSession、清理 `KeyboardController` 瞬时状态、释放 `HotkeyInputSender` 安全闩锁，再解除 DPI 事件并释放 Overlay 和诊断资源。应用退出阶段保存 Repository 当前快照，然后隐藏/释放 NotifyIcon，最后释放单实例等待和命名句柄。当前宿主尚未创建 UIA 订阅时无需额外注销；未来接入 FocusObservationService 时必须在输入队列之前加入同一退出序列。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

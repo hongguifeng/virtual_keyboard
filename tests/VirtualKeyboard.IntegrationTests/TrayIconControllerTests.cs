@@ -33,6 +33,15 @@ public sealed class TrayIconControllerTests
         Assert.Equal(1, commands.ExitCount);
     }
 
+    [Fact]
+    public void DisposeHidesIconAndIsIdempotent()
+    {
+        var tray = new TrayIconController(new StubCommands(), visible: false);
+        tray.Dispose();
+        tray.Dispose();
+        Assert.False(tray.IsVisible);
+    }
+
     private sealed class StubCommands : ITrayCommands
     {
         public bool IsEnabled { get; set; }
