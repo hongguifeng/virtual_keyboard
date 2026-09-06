@@ -406,11 +406,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`LayoutRepositoryPaths` 固定应用目录只读内置路径与当前用户 LocalAppData 路径；`LayoutRepository` 确定性地先内置后用户加载，拒绝 ID 覆盖，按规范化文件路径保存最后有效快照并串行发布只读字典。JSON 严格区分字段大小写、拒绝未知字段/注释/尾逗号，限制 1 MiB/深度 16，兼容 UTF-8 BOM；问题 DTO 只含来源、文件名、字段路径、固定 code/message 和旧快照保留标志。
   - 验证：Core 145/145、Windows 139/139、Integration 6/6；覆盖内置/用户顺序、内置 ID 优先、UTF-8 BOM、未知字段和可执行动作拒绝、精确字段路径、text.value 脱敏、超大文件、损坏重载保留旧快照、删除文件移除快照及默认路径；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T5.3（P0，0.75 人日）实现内置 QWERTY 布局**
+- [x] **T5.3（P0，0.75 人日）实现内置 QWERTY 布局**
   - A-Z、0-9、Space、Backspace、Enter、Tab、Escape。
   - Shift、Ctrl、Alt、CapsLock。
   - 关闭、设置、拖动区域不定义为可注入 action。
   - 对应：FR-KEY-001。
+  - 实现：应用 Content 提供 schema v1 `builtin.qwerty.en-US` 五行布局，覆盖 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Control、Alt、CapsLock，并在 build/publish 时复制到 `layouts\builtin`；关闭、设置、拖动不进入布局 action。
+  - 验证：Core 146/146、Windows 139/139、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字、全部必需功能/状态键及无 close/settings/drag action；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
 
 - [ ] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - 一次性 Shift、Ctrl/Alt 锁存策略和 CapsLock 系统同步。

@@ -586,6 +586,8 @@ T5.2 的 `LayoutRepositoryPaths.CreateDefault` 将内置目录固定解析为应
 
 每个布局文件限制为 1 MiB，JSON 最大深度为 16，禁止注释、尾随逗号、大小写不匹配字段和未知字段，并兼容 UTF-8 BOM。Repository 以规范化文件路径缓存最后一次有效的不可变快照；显式重新加载时，新文件只有通过 JSON/schema 校验且 ID 不冲突才替换缓存。相同文件损坏、暂时不可读或改成冲突 ID 时继续发布旧快照并标记 `RetainedPrevious`；文件被删除则从快照移除。目录枚举暂时失败时保留该来源现有缓存。Reload 通过单锁串行化，读者获得一次性只读字典快照，不会观察半更新状态。
 
+T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均以 `PreserveNewest` 复制到上述只读目录。布局共五行：数字行包含 Escape、0-9、Backspace，三行 QWERTY 字母区包含 Tab、Enter、Shift、CapsLock，底行包含 Control、Alt、Space。字母、数字和空格使用 `text`，编辑/导航键使用 `key`，状态键使用 `modifier`；所有 MVP 输入键均标记 `safeForPassword=true`。关闭、设置和拖动不在 JSON 中，不可能被布局解析成输入 action。
+
 ### 13.2 布局 JSON 示例
 
 ```json

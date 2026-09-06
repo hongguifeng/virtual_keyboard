@@ -22,4 +22,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\src\VirtualKeyboard.App\layouts\builtin\qwerty.en-US.json"
+             Link="layouts\builtin\qwerty.en-US.json"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

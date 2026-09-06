@@ -11,4 +11,8 @@
     <ProjectReference Include="..\VirtualKeyboard.Windows\VirtualKeyboard.Windows.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="layouts\builtin\qwerty.en-US.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

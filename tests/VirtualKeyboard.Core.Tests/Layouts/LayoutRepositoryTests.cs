@@ -6,6 +6,26 @@ namespace VirtualKeyboard.Core.Tests.Layouts;
 public sealed class LayoutRepositoryTests
 {
     [Fact]
+    public void PackagedQwertyLayoutIsValidAndContainsRequiredKeys()
+    {
+        string builtInDirectory = Path.Combine(AppContext.BaseDirectory, "layouts", "builtin");
+        using var fixture = new RepositoryFixture(builtInDirectory);
+
+        KeyboardLayoutDefinition layout = Assert.Single(fixture.Repository.Reload().Layouts).Value;
+        KeyboardKeyDefinition[] keys = layout.Rows!.SelectMany(row => row.Keys!).ToArray();
+
+        Assert.Equal("builtin.qwerty.en-US", layout.Id);
+        Assert.Equal(26, keys.Count(key => key.Id is { Length: 5 } && key.Id.StartsWith("key.", StringComparison.Ordinal) && char.IsAsciiLetterLower(key.Id[4])));
+        Assert.Equal(10, keys.Count(key => key.Id is { Length: 5 } && char.IsAsciiDigit(key.Id[4])));
+        Assert.Contains(keys, key => key.Action?.VirtualKey == "Space" || key.Action?.Value == " ");
+        foreach (string id in new[] { "key.backspace", "key.enter", "key.tab", "key.escape", "key.shift", "key.control", "key.alt", "key.capsLock" })
+        {
+            Assert.Contains(keys, key => key.Id == id);
+        }
+        Assert.DoesNotContain(keys, key => key.Id is "key.close" or "key.settings" or "key.drag");
+    }
+
+    [Fact]
     public void ReloadLoadsBuiltInAndUserLayoutsInDeterministicOrder()
     {
         using var fixture = new RepositoryFixture();
@@ -185,9 +205,9 @@ public sealed class LayoutRepositoryTests
     {
         private readonly string _root = Path.Combine(Path.GetTempPath(), $"VirtualKeyboard.Tests.{Guid.NewGuid():N}");
 
-        public RepositoryFixture()
+        public RepositoryFixture(string? builtInDirectory = null)
         {
-            BuiltInDirectory = Path.Combine(_root, "app", "layouts", "builtin");
+            BuiltInDirectory = builtInDirectory ?? Path.Combine(_root, "app", "layouts", "builtin");
             UserDirectory = Path.Combine(_root, "local", "VirtualKeyboard", "layouts");
             Directory.CreateDirectory(BuiltInDirectory);
             Directory.CreateDirectory(UserDirectory);
