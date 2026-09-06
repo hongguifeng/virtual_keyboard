@@ -717,6 +717,8 @@ T8.4 采用 ADR-007 的 `win-x64` 框架依赖便携 ZIP，应用版本固定为
 
 T8.5 增加显式应用清单与 `scripts/verify-release.ps1`。脚本校验 ZIP 哈希/安全路径/敏感文件、必需运行文件、EXE 嵌入的普通权限声明和 Authenticode 状态，并输出 `release-security.json`。当前 EXE 为 `asInvoker`、`uiAccess=false`、PerMonitorV2，受控启动前后发布目录哈希无变化；但本机 Defender 被禁用且 EXE 未签名，因此安全检查报告结论为“仅限未签名内测”，T8.5 保持未完成。
 
+T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Windows 11 Pro build 26100、单逻辑屏 3840×2160、96 DPI，以及 Chrome/Edge/VS Code 已安装；未执行真人应用交互或跨系统/多屏矩阵。验收表逐项区分“部分自动证据”和“完整通过”，并把宿主自动焦点未接线、M7 缺失、跨环境缺失、诊断未接线及未签名/未扫描登记为 P0 Open；0 个 AC 完整通过。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

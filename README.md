@@ -58,6 +58,8 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 
 安装、启动、托盘、设置、布局、诊断隐私、升级/卸载和平台限制见 [内测使用与支持指南](docs/user-guide.md)。
 
+M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.md)、[DPI/多屏矩阵](docs/release/dpi-matrix-1.0.0.md)、[AC-001 至 AC-015 验收表](docs/release/acceptance-1.0.0.md)和[发布阻断清单](docs/release/known-issues-1.0.0.md)。
+
 ## 布局 schema
 
 `VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。
