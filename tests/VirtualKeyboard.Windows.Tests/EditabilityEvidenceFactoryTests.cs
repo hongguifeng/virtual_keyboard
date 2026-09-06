@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
 
@@ -20,7 +21,7 @@ public sealed class EditabilityEvidenceFactoryTests
         Assert.False(evidence.IsValueReadOnly);
         Assert.True(evidence.IsTextEditPatternAvailable);
         Assert.True(evidence.IsTextPatternAvailable);
-        Assert.Equal(new ScreenRectangle(1, 2, 3, 4), evidence.CaretRectangle);
+        Assert.Equal(new PhysicalPixelRect(1, 2, 3, 4), evidence.CaretRectangle);
     }
 
     [Theory]

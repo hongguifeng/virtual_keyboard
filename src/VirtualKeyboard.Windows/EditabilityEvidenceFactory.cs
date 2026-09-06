@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Targeting;
 
 namespace VirtualKeyboard.Windows;
@@ -12,7 +13,7 @@ internal sealed class EditabilityEvidenceFactory(IEditabilityAutomationSource? s
     public bool TryCreate(
         AutomationElement element,
         FocusSnapshot snapshot,
-        ScreenRectangle? caretRectangle,
+        PhysicalPixelRect? caretRectangle,
         nint caretOwnerHwnd,
         out EditabilityEvidence evidence)
     {

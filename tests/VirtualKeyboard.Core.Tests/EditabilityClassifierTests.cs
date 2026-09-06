@@ -1,4 +1,5 @@
 using VirtualKeyboard.Core.Targeting;
+using VirtualKeyboard.Core.Geometry;
 
 namespace VirtualKeyboard.Core.Tests;
 
@@ -73,6 +74,6 @@ public sealed class EditabilityClassifierTests
         bool readOnly = false,
         bool textEdit = false,
         bool text = false,
-        ScreenRectangle? caret = null) =>
+        PhysicalPixelRect? caret = null) =>
         EditabilityClassifier.Classify(new(snapshot, value, readOnly, textEdit, text, caret, snapshot.TopLevelHwnd));
 }

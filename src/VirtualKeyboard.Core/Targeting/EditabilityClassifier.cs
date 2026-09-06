@@ -1,3 +1,5 @@
+using VirtualKeyboard.Core.Geometry;
+
 namespace VirtualKeyboard.Core.Targeting;
 
 public enum Editability
@@ -26,20 +28,8 @@ public readonly record struct EditabilityEvidence(
     bool IsValueReadOnly,
     bool IsTextEditPatternAvailable,
     bool IsTextPatternAvailable,
-    ScreenRectangle? CaretRectangle,
+    PhysicalPixelRect? CaretRectangle,
     nint CaretOwnerHwnd);
-
-public readonly record struct ScreenRectangle(double X, double Y, double Width, double Height)
-{
-    private const double CoordinateLimit = 10_000_000;
-
-    public bool IsValid =>
-        double.IsFinite(X) && double.IsFinite(Y) &&
-        double.IsFinite(Width) && double.IsFinite(Height) &&
-        Math.Abs(X) <= CoordinateLimit && Math.Abs(Y) <= CoordinateLimit &&
-        Width >= 0 && Height >= 0 && Width <= CoordinateLimit && Height <= CoordinateLimit &&
-        (Width > 0 || Height > 0);
-}
 
 public readonly record struct ClassificationResult(
     long Version,

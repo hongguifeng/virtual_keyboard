@@ -424,6 +424,8 @@ T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` �
 
 换算公式：
 
+T3.1 将单位契约落实为 Core 强类型：`PhysicalPixelPoint/Size/Rect` 只用于屏幕和原生定位数据，`DipSize` 只用于用户配置尺寸，`DpiScale` 是两者之间唯一换算入口。类型均不依赖 WPF；物理矩形允许负 X/Y，但拒绝非有限值、负宽高、零矩形和超出合理虚拟桌面范围的数据。UIA/Win32 caret 已统一输出 `PhysicalPixelRect`。
+
 ```text
 physicalPx = round(dip * monitorDpi / 96)
 dip        = physicalPx * 96 / monitorDpi

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Targeting;
 
 namespace VirtualKeyboard.Windows;
@@ -26,14 +27,14 @@ public sealed class NativeFocusAdapter
             if (gui.FocusHwnd == nint.Zero)
                 return NativeFocusResult.Failure(NativeFocusStatus.FocusWindowUnavailable);
 
-            ScreenRectangle? caret = null;
+            PhysicalPixelRect? caret = null;
             if (gui.CaretHwnd != nint.Zero && (gui.CaretRight != gui.CaretLeft || gui.CaretBottom != gui.CaretTop))
             {
                 var topLeft = new NativePoint(gui.CaretLeft, gui.CaretTop);
                 var bottomRight = new NativePoint(gui.CaretRight, gui.CaretBottom);
                 if (!_api.TryClientToScreen(gui.CaretHwnd, ref topLeft) || !_api.TryClientToScreen(gui.CaretHwnd, ref bottomRight))
                     return NativeFocusResult.Failure(NativeFocusStatus.CoordinateConversionFailed);
-                caret = new ScreenRectangle(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+                caret = new PhysicalPixelRect(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
                 if (!caret.Value.IsValid) caret = null;
             }
 

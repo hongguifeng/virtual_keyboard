@@ -1,3 +1,5 @@
+using VirtualKeyboard.Core.Geometry;
+
 namespace VirtualKeyboard.Core.Targeting;
 
 public enum NativeFocusStatus
@@ -17,7 +19,7 @@ public sealed record NativeFocusSnapshot(
     nint TopLevelHwnd,
     nint FocusHwnd,
     nint KeyboardLayout,
-    ScreenRectangle? CaretRectangle);
+    PhysicalPixelRect? CaretRectangle);
 
 public readonly record struct NativeFocusResult(NativeFocusStatus Status, NativeFocusSnapshot? Snapshot)
 {

@@ -1,4 +1,5 @@
 using VirtualKeyboard.Core.Targeting;
+using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.Windows.Tests;
@@ -23,7 +24,7 @@ public sealed class NativeFocusAdapterTests
         Assert.Equal(30, result.Snapshot!.ProcessId);
         Assert.Equal((nint)11, result.Snapshot.FocusHwnd);
         Assert.Equal((nint)0x4090409, result.Snapshot.KeyboardLayout);
-        Assert.Equal(new ScreenRectangle(101, 202, 3, 6), result.Snapshot.CaretRectangle);
+        Assert.Equal(new PhysicalPixelRect(101, 202, 3, 6), result.Snapshot.CaretRectangle);
     }
 
     [Fact]

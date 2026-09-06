@@ -258,10 +258,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 ### TODO
 
-- [ ] **T3.1（P0，0.5 人日）定义并强制坐标类型**
+- [x] **T3.1（P0，0.5 人日）定义并强制坐标类型**
   - 创建 `PhysicalPixelRect`、`DipSize`、`DpiScale` 等不可混用类型。
   - 禁止 Core 定位接口直接接收 WPF Rect/Point。
   - 对应：FR-POS-005。
+  - 实现：Core `Geometry` 提供 `PhysicalPixelPoint`、`PhysicalPixelSize`、`PhysicalPixelRect`、`DipSize`、`DpiScale`，定位与 caret 路径已从通用 `ScreenRectangle` 迁移到物理像素强类型。DIP 尺寸构造时拒绝非有限/非正值，DPI scale 仅接受正值并集中执行 DIP↔物理像素转换；Core 无 WPF Rect/Point 引用。
+  - 验证：Core 79/79、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖 96/120/144/168/192 DPI、非对称 DPI、负桌面坐标、NaN/Infinity、负尺寸、零矩形和超限坐标。
 
 - [ ] **T3.2（P0，0.75 人日）实现 AnchorResolver**
   - 依次尝试 UIA selection/caret、Win32 caret、BoundingRectangle、安全默认锚点。
