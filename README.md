@@ -50,6 +50,7 @@ The tray menu lets you pause or enable automatic behavior, show the keyboard, op
 - **Width / Height / Margin** control keyboard size and spacing around the target field.
 - **Transparency** ranges from 0% (fully opaque) to 70% (most transparent).
 - **Keep dragged position** can retain the position only for the current input field or across input fields.
+- **Start with Windows** launches the virtual keyboard at sign-in (current-user startup entry, no administrator required); off by default on first launch.
 - **Custom keys** can enter Unicode text or replay a recorded key combination such as `Win+Tab` or `Ctrl+Shift+S`. Press every key in the combination, then release all keys to finish recording.
 - **Detailed diagnostics** adds non-sensitive focus metadata to local logs. Input text, passwords, clipboard contents, UI Automation names, and values are never logged.
 

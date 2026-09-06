@@ -18,6 +18,7 @@ public enum DiagnosticType
     ConfigLoaded,
     ConfigRecovered,
     ConfigSaveFailed,
+    AutoStartSync,
     LayoutLoaded,
     LayoutRejected,
     UnhandledBoundaryException,

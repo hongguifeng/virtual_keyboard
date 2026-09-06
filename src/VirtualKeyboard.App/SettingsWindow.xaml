@@ -81,6 +81,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" Orientation="Horizontal"><Label x:Name="LanguageLabel" Content="Language" Width="130"/><ComboBox x:Name="LanguageComboBox" Width="180" SelectionChanged="OnLanguageChanged"><ComboBoxItem Content="English" Tag="English"/><ComboBoxItem Content="简体中文" Tag="SimplifiedChinese"/></ComboBox></StackPanel>
             <CheckBox x:Name="EnabledCheckBox" Grid.Row="1" Content="Enable keyboard" Margin="0,4"/>
@@ -150,6 +151,11 @@
                            Margin="0,4,0,0" Foreground="#667085" TextWrapping="Wrap"
                            Text="{Binding ElementName=PositionModeComboBox, Path=SelectedItem.Description}"/>
             </Grid>
+            <StackPanel Grid.Row="11" Orientation="Horizontal" Margin="0,6,0,0">
+                <CheckBox x:Name="AutoStartCheckBox" Content="Start with Windows" VerticalAlignment="Center"/>
+                <TextBlock x:Name="AutoStartDescription" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#667085" TextWrapping="Wrap"
+                           Text="Automatically start the virtual keyboard when you sign in to Windows"/>
+            </StackPanel>
         </Grid>
         <TextBlock x:Name="StatusText" Grid.Row="1" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">

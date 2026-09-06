@@ -691,7 +691,8 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
   "marginDip": 8,
   "layoutId": "builtin.qwerty.en-US",
   "manualPositionMode": "UntilTargetChanges",
-  "detailedDiagnostics": false
+  "detailedDiagnostics": false,
+  "autoStart": false
 }
 ```
 
@@ -738,6 +739,18 @@ T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Wind
 
 发布评审后的 `REL-006` 修正把 `RollingFileDiagnosticSink` 接入生产 App 的 `%LocalAppData%\\VirtualKeyboard\\logs`。宿主使用 4 MiB×5 文件的严格 20 MiB 上界，目录/IO 故障自动降级；配置加载、焦点、分类、会话和 Overlay 事件经 `DiagnosticLogger` 写入，FocusObserved 作为 Detailed 事件默认过滤。设置变更通过线程安全 `SetDetailedEnabled` 动态切换详细事件，不重建被输入发送器持有的 Logger。所有事件继续受 `DiagnosticEvent` 值类型字段与序列化白名单约束，日志导出只包含 `*.jsonl`。
 
+### 14.4 开机自启（HKCU Run）
+
+T6.7（2026-09-06）实现当前用户级开机自启（FR-APP-004）：
+
+- 事实来源是 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 下值名 `VirtualKeyboard` 的启动值（字符串，内容为带双引号的当前可执行文件路径，取 `Environment.ProcessPath`）。HKCU 无需管理员权限，符合 ADR-006 普通权限运行；不绕过 UIPI，不请求提权。
+- `config.json` 的 `autoStart`（`bool`，缺失时默认 `false`，兼容旧 schema v1）仅为镜像；首次启动默认关闭，绝不自动启用。
+- `VirtualKeyboard.Windows.AutoStartManager` 实现 Core 的 `IAutoStartManager` 接缝：`TryGetEnabled` 读取 Run 值，成功返回 `true` 并带 `enabled`（值存在、非空且与当前可执行文件命令相等，忽略大小写；值指向其他程序视为“外部占用”，`enabled=false`）；读取失败（注册表不可访问）返回 `false`。`TrySetEnabled` 启用即写入、禁用即删除，幂等；失败返回数字错误码（1=进程路径不可用，2=注册表写入/删除失败），不抛异常。
+- 内部接缝 `AutoStartManager.IUserRunKeyStore`（`TryGetCommand`/`TrySetCommand`/`TryDeleteCommand`）隔离真实注册表访问，单元测试用内存实现替换，生产使用 `Registry.CurrentUser` 的 `UserRunKeyStore`（写失败只捕获策略/权限异常并返回 false）。
+- 设置窗口“开机启动”复选框在保存成功后应用：写入/删除失败、或写入后复核值与期望不一致（安全软件/策略即时修改）时，回滚配置镜像（重新保存 `autoStart` 为旧值）、取消勾选并显示固定文案警告，窗口保持打开由用户决定重试或取消，保持“配置镜像 = 注册表事实”不变量。注入的 `IAutoStartManager` 为 null（测试场景）时复选框仅修改配置镜像。
+- 应用启动时 `MainWindow.SyncAutoStartWithRegistry()` 读取注册表真实状态，若与配置镜像不同则更新镜像并持久化（处理用户在任务管理器等其他位置启停自启项的情况）；读取失败时保持现有配置（默认关闭）。同步仅在启用且保存成功时记 `AutoStartSync` 事件，保存失败记 `ConfigSaveFailed`（IoError），均为无负载数字事件。
+- 隐私（NFR-PRI-001）：`AutoStartManager` 本身不写任何日志/诊断；诊断事件不得携带注册表路径、进程绝对路径或值内容，只允许数字错误码。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型
@@ -750,6 +763,7 @@ T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Wind
 - `OverlayShown/Hidden/Moved`
 - `InputBatchStarted/Succeeded/Failed`
 - `ConfigLoaded/Recovered/SaveFailed`
+- `AutoStartSync`
 - `LayoutLoaded/Rejected`
 - `UnhandledBoundaryException`
 
@@ -762,6 +776,7 @@ T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Wind
 - InputAction 的文本内容。
 - AutomationElement 的 Value、Name（密码目标一律禁止；普通目标默认也不记录 Name）。
 - 剪贴板、按键序列的字符化结果、自定义短语。
+- 注册表路径、进程绝对路径与自启启动值内容（自启诊断只允许数字错误码）。
 
 日志 API 使用专门 DTO，从类型设计上不接受 `InputAction.TextValue`。
 

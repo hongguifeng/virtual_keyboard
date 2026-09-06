@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using VirtualKeyboard.Core.AutoStart;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Geometry;
@@ -32,6 +33,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly LatestFocusSnapshotStore _latestFocusSnapshots = new();
     private readonly ConfigurationRepository _configurationRepository;
     private readonly LayoutRepository _layoutRepository;
+    private readonly IAutoStartManager? _autoStart;
     private readonly FocusTargetEvaluator _focusEvaluator = new();
     private readonly MonitorDpiAdapter _monitorDpi = new();
     private FocusObservationService? _focusObservation;
@@ -40,21 +42,26 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private bool _disposed;
 
     public MainWindow()
-        : this(new NativeForegroundTargetCapture(), new TargetSessionStore(), new(ConfigurationRepositoryPaths.CreateDefault()), createFileDiagnostics: true)
+        : this(new NativeForegroundTargetCapture(), new TargetSessionStore(), new(ConfigurationRepositoryPaths.CreateDefault()), new AutoStartManager(), createFileDiagnostics: true)
     {
     }
 
     internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions)
-        : this(targetCapture, targetSessions, new(ConfigurationRepositoryPaths.CreateDefault()), createFileDiagnostics: false)
+        : this(targetCapture, targetSessions, new(ConfigurationRepositoryPaths.CreateDefault()), autoStart: null, createFileDiagnostics: false)
     {
     }
 
     internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository)
-        : this(targetCapture, targetSessions, configurationRepository, createFileDiagnostics: false)
+        : this(targetCapture, targetSessions, configurationRepository, autoStart: null, createFileDiagnostics: false)
     {
     }
 
-    private MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository, bool createFileDiagnostics)
+    internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository, IAutoStartManager autoStart)
+        : this(targetCapture, targetSessions, configurationRepository, autoStart, createFileDiagnostics: false)
+    {
+    }
+
+    private MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository, IAutoStartManager? autoStart, bool createFileDiagnostics)
     {
         InitializeComponent();
         _overlay = new OverlayWindowAdapter(this);
@@ -63,6 +70,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _targetCapture = targetCapture ?? throw new ArgumentNullException(nameof(targetCapture));
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
         _configurationRepository = configurationRepository ?? throw new ArgumentNullException(nameof(configurationRepository));
+        _autoStart = autoStart;
         ConfigurationLoadResult configurationLoad = _configurationRepository.Load();
         Width = configurationLoad.Configuration.KeyboardWidthDip;
         Height = configurationLoad.Configuration.KeyboardHeightDip;
@@ -77,6 +85,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             configurationLoad.Status == ConfigurationLoadStatus.RecoveredInvalid ? DiagnosticType.ConfigRecovered : DiagnosticType.ConfigLoaded,
             DiagnosticModule.Configuration,
             errorCode: configurationLoad.Issues.Count);
+        SyncAutoStartWithRegistry();
         var validator = new TargetSessionValidator(_targetSessions, _targetCapture, _latestFocusSnapshots);
         _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
         var keySender = new KeyInputSender(_diagnostics);
@@ -190,7 +199,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (!BeginSettingsSession()) return false;
         try
         {
-            var settings = new SettingsWindow(_configurationRepository) { Owner = this };
+            var settings = new SettingsWindow(_configurationRepository, _autoStart) { Owner = this };
             settings.ShowDialog();
             return true;
         }
@@ -228,7 +237,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
-            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage));
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
+            current.AutoStart));
         if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
@@ -368,6 +378,33 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
     internal ConfigurationSaveResult SaveCurrentConfiguration() => _configurationRepository.Save(_configurationRepository.Current);
 
+    /// <summary>
+    /// 开机自启同步（FR-APP-004，设计 14.4）：注册表是自启唯一事实来源，配置只是镜像。
+    /// 启动时若注册表读取成功且状态与配置不同（例如用户在任务管理器删除了自启项），
+    /// 把配置镜像更新为注册表事实并持久化。
+    /// 注册表读取失败（如无用户 Run 键）时保持现有配置（默认关闭），绝不自动启用。
+    /// </summary>
+    internal void SyncAutoStartWithRegistry()
+    {
+        if (_autoStart is null) return;
+        if (!_autoStart.TryGetEnabled(out bool actual)) return;
+        KeyboardConfiguration current = _configurationRepository.Current;
+        if (current.AutoStart == actual) return;
+        ConfigurationSaveResult saved = _configurationRepository.Save(new(
+            current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
+            current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
+            autoStart: actual));
+        if (saved.IsSaved && actual)
+        {
+            _diagnostics.Log(DiagnosticType.AutoStartSync, DiagnosticModule.Configuration);
+        }
+        else if (!saved.IsSaved)
+        {
+            _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
+        }
+    }
+
     private void ClearKeyboardState()
     {
         _hotkeySender.ReleaseLatchedModifiers();
@@ -503,7 +540,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             width, height, current.MarginDip, current.LayoutId, current.ManualPositionMode,
-            current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage));
+            current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
+            current.AutoStart));
         if (!saved.IsSaved)
         {
             _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);

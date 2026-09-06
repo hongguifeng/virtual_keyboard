@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using VirtualKeyboard.Core.AutoStart;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Windows;
@@ -13,6 +14,7 @@ public partial class SettingsWindow : Window, IDisposable
 {
     private const string TextMode = "text";
     private readonly ConfigurationRepository _repository;
+    private readonly IAutoStartManager? _autoStart;
     private readonly ObservableCollection<CustomKeyEditorItem> _customKeys = [];
     private readonly KeyboardChordRecorder _chordRecorder = new();
     private CustomKeyEditorItem? _editingItem;
@@ -21,9 +23,10 @@ public partial class SettingsWindow : Window, IDisposable
     private bool _disposed;
     private AppStrings _strings = AppStrings.For(UiLanguage.English);
 
-    public SettingsWindow(ConfigurationRepository repository)
+    public SettingsWindow(ConfigurationRepository repository, IAutoStartManager? autoStart = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _autoStart = autoStart;
         InitializeComponent();
         CustomKeysList.ItemsSource = _customKeys;
         _chordRecorder.Captured += OnChordCaptured;
@@ -43,7 +46,8 @@ public partial class SettingsWindow : Window, IDisposable
             DiagnosticsCheckBox.IsChecked == true,
             _customKeys.Select(static key => new CustomKeyConfiguration(
                 key.Label, key.ActionType, key.Input, key.Modifiers)),
-            SelectedLanguage());
+            SelectedLanguage(),
+            AutoStartCheckBox.IsChecked == true);
     }
 
     internal bool ApplyRecordedChordForTest(params WindowsKeyboardKey[] keys) =>
@@ -63,6 +67,7 @@ public partial class SettingsWindow : Window, IDisposable
         LayoutIdTextBox.Text = configuration.LayoutId ?? string.Empty;
         PositionModeComboBox.SelectedItem = PositionModeComboBox.Items.Cast<ManualPositionModeOption>().Single(option => option.Mode == configuration.ManualPositionMode);
         DiagnosticsCheckBox.IsChecked = configuration.DetailedDiagnostics;
+        AutoStartCheckBox.IsChecked = configuration.AutoStart;
         _customKeys.Clear();
         foreach (CustomKeyConfiguration key in configuration.CustomKeys)
         {
@@ -83,9 +88,45 @@ public partial class SettingsWindow : Window, IDisposable
             if (!validation.IsValid) { StatusText.Text = _strings.InvalidSettings; return; }
             ConfigurationSaveResult result = _repository.Save(configuration);
             if (!result.IsSaved) { StatusText.Text = _strings.SaveFailed; return; }
+            if (!ApplyAutoStart(configuration)) return; // 应用失败：保持窗口打开并显示警告，由用户决定重试或取消
             DialogResult = true;
         }
         catch (FormatException) { StatusText.Text = _strings.InvalidNumber; }
+    }
+
+    /// <summary>
+    /// 保存后将配置镜像应用到注册表（FR-APP-004，设计 14.4）。
+    /// 注册表是自启的唯一事实来源：写入/删除失败、或写入后被外部修改（安全软件/策略）时，
+    /// 回滚配置镜像并取消勾选，保持“配置镜像 = 注册表事实”不变量；返回 false 表示未能应用。
+    /// </summary>
+    private bool ApplyAutoStart(KeyboardConfiguration configuration)
+    {
+        if (_autoStart is null) return true;
+        bool wanted = configuration.AutoStart;
+        if (!_autoStart.TrySetEnabled(wanted, out _))
+        {
+            RevertAutoStart(wanted);
+            StatusText.Text = _strings.AutoStartApplyFailed;
+            return false;
+        }
+        if (_autoStart.TryGetEnabled(out bool actual) && actual != wanted)
+        {
+            RevertAutoStart(wanted);
+            StatusText.Text = _strings.AutoStartApplyFailed;
+            return false;
+        }
+        return true;
+    }
+
+    private void RevertAutoStart(bool wanted)
+    {
+        KeyboardConfiguration current = _repository.Current;
+        _repository.Save(new(
+            current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
+            current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
+            autoStart: !wanted));
+        AutoStartCheckBox.IsChecked = !wanted;
     }
 
     private void OnAddCustomKeyClick(object sender, RoutedEventArgs e)
@@ -280,6 +321,8 @@ public partial class SettingsWindow : Window, IDisposable
         RecordingHelpText.Text = _strings.RecordingHelp;
         PositionRetentionLabel.Content = _strings.PositionRetention;
         DiagnosticsCheckBox.Content = _strings.Diagnostics;
+        AutoStartCheckBox.Content = _strings.AutoStart;
+        AutoStartDescription.Text = _strings.AutoStartDescription;
         SaveButton.Content = _strings.Save;
         CancelButton.Content = _strings.Cancel;
         PositionModeComboBox.ItemsSource = new[]

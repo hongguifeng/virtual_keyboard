@@ -43,6 +43,9 @@ internal sealed class AppStrings
     internal string CurrentFieldDescription => Chinese ? "拖动键盘后，仅为当前输入框保留位置；切换到其他输入框时恢复自动定位。" : "Keep the dragged position for the current input field only; automatic placement resumes for another field.";
     internal string Persistent => Chinese ? "持续保留" : "Keep until changed";
     internal string PersistentDescription => Chinese ? "拖动键盘后继续使用手动位置，不因切换输入框而恢复自动定位。" : "Continue using the manual position when switching between input fields.";
+    internal string AutoStart => Chinese ? "开机启动" : "Start with Windows";
+    internal string AutoStartDescription => Chinese ? "登录 Windows 时自动启动虚拟键盘" : "Automatically start the virtual keyboard when you sign in to Windows";
+    internal string AutoStartApplyFailed => Chinese ? "未能应用开机启动设置" : "Could not apply the auto-start setting";
     internal string InvalidSettings => Chinese ? "设置无效，请检查自定义按键或数值范围。" : "Invalid settings. Check custom keys and numeric ranges.";
     internal string SaveFailed => Chinese ? "设置无法保存，已保留当前内存配置。" : "Settings could not be saved; the current in-memory configuration was kept.";
     internal string InvalidNumber => Chinese ? "设置无效，请输入数字。" : "Invalid settings. Enter numeric values.";

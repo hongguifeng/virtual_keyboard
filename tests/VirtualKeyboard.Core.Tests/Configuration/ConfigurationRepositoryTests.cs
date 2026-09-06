@@ -159,6 +159,40 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(ConfigurationLoadStatus.Loaded, fixture.Repository.Load().Status);
     }
 
+    [Fact]
+    public void SaveThenLoadRoundTripsAutoStart()
+    {
+        using var fixture = new Fixture();
+        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true,
+            [new("邮箱", "text", "user@example.com")], UiLanguage.SimplifiedChinese, autoStart: true);
+
+        ConfigurationSaveResult saved = fixture.Repository.Save(expected);
+        ConfigurationLoadResult loaded = fixture.Repository.Load();
+
+        Assert.True(saved.IsSaved);
+        Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
+        Assert.True(loaded.Configuration.AutoStart);
+        using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
+        Assert.True(json.RootElement.GetProperty("autoStart").GetBoolean());
+    }
+
+    [Fact]
+    public void OlderFileWithoutAutoStartDefaultsToOff()
+    {
+        using var fixture = new Fixture();
+        File.WriteAllText(fixture.ConfigurationFile, """
+            {"schemaVersion":1,"enabled":true,"autoShow":true,"autoHide":true,"opacity":0.9,
+             "keyboardWidthDip":800,"keyboardHeightDip":300,"marginDip":8,"layoutId":"layout",
+             "manualPositionMode":"UntilTargetChanges","detailedDiagnostics":false}
+            """);
+
+        ConfigurationLoadResult loaded = fixture.Repository.Load();
+
+        Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
+        Assert.False(loaded.Configuration.AutoStart);
+        Assert.False(ConfigurationDefaults.Create().AutoStart);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly string _root = Path.Combine(Path.GetTempPath(), $"VirtualKeyboard.ConfigTests.{Guid.NewGuid():N}");

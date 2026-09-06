@@ -55,7 +55,8 @@ public sealed class KeyboardConfiguration
         ManualPositionMode manualPositionMode,
         bool detailedDiagnostics,
         IEnumerable<CustomKeyConfiguration>? customKeys = null,
-        UiLanguage uiLanguage = UiLanguage.English)
+        UiLanguage uiLanguage = UiLanguage.English,
+        bool autoStart = false)
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -70,6 +71,7 @@ public sealed class KeyboardConfiguration
         DetailedDiagnostics = detailedDiagnostics;
         CustomKeys = Array.AsReadOnly((customKeys ?? []).ToArray());
         UiLanguage = uiLanguage;
+        AutoStart = autoStart;
     }
 
     public int SchemaVersion { get; }
@@ -85,6 +87,9 @@ public sealed class KeyboardConfiguration
     public bool DetailedDiagnostics { get; }
     public IReadOnlyList<CustomKeyConfiguration> CustomKeys { get; }
     public UiLanguage UiLanguage { get; }
+
+    /// <summary>当前用户开机自启（FR-APP-004；默认 false，首启绝不自动启用）。镜像 Windows 当前用户 Run 键的真实状态。</summary>
+    public bool AutoStart { get; }
 }
 
 public sealed record ConfigurationValidationError(string Path, string Code, string Message);

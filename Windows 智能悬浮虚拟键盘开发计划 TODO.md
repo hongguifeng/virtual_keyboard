@@ -520,10 +520,11 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：协调器先进入 ShuttingDown，随后停止输入队列、清除目标、清理控制器、释放热键安全闩锁，再释放 Overlay/诊断；应用层保存当前配置，然后清理托盘和单实例句柄。全部入口均幂等；当前宿主未创建 UIA 订阅，后续接入时预留在输入停止前注销。
   - 验证：Core 206/206、Windows 154/154、Integration 24/24；新增主窗口退出状态/目标/队列清理、托盘重复 Dispose 和单实例句柄释放后重新取得测试；已有 Windows 热键异常/退出释放测试继续覆盖安全闩锁；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T6.7（P2，延期）开机启动**
-  - MVP 不默认实现。
-  - 后续根据 MSI/MSIX 方案选择 StartupTask 或当前用户启动项。
+- [x] **T6.7（P2）开机启动（2026-09-06 实现）**
+  - 对应用户级自启项：`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 值名 `VirtualKeyboard`，内容为带引号的当前可执行文件路径（`Environment.ProcessPath`）；HKCU 无需提权，不采用 MSIX StartupTask。
   - 对应：FR-APP-004。
+  - 实现：Core `IAutoStartManager` 接缝（`TryGetEnabled`/`TrySetEnabled`，数字错误码 1=进程路径不可用、2=注册表写/删失败）；Windows `AutoStartManager` 通过内部 `IUserRunKeyStore` 接缝隔离真实注册表（生产 `Registry.CurrentUser`，测试内存实现）。`config.json` 新增可选 `autoStart`（缺失默认 false，旧文件兼容，不升 schema）作为镜像；注册表为事实来源。设置窗口新增“开机启动”复选框，保存后应用，写入/复核失败回滚镜像并取消勾选、显示固定警告且窗口保持打开；MainWindow 启动时同步注册表到配置镜像（读取失败保持现状，绝不自动启用）。诊断新增 `AutoStartSync` 事件，不记录注册表/进程路径（NFR-PRI-001）。
+  - 验证：新增 Core 2 项（autoStart 往返 + 旧版文件缺失字段默认 false）、Windows 6 项（写入带引号路径/删除/当前路径判定/外部占用/缺失/读失败/进程路径缺失错误码/写失败错误码）、Integration 6 项（复选框进 ReadConfiguration、配置装载复选框、应用失败回滚、启动同步双向、读失败保持配置）；完整 Release 门禁 Core 236/236、Windows 218/218、Integration 46/46（共 500 项），0 warning/error。生产注册表行为（真实 Run 值写入/删除、任务管理器联动）仍需 M7/手工验证。
 
 ### M6 退出检查
 
@@ -532,6 +533,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] 配置损坏、只读目录和磁盘写失败路径通过。（T6.2：损坏恢复、不可用目标和 IO 失败测试）
 - [x] 设置窗口不会触发键盘自动套娃。（T6.3：SettingsOpen 忽略观察并清除目标的状态/集成测试）
 - [x] 正常退出无残留托盘图标和修饰键。（T6.6：托盘隐藏/幂等释放、输入停止与热键安全闩锁退出测试）
+- [x] 开机启动默认关闭，启停与“配置镜像 = 注册表事实”不变量通过。（T6.7：AutoStartManager 假接缝单测 + 设置/主窗口集成测试；真实注册表行为待 M7/手工验证）
 
 ## 12. M7：安全、诊断与稳定性
 
