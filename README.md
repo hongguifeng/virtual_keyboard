@@ -3,7 +3,7 @@
 C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 功能范围见《Windows 智能悬浮虚拟键盘软件功能规格说明.md》，实现设计见《Windows 智能悬浮虚拟键盘方案设计文档.md》，当前进展见《Windows 智能悬浮虚拟键盘开发计划 TODO.md》。
 
-> 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.3 布局 schema、仓库和内置 QWERTY 数据已完成，权限/目标切换实机门禁与 M1-M3 交互式矩阵仍待验收。下一开发任务为 T5.4 `KeyboardController` 状态。
+> 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.4 布局加载和键盘状态控制已完成，权限/目标切换实机门禁与 M1-M3 交互式矩阵仍待验收。下一开发任务为 T5.5 相对布局和按键交互。
 
 ## 先决条件
 
@@ -43,6 +43,8 @@ dotnet publish src\VirtualKeyboard.App\VirtualKeyboard.App.csproj -c Release -r 
 `VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。
 
 内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`，包含 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Ctrl、Alt 和 CapsLock。标准键统一走可受 Shift/Ctrl/Alt 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
+
+`KeyboardController` 保存与目标会话绑定的一次性 Shift/Ctrl/Alt 状态：Ctrl/Alt 在下一输入动作取用后清除，Shift 只在可打印键或文本动作后清除；目标替换、清空及退出都会清理瞬时状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
 
 ## 测试宿主（TestHost）
 

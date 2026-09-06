@@ -555,6 +555,10 @@ T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 H
 
 T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-3 个互不重复的 Ctrl、Shift、Alt；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。一次性 Shift/Ctrl/Alt 的 UI 锁存策略和 CapsLock 状态刷新仍由 T5.4 `KeyboardController` 实现。
 
+T5.4 的 Core `KeyboardController` 用单锁维护版本化不可变状态快照。Shift、Control、Alt 可分别切换；准备下一输入动作时先返回本次应使用的修饰键快照，Control/Alt 一次性清除，Shift 仅在 text 或 A-Z、0-9、Space 等可打印 key 后清除。无目标会话不得准备动作；目标 SessionId 改变、目标清空或 Dispose 均清除三个瞬时状态，避免跨目标泄漏。
+
+CapsLock 不保存在独立虚拟锁中。Windows `CapsLockStateService` 使用 `GetKeyState(VK_CAPITAL)` 低位读取系统 toggle bit；切换时先由通用 `ValidatedKeyInputSender` 复核 SessionId、前台和焦点，再发送成对 CapsLock KeyDown/KeyUp，随后重读系统状态。读取或发送失败时控制器将 CapsLock 标为未知且不猜测新值；实体键盘改变 CapsLock 后，下一次 `RefreshCapsLock` 更新版本和标签数据。
+
 ### 12.6 失败和 UIPI
 
 `SendInput` 返回数量少于请求数量时：

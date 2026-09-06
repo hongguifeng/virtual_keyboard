@@ -415,11 +415,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - Review 修正：标准字母、数字和 Space 改走 `key` 而非 `text`，Windows 封闭键枚举扩展到 A-Z、D0-D9、Space 和状态键，避免后续 Shift/Ctrl/Alt 依赖跨语义路径的隐式转换。
   - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
 
-- [ ] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
+- [x] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - 一次性 Shift、Ctrl/Alt 锁存策略和 CapsLock 系统同步。
   - 实体键盘改变 CapsLock 后刷新标签。
   - 目标变化或退出时清理瞬时状态。
   - 对应：FR-INP-005。
+  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift 在可打印动作后释放，Control/Alt 在下一动作后一次性释放；无目标拒绝消费，Session 替换、清空和 Dispose 清理全部瞬时状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
+  - 验证：Core 160/160、Windows 146/146、Integration 6/6；覆盖 Shift 可打印消费、Ctrl/Alt 一次性消费、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [ ] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
   - 宽度按权重计算，支持最小点击尺寸。
