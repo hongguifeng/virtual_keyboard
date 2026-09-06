@@ -472,7 +472,7 @@ T3.2 的 Core `AnchorResolver` 使用 `AnchorCandidate(PhysicalPixelRect, OwnerT
 8. 对胜出矩形执行 Clamp。
 9. 使用 SetWindowPos 应用，并保存实际物理像素矩形。
 
-T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完全位于工作区优先，其次最终矩形不覆盖锚点、可见比例、Bottom/Top/Right/Left 方向顺序和中心距离。最终结果始终 Clamp 到 `rcWork`。键盘超出工作区时先按 95% 宽高上限等比缩放；工作区或期望尺寸非正时返回 `InvalidInput`，不生成屏外或零尺寸窗口。
+T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完全位于工作区优先，其次最终矩形不覆盖锚点、可见比例、Bottom/Top/Right/Left 方向顺序和中心距离。最终结果始终 Clamp 到 `rcWork`。键盘超出工作区时先按 95% 宽高上限等比缩放；工作区或期望尺寸非正时返回 `InvalidInput`，不生成屏外或零尺寸窗口。REL-020 为 Bottom/Top 候选增加独立的 `verticalCandidateClearance`：App 固定传入 96 DIP 并按目标显示器 Y 轴 DPI 转为物理像素，再与用户边距相加。它只预留空间，不枚举输入法窗口、不读取候选内容；当垂直空间不足时，原评分自然选择另一侧或左右位置。此规则针对微信输入法候选窗与键盘上排重叠、候选窗抢走点击并终止组合的问题，同时保持手动位置不受影响；最终兼容性结论以真人复验为准。
 
 用户手动移动后，将物理矩形与当前 SessionId 绑定。目标会话变化或 DPI 变化时重新进入自动定位。
 

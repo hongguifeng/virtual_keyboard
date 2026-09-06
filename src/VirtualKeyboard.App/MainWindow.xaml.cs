@@ -15,6 +15,8 @@ namespace VirtualKeyboard.App;
 /// <summary>Non-activating keyboard window driven by automatic focus observation.</summary>
 public partial class MainWindow : Window, IDisposable, ITrayCommands
 {
+    private const double ImeCandidateClearanceDip = 96;
+
     private readonly OverlayWindowAdapter _overlay;
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
@@ -311,7 +313,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             MonitorMetricsResult monitor = _monitorDpi.Capture(anchor, session.TopLevelHwnd);
             if (!monitor.IsCaptured) { ClearAutomaticTarget(); return; }
             PhysicalPixelSize desired = monitor.Metrics!.DpiScale.ToPhysicalPixels(new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip));
-            PlacementResult placement = PlacementService.Place(anchor, monitor.Metrics.WorkArea, desired, configuration.MarginDip * monitor.Metrics.DpiScale.ScaleX);
+            PlacementResult placement = PlacementService.Place(
+                anchor,
+                monitor.Metrics.WorkArea,
+                desired,
+                configuration.MarginDip * monitor.Metrics.DpiScale.ScaleX,
+                ImeCandidateClearanceDip * monitor.Metrics.DpiScale.ScaleY);
             if (!placement.IsPlaced) { ClearAutomaticTarget(); return; }
             PhysicalPixelRect rectangle = configuration.ManualPositionMode == ManualPositionMode.Persistent &&
                 _persistentManualPosition is PhysicalPixelRect saved

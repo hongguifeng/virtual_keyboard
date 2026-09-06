@@ -33,17 +33,19 @@ public static class PlacementService
         PhysicalPixelRect anchor,
         PhysicalPixelRect workArea,
         PhysicalPixelSize desiredSize,
-        double margin)
+        double margin,
+        double verticalCandidateClearance = 0)
     {
         if (!anchor.IsValid || !workArea.IsValid || !workArea.Size.IsPositive || !desiredSize.IsPositive ||
-            !double.IsFinite(margin) || margin < 0)
+            !double.IsFinite(margin) || margin < 0 ||
+            !double.IsFinite(verticalCandidateClearance) || verticalCandidateClearance < 0)
             return new(PlacementStatus.InvalidInput, null, PlacementDirection.Bottom, false);
 
         (PhysicalPixelSize size, bool scaled) = ConstrainSize(desiredSize, workArea.Size);
         Candidate[] candidates =
         [
-            Create(PlacementDirection.Bottom, anchor.X + ((anchor.Width - size.Width) / 2), anchor.Bottom + margin, size, anchor, workArea, 0),
-            Create(PlacementDirection.Top, anchor.X + ((anchor.Width - size.Width) / 2), anchor.Y - size.Height - margin, size, anchor, workArea, 1),
+            Create(PlacementDirection.Bottom, anchor.X + ((anchor.Width - size.Width) / 2), anchor.Bottom + margin + verticalCandidateClearance, size, anchor, workArea, 0),
+            Create(PlacementDirection.Top, anchor.X + ((anchor.Width - size.Width) / 2), anchor.Y - size.Height - margin - verticalCandidateClearance, size, anchor, workArea, 1),
             Create(PlacementDirection.Right, anchor.Right + margin, anchor.Y + ((anchor.Height - size.Height) / 2), size, anchor, workArea, 2),
             Create(PlacementDirection.Left, anchor.X - size.Width - margin, anchor.Y + ((anchor.Height - size.Height) / 2), size, anchor, workArea, 3),
         ];

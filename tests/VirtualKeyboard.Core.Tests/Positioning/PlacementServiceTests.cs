@@ -16,6 +16,26 @@ public sealed class PlacementServiceTests
         Assert.Equal(new PhysicalPixelRect(600, 450, 400, 200), result.Rectangle);
     }
 
+    [Fact]
+    public void VerticalCandidateClearanceKeepsKeyboardAwayFromImeUi()
+    {
+        PlacementResult result = PlacementService.Place(
+            new(700, 400, 200, 40), WorkArea, Keyboard, margin: 10, verticalCandidateClearance: 96);
+
+        Assert.Equal(PlacementDirection.Bottom, result.Direction);
+        Assert.Equal(new PhysicalPixelRect(600, 546, 400, 200), result.Rectangle);
+    }
+
+    [Fact]
+    public void CandidateClearanceIsAlsoReservedAboveAnAnchorNearBottomEdge()
+    {
+        PlacementResult result = PlacementService.Place(
+            new(700, 900, 200, 40), WorkArea, Keyboard, margin: 10, verticalCandidateClearance: 96);
+
+        Assert.Equal(PlacementDirection.Top, result.Direction);
+        Assert.Equal(new PhysicalPixelRect(600, 594, 400, 200), result.Rectangle);
+    }
+
     [Theory]
     [InlineData(700, 1000, PlacementDirection.Top)]
     [InlineData(700, 0, PlacementDirection.Bottom)]
@@ -63,6 +83,17 @@ public sealed class PlacementServiceTests
     public void InvalidMarginReturnsFailure(double margin)
     {
         PlacementResult result = PlacementService.Place(new(10, 10, 10, 10), WorkArea, Keyboard, margin);
+        Assert.False(result.IsPlaced);
+        Assert.Equal(PlacementStatus.InvalidInput, result.Status);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(-1)]
+    public void InvalidCandidateClearanceReturnsFailure(double clearance)
+    {
+        PlacementResult result = PlacementService.Place(
+            new(10, 10, 10, 10), WorkArea, Keyboard, margin: 10, verticalCandidateClearance: clearance);
         Assert.False(result.IsPlaced);
         Assert.Equal(PlacementStatus.InvalidInput, result.Status);
     }
