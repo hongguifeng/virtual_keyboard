@@ -40,11 +40,9 @@
                     <ColumnDefinition x:Name="StandardKeyboardColumn" Width="16*"/>
                     <ColumnDefinition x:Name="CustomKeyboardColumn" Width="0*"/>
                 </Grid.ColumnDefinitions>
-                <local:KeyboardLayoutView x:Name="LayoutView" Grid.Column="0" KeyInvoked="OnLayoutKeyInvoked"
-                                          KeyTransitionRequested="OnLayoutKeyTransitionRequested" />
+                <local:KeyboardLayoutView x:Name="LayoutView" Grid.Column="0" KeyInvoked="OnLayoutKeyInvoked" />
                 <local:CustomKeyColumnView x:Name="CustomKeysView" Grid.Column="1" Margin="4,0,0,0"
-                                           KeyInvoked="OnLayoutKeyInvoked"
-                                           KeyTransitionRequested="OnLayoutKeyTransitionRequested" />
+                                           KeyInvoked="OnLayoutKeyInvoked" />
             </Grid>
         </Grid>
     </Border>

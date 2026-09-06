@@ -13,13 +13,6 @@ public sealed class KeyInvokedEventArgs(KeyViewModel key) : EventArgs
     public KeyViewModel Key { get; } = key ?? throw new ArgumentNullException(nameof(key));
 }
 
-public sealed class KeyTransitionRequestedEventArgs(KeyViewModel key, bool isKeyDown) : EventArgs
-{
-    public KeyViewModel Key { get; } = key ?? throw new ArgumentNullException(nameof(key));
-
-    public bool IsKeyDown { get; } = isKeyDown;
-}
-
 /// <summary>Builds non-focusable weighted key rows from an immutable layout view model.</summary>
 public sealed class KeyboardLayoutView : Grid
 {
@@ -33,8 +26,6 @@ public sealed class KeyboardLayoutView : Grid
     }
 
     public event EventHandler<KeyInvokedEventArgs>? KeyInvoked;
-
-    public event EventHandler<KeyTransitionRequestedEventArgs>? KeyTransitionRequested;
 
     public KeyboardLayoutViewModel? Layout { get; private set; }
 
@@ -98,7 +89,6 @@ public sealed class KeyboardLayoutView : Grid
             };
             AutomationProperties.SetAutomationId(button, key.Id == "key.a" ? "KeyAButton" : key.Id);
             button.Invoked += OnButtonInvoked;
-            button.KeyTransitionRequested += OnButtonKeyTransitionRequested;
             SetColumn(button, keyIndex);
             row.Children.Add(button);
         }
@@ -110,12 +100,6 @@ public sealed class KeyboardLayoutView : Grid
         _ = e;
         var button = (NonFocusableKeyButton)sender!;
         KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
-    }
-
-    private void OnButtonKeyTransitionRequested(object? sender, KeyTransitionRequestedEventArgs e)
-    {
-        _ = sender;
-        KeyTransitionRequested?.Invoke(this, e);
     }
 
     private static IEnumerable<NonFocusableKeyButton> DescendantButtons(DependencyObject root)
@@ -147,8 +131,6 @@ public sealed class CustomKeyColumnView : Grid
     }
 
     public event EventHandler<KeyInvokedEventArgs>? KeyInvoked;
-
-    public event EventHandler<KeyTransitionRequestedEventArgs>? KeyTransitionRequested;
 
     public int ColumnCount => ColumnDefinitions.Count;
 
@@ -186,7 +168,6 @@ public sealed class CustomKeyColumnView : Grid
             };
             AutomationProperties.SetAutomationId(button, $"CustomKey{index}");
             button.Invoked += (_, _) => KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
-            button.KeyTransitionRequested += (_, args) => KeyTransitionRequested?.Invoke(this, args);
             SetRow(button, index % KeysPerColumn);
             SetColumn(button, index / KeysPerColumn);
             Children.Add(button);
@@ -198,7 +179,6 @@ internal sealed class NonFocusableKeyButton : Button
 {
     private readonly KeyGestureController _gesture = new();
     private double _restingOpacity = 1;
-    private bool _momentaryKeyDownRequested;
 
     internal NonFocusableKeyButton(KeyViewModel key)
     {
@@ -209,8 +189,6 @@ internal sealed class NonFocusableKeyButton : Button
     }
 
     internal event EventHandler? Invoked;
-
-    internal event EventHandler<KeyTransitionRequestedEventArgs>? KeyTransitionRequested;
 
     internal KeyViewModel Key { get; }
 
@@ -245,16 +223,13 @@ internal sealed class NonFocusableKeyButton : Button
 
     internal bool BeginGestureForTest()
     {
-        bool began = BeginGesture();
-        if (began) RequestMomentaryKeyDown();
-        return began;
+        return BeginGesture();
     }
 
     internal bool EndGestureForTest(bool isInside)
     {
         bool invoke = EndGesture(isInside);
-        RequestMomentaryKeyUp();
-        if (invoke && Key.Action.Type != LayoutActionTypes.Key)
+        if (invoke)
         {
             Invoked?.Invoke(this, EventArgs.Empty);
         }
@@ -269,7 +244,6 @@ internal sealed class NonFocusableKeyButton : Button
         if (BeginGesture() && CaptureMouse())
         {
             e.Handled = true;
-            RequestMomentaryKeyDown();
         }
         else
         {
@@ -286,8 +260,7 @@ internal sealed class NonFocusableKeyButton : Button
         }
         bool invoke = EndGesture(IsMouseOver);
         ReleaseMouseCapture();
-        RequestMomentaryKeyUp();
-        if (invoke && Key.Action.Type != LayoutActionTypes.Key)
+        if (invoke)
         {
             Invoked?.Invoke(this, EventArgs.Empty);
         }
@@ -299,7 +272,6 @@ internal sealed class NonFocusableKeyButton : Button
         e.Handled = true;
         if (BeginGesture() && e.TouchDevice.Capture(this))
         {
-            RequestMomentaryKeyDown();
             return;
         }
         e.TouchDevice.Capture(null);
@@ -318,8 +290,7 @@ internal sealed class NonFocusableKeyButton : Button
         Point position = e.GetTouchPoint(this).Position;
         bool invoke = EndGesture(position.X >= 0 && position.Y >= 0 && position.X <= ActualWidth && position.Y <= ActualHeight);
         e.TouchDevice.Capture(null);
-        RequestMomentaryKeyUp();
-        if (invoke && Key.Action.Type != LayoutActionTypes.Key)
+        if (invoke)
         {
             Invoked?.Invoke(this, EventArgs.Empty);
         }
@@ -370,20 +341,5 @@ internal sealed class NonFocusableKeyButton : Button
         {
             Opacity = _restingOpacity;
         }
-        RequestMomentaryKeyUp();
-    }
-
-    private void RequestMomentaryKeyDown()
-    {
-        if (Key.Action.Type != LayoutActionTypes.Key || _momentaryKeyDownRequested) return;
-        _momentaryKeyDownRequested = true;
-        KeyTransitionRequested?.Invoke(this, new(Key, isKeyDown: true));
-    }
-
-    private void RequestMomentaryKeyUp()
-    {
-        if (!_momentaryKeyDownRequested) return;
-        _momentaryKeyDownRequested = false;
-        KeyTransitionRequested?.Invoke(this, new(Key, isKeyDown: false));
     }
 }

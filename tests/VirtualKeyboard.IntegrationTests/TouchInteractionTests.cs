@@ -20,20 +20,16 @@ public sealed class TouchInteractionTests
             view.LoadLayout(KeyboardLayoutViewModel.Create(layout));
             var button = Assert.IsType<NonFocusableKeyButton>(Assert.IsType<Grid>(view.Children[0]).Children[0]);
             int invoked = 0;
-            var transitions = new List<bool>();
             button.Invoked += (_, _) => invoked++;
-            button.KeyTransitionRequested += (_, args) => transitions.Add(args.IsKeyDown);
 
             Assert.True(button.BeginGestureForTest());
             Assert.True(button.EndGestureForTest(isInside: true));
-            Assert.Equal(0, invoked);
-            Assert.Equal([true, false], transitions);
+            Assert.Equal(1, invoked);
 
             Assert.True(button.BeginGestureForTest());
             button.CancelGestureForTest();
             Assert.False(button.EndGestureForTest(isInside: true));
-            Assert.Equal(0, invoked);
-            Assert.Equal([true, false, true, false], transitions);
+            Assert.Equal(1, invoked);
             Assert.False(button.IsGesturePressed);
         });
     }

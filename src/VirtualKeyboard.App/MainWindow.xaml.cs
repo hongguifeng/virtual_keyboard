@@ -357,7 +357,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
     private void ClearKeyboardState()
     {
-        _actionDispatcher.ReleaseMomentaryKeys();
         _hotkeySender.ReleaseLatchedModifiers();
         _keyboardController.ClearTargetSession();
     }
@@ -410,19 +409,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         else
         {
             TitleStatusText.Text = "输入队列已停止或目标已变化";
-        }
-    }
-
-    private void OnLayoutKeyTransitionRequested(object sender, KeyTransitionRequestedEventArgs e)
-    {
-        _ = sender;
-        TargetSession? session = _targetSessions.Current;
-        if (session is null && e.IsKeyDown) return;
-        KeyInputTransition transition = e.IsKeyDown ? KeyInputTransition.KeyDown : KeyInputTransition.KeyUp;
-        InputSendResult result = _actionDispatcher.DispatchKeyTransition(session?.SessionId ?? 0, e.Key, transition);
-        if (!result.IsSuccess && session is not null)
-        {
-            TitleStatusText.Text = _failureFeedback.Create(result, session.ProcessId).Message;
         }
     }
 

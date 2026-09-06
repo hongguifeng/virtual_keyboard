@@ -440,6 +440,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - Review 修正：CapsLock 改为由 `KeyboardController` 唯一调用 `CapsLockStateService`，按键状态视觉统一由状态快照刷新；输入队列退出顺序固定为停止队列→清理控制器→释放热键闩锁→关闭诊断。
   - 后续缺陷修正（REL-016）：QWERT、ASDFG、ZXCV 行均补充 Down/Up 映射回归覆盖。按钮生命周期修正经实机反馈未通过，已回退；普通 key 改为按下发送 KeyDown、释放/取消发送 KeyUp，并由 dispatcher 维护释放兜底，针对中文 IME 组合态修复。验证：Core 226/226、Windows 212/212、Integration 33/33，Release 构建/发布 0 warning/error。
   - 后续根因修正（REL-018）：普通键此前虽解析目标布局 scan code，却未设置 `KEYEVENTF_SCANCODE`，导致 Windows 忽略 `wScan` 并走虚拟键翻译；现改为 `wVk=0` 的 scan-code Down/Up，回归覆盖字母三行、数字、标点和导航键的标志位。验证：Core 226/226、Windows 212/212、Integration 33/33，Release 构建/发布 0 warning/error。
+  - 后续 IME 修正（REL-019）：REL-017 把普通键 Down/Up 拆到鼠标按下和松开的两个 `SendInput`，候选窗可在两次调用之间创建或更新；现恢复有效点击后的单批次 Press，同时保留 REL-018 的 scan-code 编码。取消、移出和捕获丢失均为零输入。验证：Core 226/226、Windows 210/210、Integration 33/33，Release 构建/发布 0 warning/error；中文 IME 仍需真人鼠标复验。
 
 - [x] **T5.6（P0，0.5 人日）实现密码目标策略**
   - `safeForPassword=false` 的键隐藏或禁用。

@@ -76,7 +76,7 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 `KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt/Win/Fn 点击开关状态。Shift/Ctrl/Alt/Win 第一次点击发送真实 KeyDown，第二次发送 KeyUp，只有发送成功才改变蓝底白字的高亮；普通按键不会自动清除。目标替换、暂停、设置和退出会强制释放程序保持的修饰键。Fn 仍是应用内功能层，CapsLock 读取并切换系统 toggle bit。
 
-QWERTY 字母、数字、标点和编辑键都是瞬时普通键：先按目标线程当前键盘布局解析 scan code，再使用 `KEYEVENTF_SCANCODE` 发送；鼠标/触摸按下时发送 KeyDown，释放、移出或取消时发送对应 KeyUp，不会像修饰键一样锁存。这样中文 IME 可以按实体键盘语义维护组合态。
+QWERTY 字母、数字、标点和编辑键都是瞬时普通键：先按目标线程当前键盘布局解析 scan code，再使用 `KEYEVENTF_SCANCODE`；仅在一次有效鼠标/触摸点击完成后，把 KeyDown/KeyUp 放在同一个 `SendInput` 批次中提交，不会像修饰键一样锁存。单批次避免一个普通键跨越中文 IME 候选窗的创建或更新边界，也不让键盘事件与其他输入交错。
 
 自动弹出只接受真实 Edit 的可写 ValuePattern，或 Edit/Document 的 TextEdit/caret 证据；桌面图标和资源管理器文件项等选择型控件不会仅凭 ValuePattern 触发，文件重命名进入 Edit 后仍可正常触发。
 

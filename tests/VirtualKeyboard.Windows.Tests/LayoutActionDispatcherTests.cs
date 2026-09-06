@@ -24,34 +24,6 @@ public sealed class LayoutActionDispatcherTests
     }
 
     [Fact]
-    public void StandardKeyTransitionUsesValidatedKeyDownAndKeyUpPath()
-    {
-        using Fixture fixture = Fixture.Create();
-        KeyViewModel key = Key("a", new(LayoutActionTypes.Key, virtualKey: "A"));
-
-        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, key, KeyInputTransition.KeyDown).IsSuccess);
-        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, key, KeyInputTransition.KeyUp).IsSuccess);
-        Assert.Equal([KeyInputTransition.KeyDown, KeyInputTransition.KeyUp], fixture.KeyTransitions);
-    }
-
-    [Fact]
-    public void MomentaryKeyUpAndTargetCleanupReleaseTheValidatedKeyWithoutRevalidation()
-    {
-        using Fixture fixture = Fixture.Create();
-        KeyViewModel a = Key("a", new(LayoutActionTypes.Key, virtualKey: "A"));
-        KeyViewModel q = Key("q", new(LayoutActionTypes.Key, virtualKey: "Q"));
-
-        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, a, KeyInputTransition.KeyDown).IsSuccess);
-        Assert.True(fixture.Dispatcher.DispatchKeyTransition(0, a, KeyInputTransition.KeyUp).IsSuccess);
-        Assert.True(fixture.Dispatcher.DispatchKeyTransition(fixture.Session.SessionId, q, KeyInputTransition.KeyDown).IsSuccess);
-        fixture.Dispatcher.ReleaseMomentaryKeys();
-
-        Assert.Equal(
-            [KeyInputTransition.KeyDown, KeyInputTransition.KeyUp, KeyInputTransition.KeyDown, KeyInputTransition.KeyUp],
-            fixture.KeyTransitions);
-    }
-
-    [Fact]
     public void ActiveModifiersUseHotkeyPathAndRemainActive()
     {
         using Fixture fixture = Fixture.Create();

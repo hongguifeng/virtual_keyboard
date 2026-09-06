@@ -14,8 +14,6 @@ public sealed class LayoutActionDispatcher
     private readonly Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult> _sendModifier;
     private readonly Func<IReadOnlyList<WindowsKeyboardKey>, nint, int, CancellationToken, InputSendResult> _sendChord;
     private readonly Func<string, int, InputSendResult> _sendText;
-    private readonly object _momentaryGate = new();
-    private readonly Dictionary<string, HeldMomentaryKey> _heldMomentaryKeys = [];
 
     public LayoutActionDispatcher(
         TargetSessionValidator validator,
@@ -143,60 +141,6 @@ public sealed class LayoutActionDispatcher
 
         return Rejected();
     }
-
-    public InputSendResult DispatchKeyTransition(long sessionId, KeyViewModel key, KeyInputTransition transition)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-        if (key.Action.Type != LayoutActionTypes.Key || !Enum.IsDefined(transition) || transition == KeyInputTransition.Press)
-            return Rejected();
-        if (transition == KeyInputTransition.KeyUp)
-        {
-            return ReleaseMomentaryKey(key.Id);
-        }
-        TargetValidationResult validation = _validator.Validate(sessionId);
-        if (!validation.IsValid || validation.Session is null) return new(InputSendStatus.TargetInvalid, 0, 0, 0);
-        string? requestedVirtualKey = _controller.State.FunctionLayerActive && key.Action.FnVirtualKey is not null
-            ? key.Action.FnVirtualKey
-            : key.Action.VirtualKey;
-        if (!TryParseKey(requestedVirtualKey, out WindowsKeyboardKey parsedKey)) return Rejected();
-        if (validation.Session.IsPassword && (!key.SafeForPassword || !PasswordActionPolicy.Check(key.Action).IsAllowed)) return Rejected();
-        lock (_momentaryGate)
-        {
-            if (_heldMomentaryKeys.ContainsKey(key.Id)) return new(InputSendStatus.Succeeded, 0, 0, 0);
-            InputSendResult result = _sendKey(parsedKey, validation.Session.FocusHwnd, transition, validation.Session.ProcessId);
-            if (result.IsSuccess)
-            {
-                _heldMomentaryKeys.Add(key.Id, new(parsedKey, validation.Session.FocusHwnd, validation.Session.ProcessId));
-            }
-            return result;
-        }
-    }
-
-    public void ReleaseMomentaryKeys()
-    {
-        lock (_momentaryGate)
-        {
-            foreach ((string id, HeldMomentaryKey held) in _heldMomentaryKeys.ToArray())
-            {
-                if (_sendKey(held.Key, held.FocusHwnd, KeyInputTransition.KeyUp, held.ProcessId).IsSuccess)
-                    _heldMomentaryKeys.Remove(id);
-            }
-        }
-    }
-
-    private InputSendResult ReleaseMomentaryKey(string id)
-    {
-        lock (_momentaryGate)
-        {
-            if (!_heldMomentaryKeys.TryGetValue(id, out HeldMomentaryKey held))
-                return new(InputSendStatus.Succeeded, 0, 0, 0);
-            InputSendResult result = _sendKey(held.Key, held.FocusHwnd, KeyInputTransition.KeyUp, held.ProcessId);
-            if (result.IsSuccess) _heldMomentaryKeys.Remove(id);
-            return result;
-        }
-    }
-
-    private readonly record struct HeldMomentaryKey(WindowsKeyboardKey Key, nint FocusHwnd, int ProcessId);
 
     private InputSendResult DispatchModifier(TargetSession session, string? modifier)
     {

@@ -545,7 +545,7 @@ T4.3 的 `UnicodeTextInputBuilder` 直接枚举 UTF-16 code unit，每个单元�
 - 每个非状态键默认发送 KeyDown + KeyUp。
 - 不用 `PostMessage(WM_CHAR)` 作为回退。
 
-T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通物理键输入使用 `wVk=0`、解析后的 `wScan` 和 `KEYEVENTF_SCANCODE`，避免计算出的目标布局扫描码被 Windows 忽略；KeyUp 叠加 `KEYEVENTF_KEYUP`。发送器支持完整 Press 以及独立 KeyDown/KeyUp；UI 普通键采用后者，在鼠标/触摸按下与释放之间保留真实生命周期，以兼容中文 IME 组合态。方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 `KEYEVENTF_EXTENDEDKEY`。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`。`LayoutActionDispatcher` 跟踪已成功 Down 的普通键，释放、取消、目标清理和退出均尽力发送对应 KeyUp。诊断只包含 PID、事件数量和错误码。
+T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通物理键输入使用 `wVk=0`、解析后的 `wScan` 和 `KEYEVENTF_SCANCODE`，避免计算出的目标布局扫描码被 Windows 忽略；KeyUp 叠加 `KEYEVENTF_KEYUP`。UI 只在有效点击释放后走完整 Press，把普通键 Down/Up 置于同一个 `INPUT[]` 和同一次 `SendInput` 中；Windows 保证该数组中的事件串行插入且不与其他输入交错，因而一个字母不会跨越中文 IME 候选 UI 的创建、更新或销毁边界。取消手势不产生输入，也不需要维护普通键锁存集合。方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 `KEYEVENTF_EXTENDEDKEY`。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`。诊断只包含 PID、事件数量和错误码。
 
 ### 12.5 Hotkey 与修饰键
 
@@ -652,7 +652,7 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 
 T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽；按键保持 36 DIP 最小高度，但列不设置会导致横向溢出的固定最小宽度。完整窗口下限为 620×280 DIP，默认配置为 800×300 DIP。
 
-`NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。普通 `key` 另发出按下/释放过渡事件，由 `LayoutActionDispatcher` 保持已发送的普通键并在释放或目标清理时补发 KeyUp；组合、文本和 modifier 仍走完整点击语义。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
+`NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。普通 `key` 与组合、文本和 modifier 一样只发一次完整点击动作，dispatcher 随后以单个原生批次提交普通键 Down/Up。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
 M5 review 修正增加 Windows `LayoutActionDispatcher`。动态 `KeyInvoked` 先进入 Core `InputInjectionService` 有界串行队列；消费者同步复核 SessionId、前台、焦点和密码策略，再把标准 key 送入 `KeyInputSender`，把显式或保持的 Shift/Ctrl/Alt/Win 组合送入 `HotkeyInputSender`，把 Unicode text 保持在 `UnicodeTextInputSender`；Fn 选择 key 的 `fnVirtualKey`，其他 modifier 更新控制器或经验证切换系统 CapsLock。未知键/修饰键在发送前拒绝。UI 不再硬编码仅发送 A；状态文本也不回显 label 或 text。退出顺序为停止队列、清理控制器、Dispose 热键安全闩锁、最后关闭诊断。
 动作完成或失败后，`KeyboardLayoutView.UpdateState` 使用同一 `KeyboardControllerState` 更新状态键视觉；因此再次点击释放、目标切换或 CapsLock 刷新不会留下过时高亮。
