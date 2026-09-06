@@ -164,8 +164,9 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 测试 Notepad、WPF TestHost、Chrome 输入框。
   - 验证键盘 HWND 从不成为前台窗口。
   - 对应：AC-001、AC-005。
-  - 自动证据：`OverlayFocusBehaviorTests` 创建真实 WPF 目标窗口与 Overlay HWND，记录点击前/显示后/点击后的前台 HWND、GUI 焦点 HWND、键盘 HWND；验证 `WM_MOUSEACTIVATE → MA_NOACTIVATE`、按钮 Click 单次触发、前台/焦点保持不变，且键盘 HWND 从未成为前台。Windows 测试当前 17/17 通过。
-  - 人工矩阵：Notepad、WPF TestHost、Chrome 输入框仍需在带桌面交互的验收环境运行，结果写入 M1 风险门禁；本地自动化不读取窗口标题或输入内容。
+  - 自动证据：`OverlayFocusBehaviorTests` 创建真实 WPF 目标窗口与 Overlay HWND，记录点击前/显示后/点击后的前台 HWND、GUI 焦点 HWND、键盘 HWND；验证 `WM_MOUSEACTIVATE → MA_NOACTIVATE`、按钮 Click 单次触发、前台/焦点保持不变，且键盘 HWND 从未成为前台。当前 Windows 测试 58/58 通过。
+  - 实机采集：`scripts/verify-t1.5.ps1` 自动准备 WPF TestHost、Notepad、隔离 Chrome input 和发布后的 Overlay；测试者按提示使用真实物理鼠标点击，脚本记录三阶段 HWND、焦点保持、键盘不前台和非敏感输入计数，JSON 证据写入 `artifacts/t1.5/`。可用 `-RepeatCount 100` 执行 Notepad 风险门禁。
+  - 未完成原因：合成鼠标→SendInput 链与真人输入语义不同，不能作为端到端通过证据；仍需在 Windows 10 22H2、Windows 11 上分别运行上述真人鼠标矩阵并附证据，完成前不得勾选 T1.5。本地采集不读取或输出窗口标题、输入文本或密码值。
 
 - [x] **T1.6（P0，0.25 人日）实现最小退出清理**
   - 关闭窗口、取消输入队列、释放本程序按下的键。

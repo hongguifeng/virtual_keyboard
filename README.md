@@ -56,6 +56,16 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
   dotnet run --project tests/VirtualKeyboard.TestHost -- --selftest
   ```
 
+- T1.5 真人鼠标交互验收：先执行完整构建/发布，再从普通 PowerShell 运行下列脚本。脚本依次准备 WPF TestHost、Notepad 和隔离 Chrome input，测试者只按屏幕提示用真实鼠标点击 Overlay；脚本自动采集三阶段前台/焦点/键盘 HWND 和非敏感输入计数，并写入 `artifacts/t1.5/`。合成鼠标不能用于替代此门禁，因为嵌套的合成鼠标→`SendInput` 链与真人输入语义不同。
+
+  ```powershell
+  .\scripts\verify-t1.5.ps1 -Scenario All
+  # M1 的 100 次 Notepad 风险门禁
+  .\scripts\verify-t1.5.ps1 -Scenario Notepad -RepeatCount 100
+  ```
+
+  T1.5 只有在 Windows 10 22H2 和 Windows 11 分别留下通过证据后才可勾选；脚本不读取或输出输入文本、密码、窗口标题。
+
 ## 仓库结构
 
 ```

@@ -399,7 +399,9 @@ T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等�
 
 T2.1 的 `FocusObservationService` 将 UI Automation 订阅集中到专用后台 MTA 线程。生产实现通过 `SystemFocusAutomationSource` 注册 `Automation.AddAutomationFocusChangedEventHandler`，回调只设置线程内信号；服务线程消费信号并调用观察者，避免 UIA 回调直接访问 WPF Dispatcher。注册、消费和注销异常均在服务边界隔离，Start/Stop/Dispose 具备幂等语义，并以 5 秒上限避免生命周期操作无限等待。T2.2 将在此通知上补充不可变 FocusSnapshot 与单调版本号。
 
-T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。Notepad、WPF TestHost、Chrome 的人工矩阵不纳入单元测试，通过 M1/T8.3 验收表记录。
+T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。
+
+真实应用矩阵使用 `scripts/verify-t1.5.ps1` 半自动采集：脚本负责启动 WPF TestHost、Notepad、隔离 Chrome input 和发布后的 Overlay，聚焦目标并等待测试者使用真实物理鼠标完成“捕获目标”和 `A` 点击；每次操作后自动采集前台 HWND、GUI 焦点 HWND、键盘 HWND，并只比较按键计数或文本长度，不保存输入内容。证据写入忽略版本控制的 `artifacts/t1.5/`。不得用 `mouse_event`、UIA InvokePattern 或直接窗口消息冒充此门禁：合成鼠标可能改变激活语义，嵌套的合成鼠标→SendInput 链也可能被系统或自动化宿主过滤。Windows 10 22H2 与 Windows 11 必须分别由真人鼠标执行并留证，才可完成 T1.5/M1 风险门禁。
 
 ### 10.3 鼠标与触摸命中
 
