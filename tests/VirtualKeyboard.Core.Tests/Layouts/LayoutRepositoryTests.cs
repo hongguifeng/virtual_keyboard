@@ -17,6 +17,9 @@ public sealed class LayoutRepositoryTests
         Assert.Equal("builtin.qwerty.en-US", layout.Id);
         Assert.Equal(26, keys.Count(key => key.Id is { Length: 5 } && key.Id.StartsWith("key.", StringComparison.Ordinal) && char.IsAsciiLetterLower(key.Id[4])));
         Assert.Equal(10, keys.Count(key => key.Id is { Length: 5 } && char.IsAsciiDigit(key.Id[4])));
+        Assert.All(
+            keys.Where(key => key.Id is { Length: 5 } && char.IsAsciiLetterOrDigit(key.Id[4])),
+            key => Assert.Equal(LayoutActionTypes.Key, key.Action!.Type));
         Assert.Contains(keys, key => key.Action?.VirtualKey == "Space" || key.Action?.Value == " ");
         foreach (string id in new[] { "key.backspace", "key.enter", "key.tab", "key.escape", "key.shift", "key.control", "key.alt", "key.capsLock" })
         {

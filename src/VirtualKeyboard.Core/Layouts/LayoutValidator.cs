@@ -315,6 +315,7 @@ public static class LayoutValidator
         for (char digit = '0'; digit <= '9'; digit++)
         {
             keys.Add(digit.ToString());
+            keys.Add($"D{digit}");
         }
 
         return keys;

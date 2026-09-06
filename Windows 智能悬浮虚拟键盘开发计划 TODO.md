@@ -412,7 +412,8 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 关闭、设置、拖动区域不定义为可注入 action。
   - 对应：FR-KEY-001。
   - 实现：应用 Content 提供 schema v1 `builtin.qwerty.en-US` 五行布局，覆盖 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Control、Alt、CapsLock，并在 build/publish 时复制到 `layouts\builtin`；关闭、设置、拖动不进入布局 action。
-  - 验证：Core 146/146、Windows 139/139、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字、全部必需功能/状态键及无 close/settings/drag action；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
+  - Review 修正：标准字母、数字和 Space 改走 `key` 而非 `text`，Windows 封闭键枚举扩展到 A-Z、D0-D9、Space 和状态键，避免后续 Shift/Ctrl/Alt 依赖跨语义路径的隐式转换。
+  - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
 
 - [ ] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - 一次性 Shift、Ctrl/Alt 锁存策略和 CapsLock 系统同步。
