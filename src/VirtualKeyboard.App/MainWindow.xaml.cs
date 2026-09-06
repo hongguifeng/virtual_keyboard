@@ -231,7 +231,13 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_focusObservation is not null) return;
-        _focusObservation = new FocusObservationService(OnFocusChanged);
+        _focusObservation = new FocusObservationService(
+            OnFocusChanged,
+            errorCode => _diagnostics.Log(
+                DiagnosticType.UnhandledBoundaryException,
+                DiagnosticModule.Focus,
+                reason: ReasonCode.Unknown,
+                errorCode: errorCode));
         _focusObservation.Start();
         _focusObservation.Refresh();
     }

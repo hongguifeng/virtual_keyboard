@@ -39,6 +39,13 @@ public sealed class EditabilityEvidenceFactoryTests
         Marshal.GetExceptionForHR(unchecked((int)0x80004005))!,
     };
 
+    [Fact]
+    public void UnregisteredOptionalAutomationPropertyIsUnavailableInsteadOfThrowing()
+    {
+        Assert.Null(AutomationProperty.LookupById(int.MaxValue));
+        Assert.False(SystemEditabilityAutomationSource.ReadBooleanProperty(AutomationElement.RootElement, int.MaxValue));
+    }
+
     private static FocusSnapshot CreateSnapshot() =>
         new(1, DateTimeOffset.UtcNow, 42, (nint)10, null, FocusControlType.Edit, true, true, false, false);
 

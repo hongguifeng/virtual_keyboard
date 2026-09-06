@@ -133,7 +133,7 @@ DiagnosticEventSink ◄─ structured events from every boundary
 |---|---|---|
 | `AppHost` | 单实例、启动、退出、依赖组装 | FR-APP-* |
 | `TrayShell` | 托盘菜单与用户命令 | FR-APP-002 |
-| `FocusObservationService` | 监听 UIA 焦点事件、生成版本化快照 | FR-FOC-001、006 |
+| `FocusObservationService` | 监听 UIA 焦点事件，以有界轮询兜底并生成去重的版本化快照 | FR-FOC-001、006 |
 | `EditabilityClassifier` | 三态可编辑判定和原因码 | FR-FOC-003、004 |
 | `NativeFocusAdapter` | 前台窗口、焦点 HWND、caret、线程布局 | FR-FOC-004、FR-POS-001 |
 | `TargetStateCoordinator` | 状态机、乱序抑制、显示/隐藏决策 | FR-VIS-* |
@@ -234,7 +234,7 @@ DTO 中不得包含 AutomationElement 的 Value 或用户输入内容。Automati
 
 ### 8.1 事件来源
 
-主来源：`Automation.AddAutomationFocusChangedEventHandler`。
+主来源：`Automation.AddAutomationFocusChangedEventHandler`。观察线程同时每 250 ms 读取一次当前焦点作为 provider 事件缺失时的有界兜底；轮询快照按进程、顶层 HWND、RuntimeId、控件类型和安全状态字段去重，不重复建立目标会话。原生事件仍经过 50 ms 稳定窗口并优先触发评估。
 
 辅助来源：
 
@@ -397,7 +397,9 @@ T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 
 
 T1.6 的最小退出路径由 `MainWindow.OnClosed` 统一收口并保持幂等，释放 Overlay 的 `HwndSource` hook 和诊断资源。M1 的单键发送为同步固定批次，不存在后台输入队列或跨批次保持的修饰键；托盘尚未引入，因此当前退出路径没有托盘或合成按键残留。M4 引入串行队列和修饰键后，退出清理将在 T4.7 扩展。
 
-T2.1 的 `FocusObservationService` 将 UI Automation 订阅集中到专用后台 MTA 线程。生产实现通过 `SystemFocusAutomationSource` 注册 `Automation.AddAutomationFocusChangedEventHandler`，回调只设置线程内信号；服务线程消费信号并调用观察者，避免 UIA 回调直接访问 WPF Dispatcher。注册、消费和注销异常均在服务边界隔离，Start/Stop/Dispose 具备幂等语义，并以 5 秒上限避免生命周期操作无限等待。T2.2 将在此通知上补充不可变 FocusSnapshot 与单调版本号。
+T2.1 的 `FocusObservationService` 将 UI Automation 订阅集中到专用后台 MTA 线程。生产实现通过 `SystemFocusAutomationSource` 注册 `Automation.AddAutomationFocusChangedEventHandler`，回调只设置线程内信号；服务线程消费信号并调用观察者，避免 UIA 回调直接访问 WPF Dispatcher。实测发现部分 provider/桌面环境不产生该事件，因此同一 MTA 线程增加 250 ms 当前焦点轮询兜底，并抑制除版本与时间外完全等价的快照；这保证事件缺失时仍能自动显示，又不产生持续会话替换。注册、消费和注销异常均在服务边界隔离，Start/Stop/Dispose 具备幂等语义，并以 5 秒上限避免生命周期操作无限等待。
+
+TextEditPattern/TextPattern2 等较新的可选 UIA property ID 可能没有在当前托管 UIA 门面中注册；`AutomationProperty.LookupById` 返回空时按“该证据不可用”处理，继续使用标准 ValuePattern/TextPattern 和 caret 证据，不得因可选属性缺失使整次分类异常退出。
 
 T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` 提供：测试在 STA 线程创建真实 WPF 目标窗口和 NoActivate Overlay，调用 `WM_MOUSEACTIVATE` 并触发一次按钮 Click，分别采集前台 HWND、GUI 线程焦点 HWND 和键盘 HWND。断言显示及点击前后前台/焦点句柄保持一致、Overlay HWND 不成为前台，Click 只触发一次。
 

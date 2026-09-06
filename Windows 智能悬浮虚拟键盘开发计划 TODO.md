@@ -581,6 +581,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 记录每个 provider 的分类 ReasonCode 和定位降级路径。
   - 当前证据：已盘点 Windows 11 Pro x64 build 26100，以及 Notepad、Chrome 152、Edge 152、VS Code 1.136.1；未执行真人交互，Windows 10 环境缺失。详见 `docs/release/compatibility-matrix-1.0.0.md`，任务保持未勾选。
   - 发布评审后修正：`REL-001` 已接通 MTA UIA 观察、无内容模式证据分类、RuntimeId 目标会话、DPI/工作区定位、自动显示/隐藏和手动抑制；Windows 155/155、Integration 25/25。状态为待实机验证，不等于 T8.1 完成。
+  - 实测修正：发现当前桌面中的 UIA provider 未触发全局 FocusChanged，观察线程增加 250 ms 有界轮询兜底并按焦点身份/状态去重；新增事件缺失和重复快照测试。该修正仍不替代真人或跨系统兼容矩阵，T8.1 保持未勾选。
 
 - [ ] **T8.2（P0，0.75-1 人日）执行 DPI/多屏矩阵**
   - 100%、125%、150%、175%、200%。

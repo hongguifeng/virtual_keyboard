@@ -75,9 +75,13 @@ internal sealed class SystemEditabilityAutomationSource : IEditabilityAutomation
         return new(hasValue, isReadOnly, hasTextEdit, hasText);
     }
 
-    private static bool ReadBooleanProperty(AutomationElement element, int propertyId)
+    internal static bool ReadBooleanProperty(AutomationElement element, int propertyId)
     {
-        AutomationProperty property = AutomationProperty.LookupById(propertyId);
+        AutomationProperty? property = AutomationProperty.LookupById(propertyId);
+        if (property is null)
+        {
+            return false;
+        }
         object value = element.GetCurrentPropertyValue(property, true);
         return value is bool result && result;
     }

@@ -161,6 +161,48 @@ public sealed class FocusObservationServiceTests
         Assert.Equal(50, FocusObservationService.FocusStabilityMilliseconds);
 
     [Fact]
+    public void PollingPublishesFocusWhenProviderDoesNotRaiseNativeEvent()
+    {
+        var source = new FakeFocusAutomationSource();
+        var expected = Snapshot(version: 1, runtimeId: 10);
+        var snapshots = new StubFocusSnapshotSource(expected);
+        using var observed = new ManualResetEventSlim(false);
+        FocusChangedNotification notification = default;
+        using var service = new FocusObservationService(source, snapshots, value =>
+        {
+            notification = value;
+            observed.Set();
+        });
+
+        service.Start();
+
+        Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
+        Assert.Same(expected, notification.Snapshot);
+        Assert.Equal(250, FocusObservationService.FocusPollingMilliseconds);
+    }
+
+    [Fact]
+    public void PollingSuppressesEquivalentFocusSnapshots()
+    {
+        var source = new FakeFocusAutomationSource();
+        var snapshots = new StubFocusSnapshotSource(Snapshot(version: 1, runtimeId: 10));
+        using var firstObserved = new ManualResetEventSlim(false);
+        int notificationCount = 0;
+        using var service = new FocusObservationService(source, snapshots, _ =>
+        {
+            Interlocked.Increment(ref notificationCount);
+            firstObserved.Set();
+        });
+        service.Start();
+        Assert.True(firstObserved.Wait(TimeSpan.FromSeconds(2)));
+
+        snapshots.Current = Snapshot(version: 2, runtimeId: 10);
+        Thread.Sleep(FocusObservationService.FocusPollingMilliseconds * 2);
+
+        Assert.Equal(1, Volatile.Read(ref notificationCount));
+    }
+
+    [Fact]
     public void RefreshRequestsCurrentFocusEvaluationWithoutNativeEvent()
     {
         var source = new FakeFocusAutomationSource();
@@ -173,6 +215,18 @@ public sealed class FocusObservationServiceTests
 
         Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
     }
+
+    private static FocusSnapshot Snapshot(long version, int runtimeId) => new(
+        version,
+        DateTimeOffset.UtcNow,
+        42,
+        (nint)100,
+        new RuntimeIdentity([runtimeId]),
+        FocusControlType.Edit,
+        true,
+        true,
+        false,
+        false);
 
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {
@@ -219,6 +273,7 @@ public sealed class FocusObservationServiceTests
 
     private sealed class StubFocusSnapshotSource(FocusSnapshot snapshot) : IFocusSnapshotSource
     {
+        public FocusSnapshot Current { get; set; } = snapshot;
         public int CaptureThreadId { get; private set; }
         public ApartmentState CaptureApartment { get; private set; }
 
@@ -226,7 +281,7 @@ public sealed class FocusObservationServiceTests
         {
             CaptureThreadId = Environment.CurrentManagedThreadId;
             CaptureApartment = Thread.CurrentThread.GetApartmentState();
-            return snapshot;
+            return Current;
         }
     }
 }
