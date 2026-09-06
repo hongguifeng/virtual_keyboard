@@ -14,6 +14,7 @@ public enum DiagnosticType
     InputBatchSucceeded,
     InputBatchFailed,
     InputFailureClassified,
+    InputSafetyFaulted,
     ConfigLoaded,
     ConfigRecovered,
     ConfigSaveFailed,

@@ -184,18 +184,126 @@ public sealed class HotkeyInputSenderTests
     public void CleanupFailureDoesNotHideOriginalPartialResult()
     {
         var input = new SequencedInputApi(1u, new InvalidOperationException("cleanup")) { Error = 5 };
+        var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
 
-        InputSendResult result = new HotkeyInputSender(
-            input,
-            ValidMapping(),
-            new FakeModifierStateApi()).Send(
-                [HotkeyModifier.Control],
-                WindowsKeyboardKey.Escape,
-                (nint)10);
+        InputSendResult result = sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10);
 
         Assert.Equal(InputSendStatus.PartialFailure, result.Status);
         Assert.Equal(1, result.SentEvents);
         Assert.Equal(2, input.Calls);
+
+        InputSendResult blocked = sender.Send(
+            [HotkeyModifier.Shift],
+            WindowsKeyboardKey.Tab,
+            (nint)10);
+        Assert.Equal(InputSendStatus.SafetyFaulted, blocked.Status);
+        Assert.Equal(2, input.Calls);
+
+        sender.Dispose();
+        Assert.Equal(3, input.Calls);
+        Assert.Equal((ushort)HotkeyModifier.Control, Assert.Single(input.Batches[2]).Data.Keyboard.VirtualKey);
+        Assert.NotEqual(0u, input.Batches[2][0].Data.Keyboard.Flags & 0x0002);
+        sender.Dispose();
+        Assert.Equal(3, input.Calls);
+    }
+
+    [Fact]
+    public void PartialCleanupTracksOnlyModifierKeyUpsNotAcceptedByCleanup()
+    {
+        var input = new SequencedInputApi(3u, 2u, 1u) { Error = 5 };
+        var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+
+        InputSendResult result = sender.Send(
+            [HotkeyModifier.Control, HotkeyModifier.Shift],
+            WindowsKeyboardKey.Escape,
+            (nint)10);
+
+        Assert.Equal(InputSendStatus.PartialFailure, result.Status);
+        Assert.Equal(new ushort[] { 0x1B, 0x10, 0x11 },
+            input.Batches[1].Select(static item => item.Data.Keyboard.VirtualKey));
+
+        sender.Dispose();
+        Assert.Equal(3, input.Calls);
+        Assert.Equal((ushort)HotkeyModifier.Control, Assert.Single(input.Batches[2]).Data.Keyboard.VirtualKey);
+    }
+
+    [Fact]
+    public void FailedMainKeyCleanupAlsoLatchesAndRetriesOnDispose()
+    {
+        var input = new SequencedInputApi(1u, new InvalidOperationException("cleanup"));
+        var sender = new HotkeyInputSender(
+            input,
+            ValidMapping(),
+            new FakeModifierStateApi((int)HotkeyModifier.Control));
+
+        InputSendResult result = sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10);
+
+        Assert.Equal(InputSendStatus.PartialFailure, result.Status);
+        Assert.Equal(2, result.RequestedEvents);
+        Assert.Equal(InputSendStatus.SafetyFaulted, sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Tab,
+            (nint)10).Status);
+
+        sender.Dispose();
+        Assert.Equal(3, input.Calls);
+        NativeInput keyUp = Assert.Single(input.Batches[2]);
+        Assert.Equal((ushort)WindowsKeyboardKey.Escape, keyUp.Data.Keyboard.VirtualKey);
+        Assert.NotEqual(0u, keyUp.Data.Keyboard.Flags & 0x0002);
+    }
+
+    [Fact]
+    public void DisposeAfterSuccessfulBalancedBatchMakesNoReleaseCall()
+    {
+        var input = new SequencedInputApi(4u);
+        var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+
+        Assert.True(sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10).IsSuccess);
+
+        sender.Dispose();
+        Assert.Equal(1, input.Calls);
+        Assert.Equal(InputSendStatus.SafetyFaulted, sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10).Status);
+        Assert.Equal(1, input.Calls);
+    }
+
+    [Fact]
+    public async Task DisposeWaitsForInFlightBatchBeforeClosingSender()
+    {
+        using var enteredSend = new ManualResetEventSlim();
+        using var allowSendToFinish = new ManualResetEventSlim();
+        var input = new BlockingInputApi(enteredSend, allowSendToFinish, 4);
+        var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+
+        Task<InputSendResult> sendTask = Task.Run(() => sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10));
+        Assert.True(enteredSend.Wait(TimeSpan.FromSeconds(5)));
+
+        Task disposeTask = Task.Run(sender.Dispose);
+        Task firstCompletion = await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromMilliseconds(100)));
+        Assert.NotSame(disposeTask, firstCompletion);
+        allowSendToFinish.Set();
+
+        Assert.True((await sendTask).IsSuccess);
+        await disposeTask;
+        Assert.Equal(1, input.Calls);
+        Assert.Equal(InputSendStatus.SafetyFaulted, sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10).Status);
     }
 
     [Fact]
@@ -333,6 +441,34 @@ public sealed class HotkeyInputSenderTests
         Assert.False(diagnostics.TryReadNext(out _));
     }
 
+    [Fact]
+    public void UnreleasedModifierLatchesClosedDiagnosticBeforeOriginalFailure()
+    {
+        using var diagnostics = new DiagnosticLogger();
+        var input = new SequencedInputApi(1u, new InvalidOperationException("cleanup")) { Error = 5 };
+        var sender = new HotkeyInputSender(
+            input,
+            ValidMapping(),
+            new FakeModifierStateApi(),
+            diagnostics);
+
+        _ = sender.Send(
+            [HotkeyModifier.Control],
+            WindowsKeyboardKey.Escape,
+            (nint)10,
+            targetProcessId: 42);
+
+        Assert.True(diagnostics.TryReadNext(out DiagnosticEvent? started));
+        Assert.True(diagnostics.TryReadNext(out DiagnosticEvent? safetyFault));
+        Assert.True(diagnostics.TryReadNext(out DiagnosticEvent? originalFailure));
+        Assert.Equal(DiagnosticType.InputBatchStarted, started!.Type);
+        Assert.Equal(DiagnosticType.InputSafetyFaulted, safetyFault!.Type);
+        Assert.Equal(1, safetyFault.RequestedCount);
+        Assert.Equal(0, safetyFault.CompletedCount);
+        Assert.Equal(DiagnosticType.InputBatchFailed, originalFailure!.Type);
+        Assert.False(diagnostics.TryReadNext(out _));
+    }
+
     private static void AssertEvent(NativeInput input, ushort virtualKey, uint flags)
     {
         Assert.Equal(virtualKey, input.Data.Keyboard.VirtualKey);
@@ -367,6 +503,24 @@ public sealed class HotkeyInputSenderTests
                 throw exception;
             }
             return (uint)outcome;
+        }
+    }
+
+    private sealed class BlockingInputApi(
+        ManualResetEventSlim entered,
+        ManualResetEventSlim release,
+        uint returnCount) : IInputNativeApi
+    {
+        public int Calls { get; private set; }
+        public int LastError => 0;
+
+        public uint SendInput(NativeInput[] inputs)
+        {
+            _ = inputs;
+            Calls++;
+            entered.Set();
+            Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
+            return returnCount;
         }
     }
 

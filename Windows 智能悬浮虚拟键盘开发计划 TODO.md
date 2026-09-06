@@ -369,14 +369,16 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`ProcessIntegrityInspector` 读取当前/目标 Token Integrity RID，区分目标更高、同级/更低、目标访问被拒和未知，并有界分配 Token 缓冲区、确定关闭句柄。`InputFailureFeedbackFactory` 仅对零/短返回执行完整性比较，生成封闭失败类型和固定非侵入提示；目标确实更高与仅访问被拒使用不同措辞，自身 Token 失败不误判目标。M1 状态区已接入；分类诊断只写 PID、数量、错误码和封闭 ReasonCode，不记录进程名、标题或输入内容，不含提权/uiAccess 路径。
   - 验证：Core 111/111、Windows 133/133、Integration 6/6；覆盖 RID 高/同/低比较、当前/目标 Token 失败差异、真实当前进程 Token 读取、确定/可能权限提示、普通零/短返回、目标变化/取消/无效输入/原生不可用、成功零探测零提示和诊断隐私；完整 Release 构建和 win-x64 发布通过。管理员 TestHost 实机负向矩阵仍按 M4/T7.5 门禁执行。
 
-- [ ] **T4.7（P0，0.25 人日）实现退出/崩溃边界清理**
+- [x] **T4.7（P0，0.25 人日）实现退出/崩溃边界清理**
   - 正常退出、取消和已捕获异常路径释放由本程序按下的键。
   - 对无法保证继续运行的输入异常采取失败关闭策略。
+  - 实现：`SyntheticKeySafetyLatch` 登记 KeyUp 清理批次中未确认送达的后缀，覆盖可能卡住的主键和修饰键。登记后 `HotkeyInputSender` 在任何映射、状态读取或原生调用前返回 `SafetyFaulted`，拒绝继续输入；Dispose 幂等重发一次有界 KeyUp 批次。正常平衡批次不产生额外释放，取消发生在提交前则零原生调用，未知异常和清理异常均保持原始失败结果并进入安全停止。`InputSafetyFaulted` 诊断仅记录 PID、数量和错误码。
+  - 验证：Core 111/111、Windows 139/139、Integration 6/6；覆盖每个热键前缀的待释放集合、主键 KeyUp 清理失败、修饰键清理短返回/异常、后续输入零调用、Dispose 退出重试与幂等、Send/Dispose 并发串行、成功退出零额外调用、取消零调用和安全闩锁诊断；完整 Release 构建和 win-x64 发布通过。
 
 ### M4 测试清单
 
-- [ ] Text/Key/Hotkey 输入数组快照测试通过。
-- [ ] Unicode 代理对不会截断。
+- [x] Text/Key/Hotkey 输入数组快照测试通过。
+- [x] Unicode 代理对不会截断。
 - [ ] 热键异常和取消后没有修饰键卡住。
 - [x] SendInput 返回 0 或部分数量时不会重复提交（热键仅允许独立的 KeyUp 安全清理批次）。
 - [ ] 管理员 TestHost 负向测试不提权且可诊断。

@@ -9,4 +9,5 @@ public enum InputSendStatus
     TargetInvalid,
     InvalidInput,
     Cancelled,
+    SafetyFaulted,
 }

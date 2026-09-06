@@ -566,6 +566,8 @@ T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-
 
 T4.6 的 `ProcessIntegrityInspector` 以 `PROCESS_QUERY_LIMITED_INFORMATION` 和 `TOKEN_QUERY` 读取当前/目标进程 `TokenIntegrityLevel` 的 SID 末级 RID，所有缓冲区与句柄均有确定上限和 `finally` 清理。比较结果为同级/更低、目标更高、目标 Token 访问被拒或未知；只有已证明目标 RID 更高时才给出确定权限提示，只有目标 Token 访问被拒时才提示“可能存在权限边界”，本程序自身 Token 读取失败不得归因于目标。`InputFailureFeedbackFactory` 只在 SendInput 零/短返回时探测完整性，把结果转换为封闭 `InputFailureKind` 与固定提示文本；成功、目标变化、取消、无效请求和原生不可用不打开目标进程。分类通过 `InputFailureClassified` 诊断事件记录 PID、数量、错误码和封闭 ReasonCode，不包含进程名、窗口标题或输入内容。M1 的状态 TextBlock 已接入该反馈，保持 NoActivate，且没有提权或 uiAccess 路径。
 
+T4.7 将无法确认送达的 KeyUp 事件交给 `SyntheticKeySafetyLatch`。热键原批次短返回后，清理批次按“主键（若其 Down 已送达而 Up 未送达）→修饰键逆序”的确定顺序发送；清理短返回或异常时，只登记清理批次未确认送达的后缀。未知主批次异常则对本批次计划按下的修饰键执行逆序 KeyUp，并登记未确认部分。一旦登记任何键，发送器立即 fail-closed，后续请求在目标映射、实体状态读取和 SendInput 之前返回 `SafetyFaulted`；UI 使用固定提示要求退出重启。`HotkeyInputSender` 以同一发送锁串行化完整 Send 与 Dispose，退出必定等待在途同步批次及其清理完成；Dispose 随后幂等地对登记项再发送一次有界 KeyUp 批次，正常平衡批次退出不产生多余释放。串行队列的 Stop/Dispose 继续负责取消尚未开始的动作；同步 SendInput 不做不可控中断。安全闩锁通过 `InputSafetyFaulted` 事件记录数字计数和错误码，不记录按键语义。
+
 ## 13. 键盘布局设计
 
 ### 13.1 内置与用户布局

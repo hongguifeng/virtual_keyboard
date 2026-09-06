@@ -150,6 +150,7 @@ public sealed class InputFailureFeedbackTests
     [InlineData(InputSendStatus.NativeUnavailable, InputFailureKind.NativeUnavailable, "系统输入功能不可用")]
     [InlineData(InputSendStatus.InvalidInput, InputFailureKind.InvalidRequest, "输入动作无效")]
     [InlineData(InputSendStatus.Cancelled, InputFailureKind.Cancelled, "输入已取消")]
+    [InlineData(InputSendStatus.SafetyFaulted, InputFailureKind.SafetyFaulted, "输入引擎已安全停止，请退出后重启")]
     public void NonDeliveryStatusesUseFixedFeedbackWithoutOpeningProcess(
         InputSendStatus status,
         InputFailureKind expectedKind,

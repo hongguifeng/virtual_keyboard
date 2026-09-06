@@ -110,7 +110,7 @@ internal static class HotkeyInputBuilder
     }
 }
 
-public sealed class HotkeyInputSender
+public sealed class HotkeyInputSender : IDisposable
 {
     private const uint MapVirtualKeyToScanCodeExtended = 4;
     private const int InvalidParameterError = 87;
@@ -121,6 +121,8 @@ public sealed class HotkeyInputSender
     private readonly IKeyMappingNativeApi _mappingApi;
     private readonly IModifierStateNativeApi _modifierStateApi;
     private readonly DiagnosticLogger? _diagnostics;
+    private readonly SyntheticKeySafetyLatch _safetyLatch;
+    private readonly object _sendGate = new();
 
     public HotkeyInputSender(DiagnosticLogger? diagnostics = null)
         : this(
@@ -135,12 +137,14 @@ public sealed class HotkeyInputSender
         IInputNativeApi inputApi,
         IKeyMappingNativeApi mappingApi,
         IModifierStateNativeApi modifierStateApi,
-        DiagnosticLogger? diagnostics = null)
+        DiagnosticLogger? diagnostics = null,
+        SyntheticKeySafetyLatch? safetyLatch = null)
     {
         _inputApi = inputApi ?? throw new ArgumentNullException(nameof(inputApi));
         _mappingApi = mappingApi ?? throw new ArgumentNullException(nameof(mappingApi));
         _modifierStateApi = modifierStateApi ?? throw new ArgumentNullException(nameof(modifierStateApi));
         _diagnostics = diagnostics;
+        _safetyLatch = safetyLatch ?? new SyntheticKeySafetyLatch(inputApi);
     }
 
     public InputSendResult Send(
@@ -150,6 +154,23 @@ public sealed class HotkeyInputSender
         int targetProcessId = -1,
         CancellationToken cancellationToken = default)
     {
+        lock (_sendGate)
+        {
+            return SendCore(modifiers, key, targetFocusHwnd, targetProcessId, cancellationToken);
+        }
+    }
+
+    private InputSendResult SendCore(
+        IReadOnlyList<HotkeyModifier> modifiers,
+        WindowsKeyboardKey key,
+        nint targetFocusHwnd,
+        int targetProcessId,
+        CancellationToken cancellationToken)
+    {
+        if (_safetyLatch.IsBlocked)
+        {
+            return new InputSendResult(InputSendStatus.SafetyFaulted, 0, 0, 31);
+        }
         if (cancellationToken.IsCancellationRequested)
         {
             return new InputSendResult(InputSendStatus.Cancelled, 0, 0, 0);
@@ -220,21 +241,44 @@ public sealed class HotkeyInputSender
             int errorCode = status == InputSendStatus.Succeeded ? 0 : _inputApi.LastError;
             if (status != InputSendStatus.Succeeded)
             {
-                TryBestEffortRelease(batch.BuildCleanupForAcceptedPrefix(sentCount));
+                NativeInput[] cleanup = batch.BuildCleanupForAcceptedPrefix(sentCount);
+                int cleanupSent = TryBestEffortRelease(cleanup);
+                LatchUnreleasedKeys(
+                    cleanup.Skip(Math.Clamp(cleanupSent, 0, cleanup.Length)),
+                    targetProcessId,
+                    cleanup.Length,
+                    cleanupSent,
+                    errorCode);
             }
             LogCompletion(status, targetProcessId, batch.Inputs.Length, sentCount, errorCode);
             return new InputSendResult(status, batch.Inputs.Length, sentCount, errorCode);
         }
         catch (Exception exception)
         {
-            TryBestEffortRelease(batch.BuildBestEffortModifierCleanup());
+            NativeInput[] cleanup = batch.BuildBestEffortModifierCleanup();
+            int cleanupSent = TryBestEffortRelease(cleanup);
             int errorCode = IsNativeUnavailable(exception) ? NativeUnavailableError : GeneralFailureError;
             InputSendStatus status = IsNativeUnavailable(exception)
                 ? InputSendStatus.NativeUnavailable
                 : InputSendStatus.Failed;
+            LatchUnreleasedKeys(
+                cleanup.Skip(Math.Clamp(cleanupSent, 0, cleanup.Length)),
+                targetProcessId,
+                cleanup.Length,
+                cleanupSent,
+                errorCode);
             LogFailure(targetProcessId, batch.Inputs.Length, 0, errorCode);
             return new InputSendResult(status, batch.Inputs.Length, 0, errorCode);
         }
+    }
+
+    public void Dispose()
+    {
+        lock (_sendGate)
+        {
+            _safetyLatch.Dispose();
+        }
+        GC.SuppressFinalize(this);
     }
 
     private ResolvedKeyInput Resolve(ushort virtualKey, nint keyboardLayout, bool forceExtended)
@@ -252,20 +296,43 @@ public sealed class HotkeyInputSender
         return new ResolvedKeyInput(virtualKey, scanCode, isExtended);
     }
 
-    private void TryBestEffortRelease(NativeInput[] cleanup)
+    private int TryBestEffortRelease(NativeInput[] cleanup)
     {
         if (cleanup.Length == 0)
         {
-            return;
+            return 0;
         }
         try
         {
-            _ = _inputApi.SendInput(cleanup);
+            uint released = _inputApi.SendInput(cleanup);
+            return released > int.MaxValue ? int.MaxValue : (int)released;
         }
         catch
         {
             // Best-effort cleanup must not hide the original batch result.
+            return 0;
         }
+    }
+
+    private void LatchUnreleasedKeys(
+        IEnumerable<NativeInput> keyUps,
+        int targetProcessId,
+        int requestedCleanup,
+        int completedCleanup,
+        int errorCode)
+    {
+        if (!_safetyLatch.RecordUnreleased(keyUps))
+        {
+            return;
+        }
+        _diagnostics?.Log(
+            DiagnosticType.InputSafetyFaulted,
+            DiagnosticModule.Input,
+            targetProcessId: targetProcessId,
+            reason: ReasonCode.Unknown,
+            errorCode: Math.Max(0, errorCode),
+            requestedCount: requestedCleanup,
+            completedCount: Math.Clamp(completedCleanup, 0, requestedCleanup));
     }
 
     private InputSendResult InvalidInput(int targetProcessId)
@@ -307,6 +374,58 @@ public sealed class HotkeyInputSender
         DllNotFoundException or
         EntryPointNotFoundException or
         BadImageFormatException;
+}
+
+internal sealed class SyntheticKeySafetyLatch : IDisposable
+{
+    private readonly object _gate = new();
+    private readonly IInputNativeApi _inputApi;
+    private readonly List<NativeInput> _unreleased = [];
+    private bool _faulted;
+    private bool _disposed;
+
+    internal SyntheticKeySafetyLatch(IInputNativeApi inputApi) =>
+        _inputApi = inputApi ?? throw new ArgumentNullException(nameof(inputApi));
+
+    internal bool IsBlocked
+    {
+        get { lock (_gate) return _faulted || _disposed; }
+    }
+
+    internal bool RecordUnreleased(IEnumerable<NativeInput> keyUps)
+    {
+        ArgumentNullException.ThrowIfNull(keyUps);
+        lock (_gate)
+        {
+            if (_disposed) return false;
+            foreach (NativeInput keyUp in keyUps)
+            {
+                if (!_unreleased.Contains(keyUp)) _unreleased.Add(keyUp);
+            }
+            if (_unreleased.Count == 0) return false;
+            _faulted = true;
+            return true;
+        }
+    }
+
+    public void Dispose()
+    {
+        NativeInput[] cleanup;
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            cleanup = _unreleased.ToArray();
+            _unreleased.Clear();
+        }
+
+        if (cleanup.Length > 0)
+        {
+            try { _ = _inputApi.SendInput(cleanup); }
+            catch { }
+        }
+        GC.SuppressFinalize(this);
+    }
 }
 
 internal interface IModifierStateNativeApi

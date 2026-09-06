@@ -87,6 +87,7 @@ public enum InputFailureKind
     NativeUnavailable,
     InvalidRequest,
     Cancelled,
+    SafetyFaulted,
 }
 
 public readonly record struct InputFailureFeedback(
@@ -164,6 +165,10 @@ public sealed class InputFailureFeedbackFactory
                 InputSendStatus.NativeUnavailable => new(InputFailureKind.NativeUnavailable, true, "系统输入功能不可用"),
                 InputSendStatus.InvalidInput => new(InputFailureKind.InvalidRequest, true, "输入动作无效"),
                 InputSendStatus.Cancelled => new(InputFailureKind.Cancelled, true, "输入已取消"),
+                InputSendStatus.SafetyFaulted => new(
+                    InputFailureKind.SafetyFaulted,
+                    true,
+                    "输入引擎已安全停止，请退出后重启"),
                 _ => new(InputFailureKind.SendFailed, true, "输入发送失败"),
             };
             reason = result.Status switch
