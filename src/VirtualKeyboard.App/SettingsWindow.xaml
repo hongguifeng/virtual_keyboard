@@ -76,19 +76,19 @@
     </Window.Resources>
     <Border x:Name="SettingsCard" Margin="14" Padding="4" Background="White" BorderBrush="#D8E0EA" BorderThickness="1" CornerRadius="12">
     <Grid Margin="16">
-        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Grid.Row="0">
             <Grid.RowDefinitions>
-                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                <RowDefinition/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" Orientation="Horizontal"><Label x:Name="LanguageLabel" Content="Language" Width="130"/><ComboBox x:Name="LanguageComboBox" Width="180" SelectionChanged="OnLanguageChanged"><ComboBoxItem Content="English" Tag="English"/><ComboBoxItem Content="简体中文" Tag="SimplifiedChinese"/></ComboBox></StackPanel>
             <CheckBox x:Name="EnabledCheckBox" Grid.Row="1" Content="Enable keyboard" Margin="0,4"/>
             <CheckBox x:Name="AutoShowCheckBox" Grid.Row="2" Content="Show automatically" Margin="0,4"/>
             <CheckBox x:Name="AutoHideCheckBox" Grid.Row="3" Content="Hide automatically" Margin="0,4"/>
-            <StackPanel Grid.Row="4" Orientation="Horizontal"><Label x:Name="WidthLabel" Content="Width (DIP)" Width="130"/><TextBox x:Name="WidthTextBox" Width="120"/></StackPanel>
-            <StackPanel Grid.Row="5" Orientation="Horizontal"><Label x:Name="HeightLabel" Content="Height (DIP)" Width="130"/><TextBox x:Name="HeightTextBox" Width="120"/></StackPanel>
-            <StackPanel Grid.Row="6" Orientation="Horizontal"><Label x:Name="MarginLabel" Content="Margin (DIP)" Width="130"/><TextBox x:Name="MarginTextBox" Width="120"/></StackPanel>
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="WidthLabel" Content="Width (DIP)" Width="130"/><TextBox x:Name="WidthTextBox" Width="120"/></StackPanel>
+            <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="HeightLabel" Content="Height (DIP)" Width="130"/><TextBox x:Name="HeightTextBox" Width="120"/></StackPanel>
+            <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="MarginLabel" Content="Margin (DIP)" Width="130"/><TextBox x:Name="MarginTextBox" Width="120"/></StackPanel>
             <Grid Grid.Row="7" Margin="0,2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="240"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
                 <Label x:Name="TransparencyLabel" Content="Transparency"/>
@@ -97,7 +97,7 @@
                 <TextBlock Grid.Column="2" Text="{Binding ElementName=OpacitySlider, Path=Value, StringFormat={}{0:P0}}"
                            VerticalAlignment="Center" Margin="10,0,0,0"/>
             </Grid>
-            <StackPanel Grid.Row="8" Orientation="Horizontal"><Label x:Name="LayoutIdLabel" Content="Layout ID" Width="130"/><TextBox x:Name="LayoutIdTextBox" Width="240"/></StackPanel>
+            <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="LayoutIdLabel" Content="Layout ID" Width="130"/><TextBox x:Name="LayoutIdTextBox" Width="240"/></StackPanel>
             <GroupBox x:Name="CustomKeysGroup" Grid.Row="9" Header="Custom keys (up to 12)" Margin="0,10,0,6">
                 <Grid Margin="8">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

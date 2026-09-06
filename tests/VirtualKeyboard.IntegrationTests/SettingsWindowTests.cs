@@ -320,22 +320,92 @@ public sealed class SettingsWindowTests
             Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Find<ComboBox>(window, "CustomActionModeComboBox").SelectedIndex = 1;
 
-            // 窗口高度必须跟随内容（原固定 760 高度会把内容压回重叠）。
+            // 窗口高度必须跟随内容（原固定 760 高度 + 等权 * 行会把内容压回重叠）。
             Assert.Equal(SizeToContent.Height, window.SizeToContent);
 
             var root = Assert.IsType<Border>(window.Content);
             root.Measure(new Size(720, double.PositiveInfinity));
-            root.Arrange(new Rect(0, 0, 720, root.DesiredSize.Height));
+            // 在窗口实际会取得的高度下 arrange（SizeToContent 窗口 = 内容 desired 高度，受 MinHeight 700 约束）。
+            // 等权 * 行只有在受限高度下才会被压缩到小于内容，所以必须在这个高度下检查。
+            double windowHeight = Math.Max(700, root.DesiredSize.Height);
+            root.Arrange(new Rect(0, 0, 720, windowHeight));
 
+            // 自定义按键组不得被压缩（原回归：* 行把它压到远小于内容高度，内容溢出覆盖下一行）。
+            var group = Find<GroupBox>(window, "CustomKeysGroup");
+            // DesiredSize 含 Margin、ActualHeight 不含，比较时需扣除 Margin。
+            // 原回归中该组被 * 行压缩到远小于内容高度（约 266px 溢出），容差 6px 足以拦截该类回归。
+            Assert.InRange(group.ActualHeight, group.DesiredSize.Height - group.Margin.Top - 6, double.MaxValue);
+
+            // 原始回归断言：录制按键按钮不得被简体中文提示文字覆盖。
             Rect buttonRect = ElementRect(root, Find<Button>(window, "RecordShortcutButton"));
             Rect helpRect = ElementRect(root, Find<TextBlock>(window, "RecordingHelpText"));
-            Assert.InRange(helpRect.Width, 0.5, double.MaxValue);
             Assert.InRange(helpRect.Height, 0.5, double.MaxValue);
             double overlapX = Math.Min(buttonRect.Right, helpRect.Right) - Math.Max(buttonRect.Left, helpRect.Left);
             double overlapY = Math.Min(buttonRect.Bottom, helpRect.Bottom) - Math.Max(buttonRect.Top, helpRect.Top);
             Assert.True(overlapX <= 0.5 || overlapY <= 0.5,
                 $"录制按键按钮不得被提示文字覆盖: button={buttonRect} help={helpRect} overlapX={overlapX} overlapY={overlapY}");
+
+            // 强化回归断言：任意两个独立控件（含自定义按键组与“拖拽位置保留”行等）不得互相重叠。
+            // 父/子嵌套是合法的，只检查非嵌套关系。这可以拦截任何“某行被压缩到小于内容高度”
+            // 导致的视觉覆盖回归。
+            foreach (var (first, second, rect) in FindOverlappingSiblingRects(window, root))
+            {
+                Assert.Fail($"控件重叠: {first.Name} vs {second.Name}: rect={rect}");
+            }
         });
+    }
+
+    private static IEnumerable<(FrameworkElement, FrameworkElement, Rect)> FindOverlappingSiblingRects(Window window, FrameworkElement root)
+    {
+        var candidates = new FrameworkElement?[]
+        {
+            Find<ComboBox>(window, "LanguageComboBox"), Find<CheckBox>(window, "EnabledCheckBox"),
+            Find<CheckBox>(window, "AutoShowCheckBox"), Find<CheckBox>(window, "AutoHideCheckBox"),
+            Find<TextBox>(window, "WidthTextBox"), Find<TextBox>(window, "HeightTextBox"),
+            Find<TextBox>(window, "MarginTextBox"), Find<Slider>(window, "OpacitySlider"),
+            Find<TextBox>(window, "LayoutIdTextBox"), Find<ListBox>(window, "CustomKeysList"),
+            Find<Button>(window, "AddCustomKeyButton"), Find<Button>(window, "DeleteCustomKeyButton"),
+            Find<TextBox>(window, "CustomKeyLabelTextBox"), Find<ComboBox>(window, "CustomActionModeComboBox"),
+            Find<TextBox>(window, "CustomTextTextBox"), Find<TextBlock>(window, "RecordedShortcutText"),
+            Find<Button>(window, "RecordShortcutButton"), Find<TextBlock>(window, "RecordingHelpText"),
+            Find<ComboBox>(window, "PositionModeComboBox"), Find<CheckBox>(window, "DiagnosticsCheckBox"),
+            Find<TextBlock>(window, "PositionModeDescription"), Find<Button>(window, "SaveButton"),
+            Find<Button>(window, "CancelButton"),
+        };
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            for (int j = i + 1; j < candidates.Length; j++)
+            {
+                if (candidates[i] is not FrameworkElement a || candidates[j] is not FrameworkElement b)
+                {
+                    continue;
+                }
+                if (IsInAncestorChain(a, b) || IsInAncestorChain(b, a))
+                {
+                    continue; // 父/子嵌套是合法的
+                }
+                var rectA = ElementRect(root, a);
+                var rectB = ElementRect(root, b);
+                double overlapX = Math.Min(rectA.Right, rectB.Right) - Math.Max(rectA.Left, rectB.Left);
+                double overlapY = Math.Min(rectA.Bottom, rectB.Bottom) - Math.Max(rectA.Top, rectB.Top);
+                if (overlapX > 1 && overlapY > 1)
+                {
+                    yield return (a, b, rectB);
+                }
+            }
+        }
+    }
+
+    private static bool IsInAncestorChain(DependencyObject ancestor, DependencyObject element)
+    {
+        for (DependencyObject? node = VisualTreeHelper.GetParent(element); node is not null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (node == ancestor)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Rect ElementRect(FrameworkElement root, FrameworkElement element)
