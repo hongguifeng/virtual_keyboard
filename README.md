@@ -74,7 +74,7 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`，包含 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Ctrl、Alt 和 CapsLock。标准键统一走可受 Shift/Ctrl/Alt 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
 
-`KeyboardController` 保存与目标会话绑定的一次性 Shift/Ctrl/Alt 状态：Ctrl/Alt 在下一输入动作取用后清除，Shift 只在可打印键或文本动作后清除；目标替换、清空及退出都会清理瞬时状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
+`KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt 点击开关状态：第一次点击保持，再次点击释放，普通按键不会自动清除；Shift 保持时数字行经标准 key/hotkey 路径产生当前系统布局对应的符号。目标替换、清空及退出都会清理保持状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
 
 `KeyboardLayoutView` 从 JSON 对应的不可变视图模型生成五行按键，行列都使用星号权重，最小按键尺寸为 36×36 DIP。每个按键均不可聚焦、不可进入 Tab 导航；按下时显示状态，释放到键外、丢失鼠标捕获或取消不会触发动作，同一按下最多触发一次。
 

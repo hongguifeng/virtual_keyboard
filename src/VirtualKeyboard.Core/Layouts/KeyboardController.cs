@@ -40,9 +40,9 @@ public readonly record struct KeyboardActionPreparation(
     bool UseControl,
     bool UseAlt,
     bool IsPrintable,
-    KeyboardControllerState StateAfterConsumption);
+    KeyboardControllerState StateAfterPreparation);
 
-/// <summary>Owns transient modifier latches and mirrors the system CapsLock state.</summary>
+/// <summary>Owns toggle modifier state bound to one target and mirrors the system CapsLock state.</summary>
 public sealed class KeyboardController : IDisposable
 {
     private readonly object _gate = new();
@@ -180,18 +180,6 @@ public sealed class KeyboardController : IDisposable
             bool useShift = _shift;
             bool useControl = _control;
             bool useAlt = _alt;
-            bool changed = _control || _alt || (printable && _shift);
-            _control = false;
-            _alt = false;
-            if (printable)
-            {
-                _shift = false;
-            }
-            if (changed)
-            {
-                _version++;
-            }
-
             return new(useShift, useControl, useAlt, printable, Snapshot());
         }
     }

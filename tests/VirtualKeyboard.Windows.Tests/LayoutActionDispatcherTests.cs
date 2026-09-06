@@ -23,7 +23,7 @@ public sealed class LayoutActionDispatcherTests
     }
 
     [Fact]
-    public void LatchedModifiersUseHotkeyPathAndAreConsumed()
+    public void ActiveModifiersUseHotkeyPathAndRemainActive()
     {
         using Fixture fixture = Fixture.Create();
         Assert.True(fixture.Dispatch(Key("shift", new(LayoutActionTypes.Modifier, modifier: "Shift"))).IsSuccess);
@@ -33,9 +33,31 @@ public sealed class LayoutActionDispatcherTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal([HotkeyModifier.Shift, HotkeyModifier.Control], fixture.LastModifiers);
-        Assert.False(fixture.Controller.State.ShiftLatched);
-        Assert.False(fixture.Controller.State.ControlLatched);
+        Assert.True(fixture.Controller.State.ShiftLatched);
+        Assert.True(fixture.Controller.State.ControlLatched);
         Assert.Equal(1, fixture.HotkeyCalls);
+    }
+
+    [Fact]
+    public void ShiftAppliesToSuccessiveNumberRowKeysUntilSecondShiftClick()
+    {
+        using Fixture fixture = Fixture.Create();
+        KeyViewModel shift = Key("shift", new(LayoutActionTypes.Modifier, modifier: "Shift"));
+        Assert.True(fixture.Dispatch(shift).IsSuccess);
+
+        Assert.True(fixture.Dispatch(Key("one", new(LayoutActionTypes.Key, virtualKey: "D1"))).IsSuccess);
+        Assert.Equal(WindowsKeyboardKey.D1, fixture.LastKey);
+        Assert.Equal([HotkeyModifier.Shift], fixture.LastModifiers);
+        Assert.True(fixture.Controller.State.ShiftLatched);
+        Assert.True(fixture.Dispatch(Key("two", new(LayoutActionTypes.Key, virtualKey: "D2"))).IsSuccess);
+        Assert.Equal(WindowsKeyboardKey.D2, fixture.LastKey);
+        Assert.Equal(2, fixture.HotkeyCalls);
+        Assert.True(fixture.Controller.State.ShiftLatched);
+
+        Assert.True(fixture.Dispatch(shift).IsSuccess);
+        Assert.False(fixture.Controller.State.ShiftLatched);
+        Assert.True(fixture.Dispatch(Key("one", new(LayoutActionTypes.Key, virtualKey: "D1"))).IsSuccess);
+        Assert.Equal(1, fixture.KeyCalls);
     }
 
     [Fact]

@@ -24,7 +24,7 @@ public sealed class KeyboardControllerTests
     }
 
     [Fact]
-    public void ShiftIsConsumedOnlyByPrintableAction()
+    public void ShiftRemainsActiveAcrossNavigationAndPrintableActions()
     {
         using var controller = ControllerWithTarget();
         controller.ToggleModifier(KeyboardModifier.Shift);
@@ -34,14 +34,14 @@ public sealed class KeyboardControllerTests
 
         Assert.True(navigation.UseShift);
         Assert.False(navigation.IsPrintable);
-        Assert.True(navigation.StateAfterConsumption.ShiftLatched);
+        Assert.True(navigation.StateAfterPreparation.ShiftLatched);
         Assert.True(letter.UseShift);
         Assert.True(letter.IsPrintable);
-        Assert.False(letter.StateAfterConsumption.ShiftLatched);
+        Assert.True(letter.StateAfterPreparation.ShiftLatched);
     }
 
     [Fact]
-    public void ControlAndAltAreOneShotForNextAction()
+    public void ControlAndAltRemainActiveUntilToggledOff()
     {
         using var controller = ControllerWithTarget();
         controller.ToggleModifier(KeyboardModifier.Control);
@@ -52,10 +52,13 @@ public sealed class KeyboardControllerTests
 
         Assert.True(first.UseControl);
         Assert.True(first.UseAlt);
-        Assert.False(first.StateAfterConsumption.ControlLatched);
-        Assert.False(first.StateAfterConsumption.AltLatched);
-        Assert.False(second.UseControl);
-        Assert.False(second.UseAlt);
+        Assert.True(first.StateAfterPreparation.ControlLatched);
+        Assert.True(first.StateAfterPreparation.AltLatched);
+        Assert.True(second.UseControl);
+        Assert.True(second.UseAlt);
+
+        Assert.False(controller.ToggleModifier(KeyboardModifier.Control).ControlLatched);
+        Assert.False(controller.ToggleModifier(KeyboardModifier.Alt).AltLatched);
     }
 
     [Theory]
@@ -63,13 +66,13 @@ public sealed class KeyboardControllerTests
     [InlineData("7")]
     [InlineData("D7")]
     [InlineData("Space")]
-    public void StandardPrintableKeysConsumeShift(string virtualKey)
+    public void StandardPrintableKeysKeepShiftActive(string virtualKey)
     {
         using var controller = ControllerWithTarget();
         controller.ToggleModifier(KeyboardModifier.Shift);
 
         Assert.True(controller.PrepareAction(KeyAction(virtualKey)).IsPrintable);
-        Assert.False(controller.State.ShiftLatched);
+        Assert.True(controller.State.ShiftLatched);
     }
 
     [Fact]

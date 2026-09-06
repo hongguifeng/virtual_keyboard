@@ -357,7 +357,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 记录并只释放本批次合成按下的修饰键。
   - 读取实体键当前状态，测试 Ctrl/Alt/Shift 冲突。
   - 对应：FR-INP-004、005，AC-011。
-  - 实现：`HotkeyInputSender` 快照 1-3 个唯一 Ctrl/Shift/Alt，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 继续负责 UI 一次性锁存和 CapsLock 状态同步。
+  - 实现：`HotkeyInputSender` 快照 1-3 个唯一 Ctrl/Shift/Alt，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 负责 UI 点击切换状态和 CapsLock 状态同步。
   - 验证：Core 111/111、Windows 114/114、Integration 6/6；覆盖三修饰键顺序/逆序快照、实体 Ctrl/Shift/Alt 冲突、可变列表快照、每个部分前缀的精确清理、零返回、异常与清理异常、取消前/准备中取消、无效/重复修饰键、线程/HKL/scan 映射失败、真实 `GetAsyncKeyState` 入口和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
 - [x] **T4.6（P0，0.5 人日）实现输入失败和 UIPI 提示**
@@ -416,12 +416,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
 
 - [x] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
-  - 一次性 Shift、Ctrl/Alt 锁存策略和 CapsLock 系统同步。
+  - Shift、Ctrl、Alt 点击切换保持策略和 CapsLock 系统同步。
   - 实体键盘改变 CapsLock 后刷新标签。
   - 目标变化或退出时清理瞬时状态。
   - 对应：FR-INP-005。
-  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift 在可打印动作后释放，Control/Alt 在下一动作后一次性释放；无目标拒绝消费，Session 替换、清空和 Dispose 清理全部瞬时状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
-  - 验证：Core 160/160、Windows 146/146、Integration 6/6；覆盖 Shift 可打印消费、Ctrl/Alt 一次性消费、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
+  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift/Control/Alt 第一次点击保持、再次点击释放，普通输入动作只读取而不消费；无目标拒绝准备动作，Session 替换、清空和 Dispose 清理全部保持状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
+  - 验证：覆盖 Shift/Ctrl/Alt 跨普通动作保持及二次点击释放、Shift+D1/D2 数字行组合、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [x] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
   - 宽度按权重计算，支持最小点击尺寸。

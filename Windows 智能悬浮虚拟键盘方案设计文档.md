@@ -555,9 +555,9 @@ T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 H
 - 异常、取消和进程退出路径都调用安全释放。
 - CapsLock 默认发送 `VK_CAPITAL` 改变系统锁定状态，并在随后通过 `GetKeyState` 刷新 UI。
 
-T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-3 个互不重复的 Ctrl、Shift、Alt；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。一次性 Shift/Ctrl/Alt 的 UI 锁存策略和 CapsLock 状态刷新仍由 T5.4 `KeyboardController` 实现。
+T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-3 个互不重复的 Ctrl、Shift、Alt；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。Shift/Ctrl/Alt 的点击切换状态和 CapsLock 状态刷新由 T5.4 `KeyboardController` 实现。
 
-T5.4 的 Core `KeyboardController` 用单锁维护版本化不可变状态快照。Shift、Control、Alt 可分别切换；准备下一输入动作时先返回本次应使用的修饰键快照，Control/Alt 一次性清除，Shift 仅在 text 或 A-Z、0-9、Space 等可打印 key 后清除。无目标会话不得准备动作；目标 SessionId 改变、目标清空或 Dispose 均清除三个瞬时状态，避免跨目标泄漏。
+T5.4 的 Core `KeyboardController` 用单锁维护版本化不可变状态快照。Shift、Control、Alt 均为独立点击开关：第一次点击保持，再次点击释放；准备输入动作只复制当前修饰键快照，不消费状态，因此 Shift+D1、Shift+D2 等数字行组合以及连续 Ctrl/Alt 组合都持续生效。每个发送批次仍由 HotkeyInputSender 成对按下/释放系统修饰键，避免真实按键卡住。无目标会话不得准备动作；目标 SessionId 改变、目标清空或 Dispose 均清除三个保持状态，避免跨目标泄漏。
 
 CapsLock 不保存在独立虚拟锁中。Windows `CapsLockStateService` 使用 `GetKeyState(VK_CAPITAL)` 低位读取系统 toggle bit；切换时先由通用 `ValidatedKeyInputSender` 复核 SessionId、前台和焦点，再发送成对 CapsLock KeyDown/KeyUp，随后重读系统状态。读取或发送失败时控制器将 CapsLock 标为未知且不猜测新值；实体键盘改变 CapsLock 后，下一次 `RefreshCapsLock` 更新版本和标签数据。
 
@@ -654,7 +654,7 @@ T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的
 `NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
 M5 review 修正增加 Windows `LayoutActionDispatcher`。动态 `KeyInvoked` 先进入 Core `InputInjectionService` 有界串行队列；消费者同步复核 SessionId、前台、焦点和密码策略，再把标准 key 送入 `KeyInputSender`，把显式或锁存修饰键组合送入 `HotkeyInputSender`，把 Unicode text 保持在 `UnicodeTextInputSender`，modifier 则只更新控制器或经验证切换系统 CapsLock。未知键/修饰键在消费锁存状态前拒绝。UI 不再硬编码仅发送 A；状态文本也不回显 label 或 text。退出顺序为停止队列、清理控制器、Dispose 热键安全闩锁、最后关闭诊断。
-动作完成或失败后，`KeyboardLayoutView.UpdateState` 使用同一 `KeyboardControllerState` 更新状态键视觉；因此锁存被消费、目标切换或 CapsLock 刷新不会留下过时高亮。
+动作完成或失败后，`KeyboardLayoutView.UpdateState` 使用同一 `KeyboardControllerState` 更新状态键视觉；因此再次点击释放、目标切换或 CapsLock 刷新不会留下过时高亮。
 
 T5.6 的 Core `PasswordActionPolicy` 不信任布局作者单独声明的 `safeForPassword`：两者必须同时通过。密码模式仅允许一个 Unicode 标准字符、封闭的 A-Z/D0-D9/Space 与编辑导航 key，以及 Shift/CapsLock；所有 hotkey、多字符 text、scanCode、Control/Alt 和未知动作默认拒绝。WPF 生成密码布局时直接排除不通过的键，事件分发边界在发送前再次执行同一策略，避免仅靠可见性形成安全边界。`PasswordActionCheck` 只返回枚举与固定 reason code，不返回文本；状态提示也不拼接 key label、目标 Name 或 Value。
 
