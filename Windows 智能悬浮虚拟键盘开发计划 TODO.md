@@ -305,6 +305,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 对应：FR-VIS-006。
   - 实现：Core `ManualPositionTracker` 以物理光标增量计算窗口矩形，并将完成位置严格绑定单一 SessionId；错误会话不能更新/结束。`OverlayWindowAdapter` 通过 `GetCursorPos/GetWindowRect` 和 `SetWindowPos(SWP_NOACTIVATE)` 执行拖动，App 拖动区使用 mouse capture 而非会激活窗口的 `DragMove`。焦点评估失败、新会话、DPI 变化、取消或释放会清除相应状态。
   - 验证：Core 104/104、Windows 42/42、Integration 6/6，完整 Release 构建和 win-x64 发布通过；覆盖物理增量、会话隔离、取消/失效、真实 HWND NoActivate 手动移动，以及新 SessionId/WM_DPICHANGED 清除旧手动位置。
+  - 2026-09-06 增补：`Persistent` 模式在进程内保存最后一次手动物理位置，目标替换后按新目标显示器工作区和当前尺寸约束后继续使用；`UntilTargetChanges` 仍在新 SessionId 时恢复自动定位，DPI 改变会清除旧物理坐标。
 
 ### M3 测试矩阵
 
@@ -491,6 +492,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 2026-09-06 二次反馈修正验证：覆盖透明度 Slider 装载、Ctrl+Shift+S 实体组合录制、7 个自定义键按 5+2 自动分列、无滚动容器、密码目标整体折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 27/27，build/publish 通过且 0 warning/error。
   - 2026-09-06 三次反馈修正：标准区使用 16 份 Star、自定义区每列使用 2.5 份 Star，移除会造成横向溢出的标准键固定最小列宽；620 DIP 窄窗口下两区共同缩放且不覆盖。透明程度 0%/70% 分别保存为整窗 Opacity 1.0/0.3。新增 `WH_KEYBOARD_LL` 完整 chord 录制，抑制录制期间系统处理并支持 Win+Tab，最多 8 个不同封闭键；发送时全部 KeyDown、逆序 KeyUp，覆盖短发送/异常清理、已保持或实体保持修饰键不重复释放及密码目标拒绝。完整 Release 门禁 Core 226/226、Windows 195/195、Integration 29/29，build/publish 通过且 0 warning/error。
   - 2026-09-06 四次反馈修正：确认普通不透明 WPF 窗口仅设置视觉树 Opacity 在当前 WindowChrome 合成链路中表现为变暗；MainWindow 改为 `WindowStyle=None + AllowsTransparency=True` 的 WPF 透明窗口，使 0.30–1.00 Opacity 参与整窗桌面 Alpha 合成，设置关闭后立即应用当前值。集成测试同时约束透明窗口、可缩放模式和 NoActivate 配置；完整 Release 门禁 Core 226/226、Windows 195/195、Integration 29/29（共 450 项），build/publish 通过且 0 warning/error。
+  - 2026-09-06 五次反馈修正：设置项改名为“拖动位置保留”，使用“当前输入框/持续保留”中文选项并随选显示行为说明；Persistent 模式补齐跨输入框运行时行为。普通 key 的 SendInput 仅接受 Down 时不重试原批次，而是独立补发 KeyUp，避免 QWERTY/数字键残留为按下状态。完整 Release 门禁 Core 226/226、Windows 202/202、Integration 30/30（共 458 项），build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

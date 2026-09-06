@@ -254,6 +254,10 @@ public sealed class KeyInputSender
                 ? InputSendStatus.Succeeded
                 : sentCount == 0 ? InputSendStatus.Failed : InputSendStatus.PartialFailure;
             int errorCode = status == InputSendStatus.Succeeded ? 0 : _inputApi.LastError;
+            if (status == InputSendStatus.PartialFailure && transition == KeyInputTransition.Press && sentCount == 1)
+            {
+                TryBestEffortRelease(inputs[1]);
+            }
             _diagnostics?.Log(
                 status == InputSendStatus.Succeeded ? DiagnosticType.InputBatchSucceeded : DiagnosticType.InputBatchFailed,
                 DiagnosticModule.Input,
@@ -267,6 +271,18 @@ public sealed class KeyInputSender
         {
             LogFailure(targetProcessId, inputs.Length, 0, NativeUnavailableError);
             return new InputSendResult(InputSendStatus.NativeUnavailable, inputs.Length, 0, NativeUnavailableError);
+        }
+    }
+
+    private void TryBestEffortRelease(NativeInput keyUp)
+    {
+        try
+        {
+            _ = _inputApi.SendInput([keyUp]);
+        }
+        catch
+        {
+            // Cleanup is best-effort; the original partial-send result remains authoritative.
         }
     }
 

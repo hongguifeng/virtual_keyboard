@@ -67,10 +67,16 @@
                     </Grid>
                 </Grid>
             </GroupBox>
-            <StackPanel Grid.Row="9" Orientation="Horizontal">
-                <Label Content="手动位置" Width="130"/><ComboBox x:Name="PositionModeComboBox" Width="180"/>
-                <CheckBox x:Name="DiagnosticsCheckBox" Content="启用详细诊断" Margin="24,4,0,4"/>
-            </StackPanel>
+            <Grid Grid.Row="9">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Label Content="拖动位置保留"/>
+                <ComboBox x:Name="PositionModeComboBox" Grid.Column="1" DisplayMemberPath="DisplayName"/>
+                <CheckBox x:Name="DiagnosticsCheckBox" Grid.Column="2" Content="启用详细诊断" Margin="24,4,0,4"/>
+                <TextBlock x:Name="PositionModeDescription" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                           Margin="0,4,0,0" Foreground="DimGray" TextWrapping="Wrap"
+                           Text="{Binding ElementName=PositionModeComboBox, Path=SelectedItem.Description}"/>
+            </Grid>
         </Grid>
         <TextBlock x:Name="StatusText" Grid.Row="1" Foreground="Firebrick" TextWrapping="Wrap" Margin="0,8"/>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">

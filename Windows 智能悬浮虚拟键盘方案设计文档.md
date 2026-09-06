@@ -545,7 +545,7 @@ T4.3 的 `UnicodeTextInputBuilder` 直接枚举 UTF-16 code unit，每个单元�
 - 每个非状态键默认发送 KeyDown + KeyUp。
 - 不用 `PostMessage(WM_CHAR)` 作为回退。
 
-T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通 Enter、Tab、Backspace、Escape 和方向/导航键均映射为同一批次的 Down/Up；方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 scan code 和 `KEYEVENTF_EXTENDEDKEY`。底层 `KeyInputBuilder` 另支持纯 scan-code 编码以及单独 KeyDown/KeyUp，供 T4.5 的修饰键有序批次复用。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`；短返回不重试，诊断只包含 PID、事件数量和错误码。
+T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 HWND，通过 `GetWindowThreadProcessId` 获取目标 GUI 线程，再以该线程的 `GetKeyboardLayout` 调用 `MapVirtualKeyExW(MAPVK_VK_TO_VSC_EX)`。普通 Enter、Tab、Backspace、Escape、QWERTY 字母、数字和方向/导航键均映射为同一批次的 Down/Up；方向、Home/End、PageUp/PageDown、Insert/Delete 自动携带 scan code 和 `KEYEVENTF_EXTENDEDKEY`。底层 `KeyInputBuilder` 另支持纯 scan-code 编码以及单独 KeyDown/KeyUp，供 T4.5 的修饰键有序批次复用。零 HWND、未知键、无目标线程/HKL 或映射结果为零时在 `SendInput` 前返回 `InvalidInput`。主批次短返回不重复发送按键；若恰好只确认 Down 已送达，则用独立的一事件清理批次尽力补发对应 KeyUp。诊断只包含 PID、事件数量和错误码。
 
 ### 12.5 Hotkey 与修饰键
 
@@ -707,6 +707,8 @@ T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，除基础字
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
 T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。界面 Slider 表示 0.00–0.70 的“透明程度”，保存时用 `opacity = 1 - transparency` 转换为 WPF 整窗 `Opacity` 0.30–1.00；MainWindow 启用 `AllowsTransparency=True`，不使用背景色或亮度模拟透明，设置关闭后立即重载当前 Opacity。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”。`KeyboardChordRecorder` 使用 `WH_KEYBOARD_LL` 捕获并抑制录制期间的 KeyDown/KeyUp：记录最多 8 个不同封闭键的首次 KeyDown 顺序，全部释放后生成 `chord`，因此 `Win+Tab` 不会先触发系统任务视图；失败、取消、切换项目/模式或关闭设置都会卸载 hook。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；主键区使用 16 份 Star、自定义区每列使用 2.5 份 Star，内部各列等分，使两区随窗口宽度同步缩放且不重叠。密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey/chord 发送路径。
+
+设置中的 `ManualPositionMode` 使用面向用户的中文选项与随选说明，不直接显示枚举名。“当前输入框”把拖动结果绑定当前 TargetSession，目标替换后回到锚点自动布局；“持续保留”在进程内保存最后一次手动物理像素位置，目标替换时沿用坐标，并按新目标所在显示器工作区及当前 DPI 尺寸进行边界约束。DPI 改变时清除旧物理位置，避免跨缩放复用错误坐标。
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 

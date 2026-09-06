@@ -30,7 +30,10 @@ public sealed class SettingsWindowTests
             Assert.Equal("900", Find<TextBox>(window, "WidthTextBox").Text);
             Assert.Equal(0.25, Find<Slider>(window, "OpacitySlider").Value, precision: 12);
             Assert.Equal("custom.layout", Find<TextBox>(window, "LayoutIdTextBox").Text);
-            Assert.Equal(ManualPositionMode.Persistent, Find<ComboBox>(window, "PositionModeComboBox").SelectedItem);
+            var positionOption = Assert.IsType<ManualPositionModeOption>(Find<ComboBox>(window, "PositionModeComboBox").SelectedItem);
+            Assert.Equal(ManualPositionMode.Persistent, positionOption.Mode);
+            Assert.Equal("持续保留", positionOption.DisplayName);
+            Assert.Contains("切换输入框", Find<TextBlock>(window, "PositionModeDescription").Text);
             var list = Find<ListBox>(window, "CustomKeysList");
             Assert.Equal(2, list.Items.Count);
             Assert.Equal("邮箱", Assert.IsType<CustomKeyEditorItem>(list.Items[0]).Label);

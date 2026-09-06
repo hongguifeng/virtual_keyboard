@@ -32,6 +32,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly FocusTargetEvaluator _focusEvaluator = new();
     private readonly MonitorDpiAdapter _monitorDpi = new();
     private FocusObservationService? _focusObservation;
+    private PhysicalPixelRect? _persistentManualPosition;
     private bool _disposed;
 
     public MainWindow()
@@ -113,8 +114,15 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     internal bool BeginManualMoveForCurrentSession() =>
         _targetSessions.Current is TargetSession session && _overlay.BeginManualMove(session.SessionId);
 
-    internal bool EndManualMoveForCurrentSession() =>
-        _targetSessions.Current is TargetSession session && _overlay.EndManualMove(session.SessionId);
+    internal bool EndManualMoveForCurrentSession()
+    {
+        if (_targetSessions.Current is not TargetSession session || !_overlay.EndManualMove(session.SessionId)) return false;
+        _persistentManualPosition = _configurationRepository.Current.ManualPositionMode == ManualPositionMode.Persistent &&
+            _overlay.TryGetManualPosition(session.SessionId, out PhysicalPixelRect rectangle)
+                ? rectangle
+                : null;
+        return true;
+    }
 
     internal bool HasManualPosition(long sessionId) => _overlay.TryGetManualPosition(sessionId, out _);
 
@@ -185,6 +193,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             bool isEnabled = _configurationRepository.Current.Enabled;
             if (wasEnabled != isEnabled) _coordinator.SetEnabled(isEnabled);
             Opacity = _configurationRepository.Current.Opacity;
+            if (_configurationRepository.Current.ManualPositionMode != ManualPositionMode.Persistent) _persistentManualPosition = null;
             _diagnosticSink?.SetDetailedEnabled(_configurationRepository.Current.DetailedDiagnostics);
             LoadBuiltInLayout();
         }
@@ -304,7 +313,10 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             PhysicalPixelSize desired = monitor.Metrics!.DpiScale.ToPhysicalPixels(new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip));
             PlacementResult placement = PlacementService.Place(anchor, monitor.Metrics.WorkArea, desired, configuration.MarginDip * monitor.Metrics.DpiScale.ScaleX);
             if (!placement.IsPlaced) { ClearAutomaticTarget(); return; }
-            PhysicalPixelRect rectangle = placement.Rectangle!.Value;
+            PhysicalPixelRect rectangle = configuration.ManualPositionMode == ManualPositionMode.Persistent &&
+                _persistentManualPosition is PhysicalPixelRect saved
+                    ? RestoreManualPosition(saved, placement.Rectangle!.Value, monitor.Metrics.WorkArea)
+                    : placement.Rectangle!.Value;
             Opacity = configuration.Opacity;
             _overlay.ShowAt(checked((int)Math.Round(rectangle.X)), checked((int)Math.Round(rectangle.Y)),
                 checked((int)Math.Round(rectangle.Width)), checked((int)Math.Round(rectangle.Height)));
@@ -437,6 +449,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)
     {
         _overlay.InvalidateManualPosition();
+        _persistentManualPosition = null;
         if (_targetSessions.Current is null)
         {
             return;
@@ -449,6 +462,16 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             checked((int)Math.Round(change.SuggestedRectangle.Y)),
             checked((int)Math.Round(size.Width)),
             checked((int)Math.Round(size.Height)));
+    }
+
+    private static PhysicalPixelRect RestoreManualPosition(
+        PhysicalPixelRect saved,
+        PhysicalPixelRect sizedFallback,
+        PhysicalPixelRect workArea)
+    {
+        double x = Math.Clamp(saved.X, workArea.X, workArea.Right - sizedFallback.Width);
+        double y = Math.Clamp(saved.Y, workArea.Y, workArea.Bottom - sizedFallback.Height);
+        return new(x, y, sizedFallback.Width, sizedFallback.Height);
     }
 
     internal void ApplyCompletedResize(double widthDip, double heightDip)

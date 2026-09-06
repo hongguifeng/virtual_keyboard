@@ -76,6 +76,8 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 `KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt/Win/Fn 点击开关状态。Shift/Ctrl/Alt/Win 第一次点击发送真实 KeyDown，第二次发送 KeyUp，只有发送成功才改变蓝底白字的高亮；普通按键不会自动清除。目标替换、暂停、设置和退出会强制释放程序保持的修饰键。Fn 仍是应用内功能层，CapsLock 读取并切换系统 toggle bit。
 
+QWERTY 字母、数字、标点和编辑键都是瞬时普通键，每次点击成对发送 KeyDown/KeyUp，不会像修饰键一样锁存。如果 Windows 只接受了普通键批次中的 KeyDown，发送器会单独补发对应 KeyUp，避免按键残留和系统自动重复。
+
 自动弹出只接受真实 Edit 的可写 ValuePattern，或 Edit/Document 的 TextEdit/caret 证据；桌面图标和资源管理器文件项等选择型控件不会仅凭 ValuePattern 触发，文件重命名进入 Edit 后仍可正常触发。
 
 `KeyboardLayoutView` 从 JSON 对应的不可变视图模型生成五行按键，行列都使用星号权重，最小按键尺寸为 36×36 DIP。每个按键均不可聚焦、不可进入 Tab 导航；按下时显示状态，释放到键外、丢失鼠标捕获或取消不会触发动作，同一按下最多触发一次。

@@ -263,6 +263,39 @@ public sealed class MinimalOverlayWindowTests
         });
     }
 
+    [Fact]
+    public void PersistentManualPositionSurvivesTargetReplacement()
+    {
+        RunOnStaThread(() =>
+        {
+            string root = Path.Combine(Path.GetTempPath(), $"VirtualKeyboard.PersistentPosition.{Guid.NewGuid():N}");
+            try
+            {
+                var repository = new ConfigurationRepository(new(Path.Combine(root, "config.json"), Path.Combine(root, "recovery")));
+                Assert.True(repository.Save(new(1, true, true, true, 0.9, 800, 300, 8,
+                    "builtin.qwerty.en-US", ManualPositionMode.Persistent, false)).IsSaved);
+                using var window = new MainWindow(new StubCapture(default), new TargetSessionStore(), repository);
+                Assert.True(ApplyEditableFocus(window, version: 1, runtimeId: 7));
+                Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle automatic));
+                int width = automatic.Right - automatic.Left;
+                int height = automatic.Bottom - automatic.Top;
+                var moved = new NativeRectangle(automatic.Left + 20, automatic.Top + 20, automatic.Right + 20, automatic.Bottom + 20);
+                window.ShowAt(moved.Left, moved.Top, width, height);
+                Assert.True(window.BeginManualMoveForCurrentSession());
+                Assert.True(window.EndManualMoveForCurrentSession());
+
+                Assert.True(ApplyEditableFocus(window, version: 2, runtimeId: 8));
+
+                Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle restored));
+                Assert.Equal(moved, restored);
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            }
+        });
+    }
+
     private static bool ApplyEditableFocus(MainWindow window, long version, int runtimeId)
     {
         var snapshot = new FocusSnapshot(

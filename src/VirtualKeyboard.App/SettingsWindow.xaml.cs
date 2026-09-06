@@ -12,6 +12,11 @@ namespace VirtualKeyboard.App;
 public partial class SettingsWindow : Window, IDisposable
 {
     private const string TextMode = "text";
+    private static readonly ManualPositionModeOption[] PositionModeOptions =
+    [
+        new(ManualPositionMode.UntilTargetChanges, "当前输入框", "拖动键盘后，仅为当前输入框保留位置；切换到其他输入框时恢复自动定位。"),
+        new(ManualPositionMode.Persistent, "持续保留", "拖动键盘后继续使用手动位置，不因切换输入框而恢复自动定位。"),
+    ];
     private readonly ConfigurationRepository _repository;
     private readonly ObservableCollection<CustomKeyEditorItem> _customKeys = [];
     private readonly KeyboardChordRecorder _chordRecorder = new();
@@ -24,7 +29,7 @@ public partial class SettingsWindow : Window, IDisposable
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         InitializeComponent();
-        PositionModeComboBox.ItemsSource = Enum.GetValues<ManualPositionMode>();
+        PositionModeComboBox.ItemsSource = PositionModeOptions;
         CustomKeysList.ItemsSource = _customKeys;
         _chordRecorder.Captured += OnChordCaptured;
         _chordRecorder.CaptureFailed += OnChordCaptureFailed;
@@ -38,7 +43,8 @@ public partial class SettingsWindow : Window, IDisposable
             ConfigurationSchemaLimits.SupportedSchemaVersion,
             EnabledCheckBox.IsChecked == true, AutoShowCheckBox.IsChecked == true, AutoHideCheckBox.IsChecked == true,
             1 - OpacitySlider.Value, Parse(WidthTextBox.Text), Parse(HeightTextBox.Text), Parse(MarginTextBox.Text),
-            LayoutIdTextBox.Text, PositionModeComboBox.SelectedItem is ManualPositionMode mode ? mode : ManualPositionMode.UntilTargetChanges,
+            LayoutIdTextBox.Text,
+            PositionModeComboBox.SelectedItem is ManualPositionModeOption option ? option.Mode : ManualPositionMode.UntilTargetChanges,
             DiagnosticsCheckBox.IsChecked == true,
             _customKeys.Select(static key => new CustomKeyConfiguration(
                 key.Label, key.ActionType, key.Input, key.Modifiers)));
@@ -57,7 +63,7 @@ public partial class SettingsWindow : Window, IDisposable
         HeightTextBox.Text = configuration.KeyboardHeightDip.ToString(CultureInfo.InvariantCulture);
         MarginTextBox.Text = configuration.MarginDip.ToString(CultureInfo.InvariantCulture);
         LayoutIdTextBox.Text = configuration.LayoutId ?? string.Empty;
-        PositionModeComboBox.SelectedItem = configuration.ManualPositionMode;
+        PositionModeComboBox.SelectedItem = PositionModeOptions.Single(option => option.Mode == configuration.ManualPositionMode);
         DiagnosticsCheckBox.IsChecked = configuration.DetailedDiagnostics;
         _customKeys.Clear();
         foreach (CustomKeyConfiguration key in configuration.CustomKeys)
@@ -261,6 +267,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private static double Parse(string value) => double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
 }
+
+internal sealed record ManualPositionModeOption(ManualPositionMode Mode, string DisplayName, string Description);
 
 internal sealed class CustomKeyEditorItem : INotifyPropertyChanged
 {

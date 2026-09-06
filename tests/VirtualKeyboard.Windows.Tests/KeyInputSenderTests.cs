@@ -87,7 +87,14 @@ public sealed class KeyInputSenderTests
     [InlineData(WindowsKeyboardKey.Escape, 0x01)]
     [InlineData(WindowsKeyboardKey.Space, 0x39)]
     [InlineData(WindowsKeyboardKey.D0, 0x0B)]
+    [InlineData(WindowsKeyboardKey.D1, 0x02)]
+    [InlineData(WindowsKeyboardKey.D2, 0x03)]
     [InlineData(WindowsKeyboardKey.A, 0x1E)]
+    [InlineData(WindowsKeyboardKey.Q, 0x10)]
+    [InlineData(WindowsKeyboardKey.W, 0x11)]
+    [InlineData(WindowsKeyboardKey.E, 0x12)]
+    [InlineData(WindowsKeyboardKey.R, 0x13)]
+    [InlineData(WindowsKeyboardKey.T, 0x14)]
     [InlineData(WindowsKeyboardKey.OemQuestion, 0x35)]
     public void SenderMapsCommonKeysUsingTargetThreadLayout(WindowsKeyboardKey key, uint scanCode)
     {
@@ -103,7 +110,8 @@ public sealed class KeyInputSenderTests
         Assert.Equal(4u, mapping.RequestedMapType);
         Assert.Equal(mapping.KeyboardLayout, mapping.RequestedMapLayout);
         Assert.Equal(1, input.Calls);
-        Assert.All(input.LastBatch, item => Assert.Equal(0u, item.Data.Keyboard.Flags & 0x0001));
+        Assert.Equal(0u, input.LastBatch[0].Data.Keyboard.Flags);
+        Assert.Equal(0x0002u, input.LastBatch[1].Data.Keyboard.Flags);
     }
 
     [Theory]
@@ -180,9 +188,9 @@ public sealed class KeyInputSenderTests
     }
 
     [Theory]
-    [InlineData(0, InputSendStatus.Failed)]
-    [InlineData(1, InputSendStatus.PartialFailure)]
-    public void ShortNativeReturnFailsWithoutRetry(uint returnCount, InputSendStatus expectedStatus)
+    [InlineData(0, InputSendStatus.Failed, 1)]
+    [InlineData(1, InputSendStatus.PartialFailure, 2)]
+    public void ShortNativeReturnFailsAndPartialDownIsReleased(uint returnCount, InputSendStatus expectedStatus, int expectedCalls)
     {
         var input = new FakeInputApi { ReturnCount = returnCount, Error = 5 };
 
@@ -193,7 +201,12 @@ public sealed class KeyInputSenderTests
         Assert.Equal(expectedStatus, result.Status);
         Assert.Equal((int)returnCount, result.SentEvents);
         Assert.Equal(5, result.ErrorCode);
-        Assert.Equal(1, input.Calls);
+        Assert.Equal(expectedCalls, input.Calls);
+        if (returnCount == 1)
+        {
+            NativeInput cleanup = Assert.Single(input.Batches[1]);
+            AssertKeyboard(cleanup, 0x0D, 0x1C, 0x0002);
+        }
     }
 
     [Fact]
@@ -285,6 +298,7 @@ public sealed class KeyInputSenderTests
         public int Error { get; init; }
         public Exception? Failure { get; init; }
         public int Calls { get; private set; }
+        public List<NativeInput[]> Batches { get; } = [];
         public NativeInput[] LastBatch { get; private set; } = [];
         public int LastError => Error;
 
@@ -292,6 +306,7 @@ public sealed class KeyInputSenderTests
         {
             Calls++;
             LastBatch = inputs.ToArray();
+            Batches.Add(LastBatch);
             if (Failure is not null) throw Failure;
             return ReturnCount;
         }
