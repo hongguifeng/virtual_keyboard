@@ -360,12 +360,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`HotkeyInputSender` 快照 1-3 个唯一 Ctrl/Shift/Alt，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 继续负责 UI 一次性锁存和 CapsLock 状态同步。
   - 验证：Core 111/111、Windows 114/114、Integration 6/6；覆盖三修饰键顺序/逆序快照、实体 Ctrl/Shift/Alt 冲突、可变列表快照、每个部分前缀的精确清理、零返回、异常与清理异常、取消前/准备中取消、无效/重复修饰键、线程/HKL/scan 映射失败、真实 `GetAsyncKeyState` 入口和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
-- [ ] **T4.6（P0，0.5 人日）实现输入失败和 UIPI 提示**
+- [x] **T4.6（P0，0.5 人日）实现输入失败和 UIPI 提示**
   - 检查 SendInput 返回数量。
   - 部分失败不重试，保证释放修饰键。
   - 识别可能的完整性级别差异，显示非侵入提示。
   - 不自动提权、不实现 uiAccess。
   - 对应：FR-INP-006，AC-010。
+  - 实现：`ProcessIntegrityInspector` 读取当前/目标 Token Integrity RID，区分目标更高、同级/更低、目标访问被拒和未知，并有界分配 Token 缓冲区、确定关闭句柄。`InputFailureFeedbackFactory` 仅对零/短返回执行完整性比较，生成封闭失败类型和固定非侵入提示；目标确实更高与仅访问被拒使用不同措辞，自身 Token 失败不误判目标。M1 状态区已接入；分类诊断只写 PID、数量、错误码和封闭 ReasonCode，不记录进程名、标题或输入内容，不含提权/uiAccess 路径。
+  - 验证：Core 111/111、Windows 133/133、Integration 6/6；覆盖 RID 高/同/低比较、当前/目标 Token 失败差异、真实当前进程 Token 读取、确定/可能权限提示、普通零/短返回、目标变化/取消/无效输入/原生不可用、成功零探测零提示和诊断隐私；完整 Release 构建和 win-x64 发布通过。管理员 TestHost 实机负向矩阵仍按 M4/T7.5 门禁执行。
 
 - [ ] **T4.7（P0，0.25 人日）实现退出/崩溃边界清理**
   - 正常退出、取消和已捕获异常路径释放由本程序按下的键。
@@ -376,7 +378,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [ ] Text/Key/Hotkey 输入数组快照测试通过。
 - [ ] Unicode 代理对不会截断。
 - [ ] 热键异常和取消后没有修饰键卡住。
-- [ ] SendInput 返回 0 或部分数量时不会重复提交。
+- [x] SendInput 返回 0 或部分数量时不会重复提交（热键仅允许独立的 KeyUp 安全清理批次）。
 - [ ] 管理员 TestHost 负向测试不提权且可诊断。
 - [ ] 输入动作切换目标压力测试无误投。
 

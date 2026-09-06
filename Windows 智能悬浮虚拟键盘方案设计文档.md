@@ -564,6 +564,8 @@ T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-
 3. 在键盘状态区域显示简短失败提示。
 4. 如果目标可能处于更高完整性级别，提示“目标权限高于本程序，无法输入”，不得请求临时提权。
 
+T4.6 的 `ProcessIntegrityInspector` 以 `PROCESS_QUERY_LIMITED_INFORMATION` 和 `TOKEN_QUERY` 读取当前/目标进程 `TokenIntegrityLevel` 的 SID 末级 RID，所有缓冲区与句柄均有确定上限和 `finally` 清理。比较结果为同级/更低、目标更高、目标 Token 访问被拒或未知；只有已证明目标 RID 更高时才给出确定权限提示，只有目标 Token 访问被拒时才提示“可能存在权限边界”，本程序自身 Token 读取失败不得归因于目标。`InputFailureFeedbackFactory` 只在 SendInput 零/短返回时探测完整性，把结果转换为封闭 `InputFailureKind` 与固定提示文本；成功、目标变化、取消、无效请求和原生不可用不打开目标进程。分类通过 `InputFailureClassified` 诊断事件记录 PID、数量、错误码和封闭 ReasonCode，不包含进程名、窗口标题或输入内容。M1 的状态 TextBlock 已接入该反馈，保持 NoActivate，且没有提权或 uiAccess 路径。
+
 ## 13. 键盘布局设计
 
 ### 13.1 内置与用户布局

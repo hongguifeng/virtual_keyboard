@@ -17,6 +17,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly TargetSessionStore _targetSessions;
     private readonly DiagnosticLogger _diagnostics;
     private readonly ValidatedSingleKeyInputSender _validatedInput;
+    private readonly InputFailureFeedbackFactory _failureFeedback;
     private bool _disposed;
 
     public MainWindow()
@@ -34,6 +35,7 @@ public partial class MainWindow : Window, IDisposable
         _diagnostics = new DiagnosticLogger();
         var validator = new TargetSessionValidator(_targetSessions, _targetCapture);
         _validatedInput = new ValidatedSingleKeyInputSender(validator, new SingleKeyInputSender(_diagnostics), _diagnostics);
+        _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
     }
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
@@ -125,9 +127,14 @@ public partial class MainWindow : Window, IDisposable
         }
 
         InputSendResult result = _validatedInput.SendA(session.SessionId);
-        SessionStatusText.Text = result.IsSuccess
-            ? $"会话 {session.SessionId} · A 已发送"
-            : $"输入已取消：{result.Status}";
+        if (result.IsSuccess)
+        {
+            SessionStatusText.Text = $"会话 {session.SessionId} · A 已发送";
+            return;
+        }
+
+        InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
+        SessionStatusText.Text = feedback.Message;
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)
