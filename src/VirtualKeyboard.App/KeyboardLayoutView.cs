@@ -237,20 +237,20 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnPreviewMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        // This control owns the complete pointer lifecycle. Letting Button process
-        // the event first can create a second Click/capture lifecycle alongside
-        // the gesture controller, which is especially visible with IME input.
-        e.Handled = true;
+        base.OnPreviewMouseLeftButtonDown(e);
         if (BeginGesture() && CaptureMouse())
         {
-            return;
+            e.Handled = true;
         }
-        CancelGesture();
+        else
+        {
+            CancelGesture();
+        }
     }
 
     protected override void OnPreviewMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        e.Handled = true;
+        base.OnPreviewMouseLeftButtonUp(e);
         if (!IsMouseCaptured)
         {
             return;
@@ -265,6 +265,7 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchDown(TouchEventArgs e)
     {
+        base.OnTouchDown(e);
         e.Handled = true;
         if (BeginGesture() && e.TouchDevice.Capture(this))
         {
@@ -276,6 +277,7 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchUp(TouchEventArgs e)
     {
+        base.OnTouchUp(e);
         e.Handled = true;
         if (e.TouchDevice.Captured != this)
         {
@@ -293,21 +295,23 @@ internal sealed class NonFocusableKeyButton : Button
 
     protected override void OnTouchMove(TouchEventArgs e)
     {
-        e.Handled = true;
+        base.OnTouchMove(e);
         if (e.TouchDevice.Captured == this)
         {
-            return;
+            e.Handled = true;
         }
     }
 
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         CancelGesture();
+        base.OnLostMouseCapture(e);
     }
 
     protected override void OnLostTouchCapture(TouchEventArgs e)
     {
         CancelGesture();
+        base.OnLostTouchCapture(e);
     }
 
     private bool BeginGesture()
