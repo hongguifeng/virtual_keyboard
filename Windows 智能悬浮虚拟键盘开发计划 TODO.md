@@ -273,12 +273,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `AnchorResolver` 严格按 UIA selection/caret、Win32 caret、UIA BoundingRectangle、安全默认点解析首个有效锚点。`AnchorCandidate` 必须归属于当前目标顶层 HWND，矩形必须通过物理像素校验并与目标窗口或工作区相交；安全默认点位于工作区水平中心、垂直 75%。`AnchorFallbackReason` 位标志完整记录被跳过的来源，无有效工作区时返回显式失败。
   - 验证：Core 88/88、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖多段 selection 首个有效值、完整降级顺序、ReasonCode 组合、跨目标/屏外矩形、NaN/Infinity、零/负矩形、超限坐标和无有效安全锚点。
 
-- [ ] **T3.3（P0，1 人日）实现 PlacementService**
+- [x] **T3.3（P0，1 人日）实现 PlacementService**
   - 生成 Bottom、Top、Right、Left 候选。
   - 按可见性、锚点重叠、方向偏好和距离评分。
   - Clamp 到 rcWork，支持任务栏在四边。
   - 过大键盘缩放到工作区安全比例。
   - 对应：FR-POS-002、003、006。
+  - 实现：Core `PlacementService` 生成 Bottom/Top/Right/Left 原始候选，以原始矩形完全可见、最终不覆盖锚点、可见比例、稳定方向顺序和中心距离排序；选中结果统一 Clamp 到 `rcWork`。期望尺寸超过工作区时按宽高共同约束等比缩小至 95%，结果标记 `WasScaled`；无效锚点、非正工作区/尺寸或非法 margin 返回显式失败。
+  - 验证：Core 99/99、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖默认下方、靠近四边的方向选择、负坐标副屏、底部任务栏工作区、等比缩放与最终完全可见、NaN/负 margin 和零宽工作区。
 
 - [ ] **T3.4（P0，0.75 人日）实现 Monitor/DPI 原生适配**
   - 封装 MonitorFromRect、GetMonitorInfo、GetDpiForWindow 等 API。

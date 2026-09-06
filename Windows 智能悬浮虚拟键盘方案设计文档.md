@@ -466,6 +466,8 @@ T3.2 的 Core `AnchorResolver` 使用 `AnchorCandidate(PhysicalPixelRect, OwnerT
 8. 对胜出矩形执行 Clamp。
 9. 使用 SetWindowPos 应用，并保存实际物理像素矩形。
 
+T3.3 的 `PlacementService` 将评分落实为稳定字典序：原始候选完全位于工作区优先，其次最终矩形不覆盖锚点、可见比例、Bottom/Top/Right/Left 方向顺序和中心距离。最终结果始终 Clamp 到 `rcWork`。键盘超出工作区时先按 95% 宽高上限等比缩放；工作区或期望尺寸非正时返回 `InvalidInput`，不生成屏外或零尺寸窗口。
+
 用户手动移动后，将物理矩形与当前 SessionId 绑定。目标会话变化或 DPI 变化时重新进入自动定位。
 
 ### 11.4 DPI 变化
