@@ -653,6 +653,8 @@ T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的
 
 T5.6 的 Core `PasswordActionPolicy` 不信任布局作者单独声明的 `safeForPassword`：两者必须同时通过。密码模式仅允许一个 Unicode 标准字符、封闭的 A-Z/D0-D9/Space 与编辑导航 key，以及 Shift/CapsLock；所有 hotkey、多字符 text、scanCode、Control/Alt 和未知动作默认拒绝。WPF 生成密码布局时直接排除不通过的键，事件分发边界在发送前再次执行同一策略，避免仅靠可见性形成安全边界。`PasswordActionCheck` 只返回枚举与固定 reason code，不返回文本；状态提示也不拼接 key label、目标 Name 或 Value。
 
+T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture。TouchDown 捕获单一触点并进入与鼠标相同的 `KeyGestureController`；TouchUp 使用相对触点坐标判定是否仍在键内，先结束手势再释放捕获；丢失捕获统一取消。各触摸事件标记 handled，防止 WPF 将同一触摸继续提升为鼠标点击而重复执行。拖动区域只处理自身鼠标手势，不共享按键的触摸捕获。自动测试环境无实体触摸设备，真实单指点击和拖动手柄邻键冲突保留为 P1 实机验收项。
+
 ## 14. 配置设计
 
 ### 14.1 路径

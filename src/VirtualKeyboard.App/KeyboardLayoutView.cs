@@ -143,10 +143,55 @@ internal sealed class NonFocusableKeyButton : Button
         }
     }
 
+    protected override void OnTouchDown(TouchEventArgs e)
+    {
+        base.OnTouchDown(e);
+        e.Handled = true;
+        if (BeginGesture() && e.TouchDevice.Capture(this))
+        {
+            return;
+        }
+        e.TouchDevice.Capture(null);
+        CancelGesture();
+    }
+
+    protected override void OnTouchUp(TouchEventArgs e)
+    {
+        base.OnTouchUp(e);
+        e.Handled = true;
+        if (e.TouchDevice.Captured != this)
+        {
+            CancelGesture();
+            return;
+        }
+        Point position = e.GetTouchPoint(this).Position;
+        bool invoke = EndGesture(position.X >= 0 && position.Y >= 0 && position.X <= ActualWidth && position.Y <= ActualHeight);
+        e.TouchDevice.Capture(null);
+        if (invoke)
+        {
+            Invoked?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    protected override void OnTouchMove(TouchEventArgs e)
+    {
+        base.OnTouchMove(e);
+        if (e.TouchDevice.Captured == this)
+        {
+            e.Handled = true;
+        }
+    }
+
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         CancelGesture();
         base.OnLostMouseCapture(e);
+    }
+
+    protected override void OnLostTouchCapture(TouchEventArgs e)
+    {
+        CancelGesture();
+        base.OnLostTouchCapture(e);
     }
 
     private bool BeginGesture()
