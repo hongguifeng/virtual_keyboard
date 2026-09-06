@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using VirtualKeyboard.Core.Diagnostics;
+using VirtualKeyboard.Core.Input;
 using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
 
@@ -11,6 +13,8 @@ public partial class MainWindow : Window, IDisposable
     private readonly OverlayWindowAdapter _overlay;
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
+    private readonly DiagnosticLogger _diagnostics;
+    private readonly ValidatedSingleKeyInputSender _validatedInput;
     private bool _disposed;
 
     public MainWindow()
@@ -24,6 +28,9 @@ public partial class MainWindow : Window, IDisposable
         _overlay = new OverlayWindowAdapter(this);
         _targetCapture = targetCapture ?? throw new ArgumentNullException(nameof(targetCapture));
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
+        _diagnostics = new DiagnosticLogger();
+        var validator = new TargetSessionValidator(_targetSessions, _targetCapture);
+        _validatedInput = new ValidatedSingleKeyInputSender(validator, new SingleKeyInputSender(_diagnostics), _diagnostics);
     }
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
@@ -64,7 +71,17 @@ public partial class MainWindow : Window, IDisposable
     {
         _ = sender;
         _ = e;
-        // SendInput belongs to T1.3.
+        TargetSession? session = _targetSessions.Current;
+        if (session is null)
+        {
+            SessionStatusText.Text = "请先捕获目标";
+            return;
+        }
+
+        InputSendResult result = _validatedInput.SendA(session.SessionId);
+        SessionStatusText.Text = result.IsSuccess
+            ? $"会话 {session.SessionId} · A 已发送"
+            : $"输入已取消：{result.Status}";
     }
 
     protected override void OnClosed(EventArgs e)
@@ -81,6 +98,7 @@ public partial class MainWindow : Window, IDisposable
         }
 
         _overlay.Dispose();
+        _diagnostics.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);
     }

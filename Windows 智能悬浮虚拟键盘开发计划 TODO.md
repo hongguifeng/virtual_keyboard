@@ -151,11 +151,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`SingleKeyInputSender` 固定生成 VK_A 的两个键盘事件并单次调用 `SendInput`；按返回数量区分成功、完全失败和部分失败，原生 API 不可用时返回 `NativeUnavailable`，不执行激活或重试。诊断仅记录数字字段（目标 PID、请求/完成数量、错误码）。
   - 验证：Core 30/30、Windows 11/11、Integration 2/2 通过；覆盖 KeyDown/KeyUp 顺序、VK_A、KeyUp 标志、原生 `INPUT` x64 尺寸、0/1 返回值、无重试和结构化失败诊断。
 
-- [ ] **T1.4（P0，0.75 人日）实现发送前目标校验**
+- [x] **T1.4（P0，0.75 人日）实现发送前目标校验**
   - 点击前校验 GetForegroundWindow、焦点 HWND 和 SessionId。
   - 用户切换到另一应用后点击 `A`，本次输入必须取消。
   - 校验失败不得调用 SetForegroundWindow。
   - 对应：FR-INP-001，AC-009。
+  - 实现：`TargetSessionValidator` 在发送前重新读取前台/进程/焦点并确认 `SessionId` 仍为当前会话；`ValidatedSingleKeyInputSender` 校验失败返回 `TargetInvalid`，不调用底层发送器、不激活目标。`A` 按钮仅通过该入口发送。
+  - 验证：Core 30/30、Windows 16/16、Integration 2/2 通过；覆盖会话匹配、会话替换、前台 HWND/进程/焦点 HWND 变化和零底层发送调用。
 
 - [ ] **T1.5（P0，0.5 人日）验证窗口和焦点行为**
   - 自动记录点击前后前台 HWND、焦点 HWND、键盘 HWND。

@@ -384,6 +384,8 @@ T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForeground
 
 T1.3 的单键发送实现位于 `VirtualKeyboard.Windows.SingleKeyInputSender`。发送器为 `VK_A` 构造一个固定长度为 2 的 `INPUT` 数组（KeyDown 后 KeyUp），通过 `NativeInputApi` 调用一次 `SendInput` 并严格检查返回事件数：2 为成功，0 为失败，1 为部分失败；短返回不重试。原生 API 不可用时返回 `NativeUnavailable`。诊断只写入事件类型、目标 PID、请求/完成数量和错误码等结构化数字，不写入按键文本。发送器不执行目标校验、激活或焦点恢复，UI 接线必须在 T1.4 的发送前校验之后完成。
 
+T1.4 的校验实现位于 `VirtualKeyboard.Windows.TargetSessionValidator` 和 `ValidatedSingleKeyInputSender`。每次 A 键动作先确认期望 `SessionId` 仍是 `TargetSessionStore.Current`，再重新读取前台顶层窗口、进程和 GUI 线程焦点；任一不一致返回 `TargetInvalid` 并取消动作。校验成功后才调用 T1.3 发送器；整个路径不调用 `Activate`、`Focus` 或 `SetForegroundWindow`。捕获按钮和 A 按钮均为 NoActivate 控件。
+
 ### 10.3 鼠标与触摸命中
 
 - MouseDown 只改变按压视觉状态。

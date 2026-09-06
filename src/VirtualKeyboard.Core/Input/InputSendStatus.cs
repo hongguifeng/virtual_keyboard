@@ -6,4 +6,5 @@ public enum InputSendStatus
     Failed,
     PartialFailure,
     NativeUnavailable,
+    TargetInvalid,
 }
