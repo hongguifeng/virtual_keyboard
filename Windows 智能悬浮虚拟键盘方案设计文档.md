@@ -721,6 +721,8 @@ T8.1/T8.2/T8.3 的验收制品位于 `docs/release`。当前环境只确认 Wind
 
 发布评审后的 `REL-001` 修正把现有能力接入 App：`FocusObservationService` 在专用 MTA 线程合并事件并支持启动刷新；`FocusTargetEvaluator` 只读取进程、RuntimeId、ControlType、焦点/启用/离屏/密码标志、模式可用性、只读标志、边界矩形和 Win32 caret，不读取 Name/Value/Text。分类结果经单调版本协调器进入 WPF Dispatcher，建立带 RuntimeId 的 TargetSession，更新发送前身份快照，并使用 MonitorDpiAdapter + PlacementService 应用配置尺寸、透明度和边距。NotEditable/Unknown 使会话失效并按 autoHide 隐藏；手动关闭/托盘显示复用 ManuallySuppressed 状态。退出在停止输入前注销 UIA。
 
+发布评审后的 `REL-006` 修正把 `RollingFileDiagnosticSink` 接入生产 App 的 `%LocalAppData%\\VirtualKeyboard\\logs`。宿主使用 4 MiB×5 文件的严格 20 MiB 上界，目录/IO 故障自动降级；配置加载、焦点、分类、会话和 Overlay 事件经 `DiagnosticLogger` 写入，FocusObserved 作为 Detailed 事件默认过滤。设置变更通过线程安全 `SetDetailedEnabled` 动态切换详细事件，不重建被输入发送器持有的 Logger。所有事件继续受 `DiagnosticEvent` 值类型字段与序列化白名单约束，日志导出只包含 `*.jsonl`。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using VirtualKeyboard.Core.Configuration;
@@ -19,6 +20,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
     private readonly DiagnosticLogger _diagnostics;
+    private readonly RollingFileDiagnosticSink? _diagnosticSink;
     private readonly InputFailureFeedbackFactory _failureFeedback;
     private readonly KeyboardController _keyboardController;
     private readonly LayoutActionDispatcher _actionDispatcher;
@@ -34,16 +36,21 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private bool _disposed;
 
     public MainWindow()
-        : this(new NativeForegroundTargetCapture(), new TargetSessionStore(), new(ConfigurationRepositoryPaths.CreateDefault()))
+        : this(new NativeForegroundTargetCapture(), new TargetSessionStore(), new(ConfigurationRepositoryPaths.CreateDefault()), createFileDiagnostics: true)
     {
     }
 
     internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions)
-        : this(targetCapture, targetSessions, new(ConfigurationRepositoryPaths.CreateDefault()))
+        : this(targetCapture, targetSessions, new(ConfigurationRepositoryPaths.CreateDefault()), createFileDiagnostics: false)
     {
     }
 
     internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository)
+        : this(targetCapture, targetSessions, configurationRepository, createFileDiagnostics: false)
+    {
+    }
+
+    private MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository, bool createFileDiagnostics)
     {
         InitializeComponent();
         _overlay = new OverlayWindowAdapter(this);
@@ -51,7 +58,17 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _targetCapture = targetCapture ?? throw new ArgumentNullException(nameof(targetCapture));
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
         _configurationRepository = configurationRepository ?? throw new ArgumentNullException(nameof(configurationRepository));
-        _diagnostics = new DiagnosticLogger();
+        ConfigurationLoadResult configurationLoad = _configurationRepository.Load();
+        if (createFileDiagnostics)
+        {
+            string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualKeyboard", "logs");
+            _diagnosticSink = new RollingFileDiagnosticSink(logDirectory, configurationLoad.Configuration.DetailedDiagnostics, maxFileBytes: 4 * 1024 * 1024, maxFileCount: 5);
+        }
+        _diagnostics = new DiagnosticLogger(sink: _diagnosticSink);
+        _diagnostics.Log(
+            configurationLoad.Status == ConfigurationLoadStatus.RecoveredInvalid ? DiagnosticType.ConfigRecovered : DiagnosticType.ConfigLoaded,
+            DiagnosticModule.Configuration,
+            errorCode: configurationLoad.Issues.Count);
         var validator = new TargetSessionValidator(_targetSessions, _targetCapture, _latestFocusSnapshots);
         _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
         var keySender = new KeyInputSender(_diagnostics);
@@ -66,7 +83,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             keySender,
             _hotkeySender,
             new UnicodeTextInputSender(_diagnostics));
-        ConfigurationLoadResult configurationLoad = _configurationRepository.Load();
         if (!configurationLoad.Configuration.Enabled) _coordinator.SetEnabled(false);
         _layoutRepository = new LayoutRepository(LayoutRepositoryPaths.CreateDefault(AppContext.BaseDirectory));
         LoadBuiltInLayout();
@@ -165,6 +181,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             EndSettingsSession();
             bool isEnabled = _configurationRepository.Current.Enabled;
             if (wasEnabled != isEnabled) _coordinator.SetEnabled(isEnabled);
+            _diagnosticSink?.SetDetailedEnabled(_configurationRepository.Current.DetailedDiagnostics);
         }
     }
 
@@ -186,10 +203,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
         KeyboardConfiguration current = _configurationRepository.Current;
         if (current.Enabled == enabled) return;
-        _configurationRepository.Save(new(
+        ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
             current.ManualPositionMode, current.DetailedDiagnostics));
+        if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
         {
@@ -228,9 +246,26 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             return;
         }
         _latestFocusSnapshots.Publish(snapshot);
+        _diagnostics.Log(DiagnosticType.FocusObserved, DiagnosticModule.Focus, DiagnosticLevel.Detailed, targetProcessId: snapshot.ProcessId);
         TargetStateTransition observed = _coordinator.Observe(snapshot);
         if (!observed.Accepted) return;
         FocusTargetEvaluation evaluation = _focusEvaluator.Evaluate(snapshot);
+        _diagnostics.Log(DiagnosticType.ClassificationCompleted, DiagnosticModule.Classification,
+            targetProcessId: snapshot.ProcessId,
+            controlKind: evaluation.Classification.Value switch
+            {
+                Editability.Editable when snapshot.IsPassword => ControlKind.Password,
+                Editability.Editable => ControlKind.Editable,
+                Editability.NotEditable => ControlKind.NotEditable,
+                _ => ControlKind.Unknown,
+            },
+            verdict: evaluation.Classification.Value switch
+            {
+                Editability.Editable when snapshot.IsPassword => Verdict.Password,
+                Editability.Editable => Verdict.Editable,
+                Editability.NotEditable => Verdict.NotEditable,
+                _ => Verdict.Unknown,
+            });
         TargetStateTransition classified = _coordinator.ApplyClassification(snapshot, evaluation.Classification);
         Dispatcher.BeginInvoke(() => ApplyAutomaticFocus(evaluation, classified));
     }
@@ -244,6 +279,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             evaluation.Anchor is { IsValid: true } anchor)
         {
             TargetSession session = _targetSessions.Replace(evaluation.Snapshot, evaluation.FocusHwnd, anchor);
+            _diagnostics.Log(DiagnosticType.TargetSessionCreated, DiagnosticModule.State, targetProcessId: session.ProcessId);
             _inputQueue.SetCurrentSession(session.SessionId);
             _keyboardController.SetTargetSession(session.SessionId);
             ReloadLayoutForTarget(session.IsPassword);
@@ -258,6 +294,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             Opacity = configuration.Opacity;
             _overlay.ShowAt(checked((int)Math.Round(rectangle.X)), checked((int)Math.Round(rectangle.Y)),
                 checked((int)Math.Round(rectangle.Width)), checked((int)Math.Round(rectangle.Height)));
+            _diagnostics.Log(DiagnosticType.OverlayShown, DiagnosticModule.Overlay, targetProcessId: session.ProcessId);
             return;
         }
         if (transition.Actions.HasFlag(TargetCoordinatorAction.ClearTargetSession))
@@ -431,6 +468,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _overlay.DpiChanged -= OnOverlayDpiChanged;
         _overlay.Dispose();
         _diagnostics.Dispose();
+        _diagnosticSink?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

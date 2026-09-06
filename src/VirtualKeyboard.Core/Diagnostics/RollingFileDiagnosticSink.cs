@@ -32,7 +32,7 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
     private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
     private readonly object _gate = new();
-    private readonly bool _detailedEnabled;
+    private bool _detailedEnabled;
     private readonly long _maxFileBytes;
     private readonly int _maxFileCount;
     private string? _root;
@@ -93,6 +93,15 @@ public sealed class RollingFileDiagnosticSink : IDiagnosticSink
             {
                 return !_disposed && _root is not null;
             }
+        }
+    }
+
+    public void SetDetailedEnabled(bool enabled)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _detailedEnabled = enabled;
         }
     }
 

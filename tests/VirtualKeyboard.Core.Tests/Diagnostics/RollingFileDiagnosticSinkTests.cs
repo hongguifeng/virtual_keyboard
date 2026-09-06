@@ -77,6 +77,28 @@ public class RollingFileDiagnosticSinkTests
     }
 
     [Fact]
+    public void DetailedSettingCanBeEnabledAtRuntime()
+    {
+        var dir = DiagnosticPrivacyTests.CreateTempDir();
+        try
+        {
+            using var sink = new RollingFileDiagnosticSink(dir, detailedEnabled: false);
+            sink.Write(MakeEvent(DiagnosticLevel.Detailed));
+            Assert.False(HasContent(dir));
+
+            sink.SetDetailedEnabled(true);
+            sink.Write(MakeEvent(DiagnosticLevel.Detailed));
+
+            Assert.True(sink.DetailedEnabled);
+            Assert.True(HasContent(dir));
+        }
+        finally
+        {
+            DiagnosticPrivacyTests.DeleteDir(dir);
+        }
+    }
+
+    [Fact]
     public void NonWritableRoot_DegradesToNoOp()
     {
         var dir = DiagnosticPrivacyTests.CreateTempDir();

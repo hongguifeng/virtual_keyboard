@@ -69,7 +69,16 @@
 
 ## 7. 诊断材料与隐私
 
-如果 `%LocalAppData%\VirtualKeyboard\logs` 存在，只复制其中的日志文件到新的临时目录，再压缩发送给支持人员。当前内测宿主尚未完成磁盘诊断接线，因此该目录可能不存在；目录不存在时不要为了“生成日志”反复输入敏感内容。
+结构化日志位于 `%LocalAppData%\VirtualKeyboard\logs`，最多 5 个文件、每个最多 4 MiB。目录不可写时诊断会降级而不阻止应用；没有日志时不要为了“生成日志”反复输入敏感内容。
+
+退出应用后，可只压缩日志文件：
+
+```powershell
+$logSource = Join-Path $env:LOCALAPPDATA 'VirtualKeyboard\logs'
+Compress-Archive -Path (Join-Path $logSource '*.jsonl') -DestinationPath .\VirtualKeyboard-logs.zip
+```
+
+压缩前确认源路径确实是上述 `logs` 目录，不要把整个 `VirtualKeyboard` 用户数据目录打包。
 
 不要发送以下内容：
 
