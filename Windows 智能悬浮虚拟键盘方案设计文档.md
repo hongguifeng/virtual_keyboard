@@ -284,6 +284,8 @@ NotEditable(NoEditableEvidence)
 
 ### 8.3 规则细节
 
+当前实现由 Core `EditabilityClassifier` 消费不可变 `EditabilityEvidence`，Windows `EditabilityEvidenceFactory` 在 UIA 观察线程填充 Pattern 可用性和只读状态。分类器不读取 Value/Text；`TextPattern` 单独存在返回 `Unknown(TextPatternOnly)`。caret 证据必须为有限、非零、合理范围矩形且归属于快照顶层 HWND；无效身份返回 `Unknown(InvalidIdentity)`，禁用/失焦/离屏返回 `NotEditable(NoFocusOrDisabled)`。UIA 元素失效、无效操作和 COM 异常均降级为无证据。
+
 - `ControlType.Edit` 是强提示但不是无条件结论；显式只读优先。
 - 密码字段常因安全原因不暴露 ValuePattern，应使用 `IsPassword + Edit + HasKeyboardFocus` 判定。
 - TextEditPattern 比 TextPattern 更接近编辑语义，但仍要求元素启用并持有焦点。

@@ -1,0 +1,78 @@
+namespace VirtualKeyboard.Core.Targeting;
+
+public enum Editability
+{
+    Editable,
+    NotEditable,
+    Unknown,
+}
+
+public enum ClassificationReasonCode
+{
+    InvalidIdentity,
+    NoFocusOrDisabled,
+    ReadOnly,
+    PasswordEdit,
+    ValuePattern,
+    TextEditPattern,
+    CaretEvidence,
+    TextPatternOnly,
+    NoEditableEvidence,
+}
+
+public readonly record struct EditabilityEvidence(
+    FocusSnapshot Snapshot,
+    bool IsValuePatternAvailable,
+    bool IsValueReadOnly,
+    bool IsTextEditPatternAvailable,
+    bool IsTextPatternAvailable,
+    ScreenRectangle? CaretRectangle,
+    nint CaretOwnerHwnd);
+
+public readonly record struct ScreenRectangle(double X, double Y, double Width, double Height)
+{
+    private const double CoordinateLimit = 10_000_000;
+
+    public bool IsValid =>
+        double.IsFinite(X) && double.IsFinite(Y) &&
+        double.IsFinite(Width) && double.IsFinite(Height) &&
+        Math.Abs(X) <= CoordinateLimit && Math.Abs(Y) <= CoordinateLimit &&
+        Width >= 0 && Height >= 0 && Width <= CoordinateLimit && Height <= CoordinateLimit &&
+        (Width > 0 || Height > 0);
+}
+
+public readonly record struct ClassificationResult(
+    long Version,
+    Editability Value,
+    ClassificationReasonCode ReasonCode,
+    bool IsPassword);
+
+public static class EditabilityClassifier
+{
+    public static ClassificationResult Classify(EditabilityEvidence evidence)
+    {
+        FocusSnapshot snapshot = evidence.Snapshot;
+        if (snapshot.ProcessId <= 0 || snapshot.TopLevelHwnd == nint.Zero)
+            return Result(snapshot, Editability.Unknown, ClassificationReasonCode.InvalidIdentity);
+        if (!snapshot.IsEnabled || !snapshot.HasKeyboardFocus || snapshot.IsOffscreen)
+            return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled);
+        if (evidence.IsValuePatternAvailable && evidence.IsValueReadOnly)
+            return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.ReadOnly);
+        if (snapshot.IsPassword && snapshot.ControlType == FocusControlType.Edit)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.PasswordEdit);
+        if (evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.ValuePattern);
+        if (evidence.IsTextEditPatternAvailable)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.TextEditPattern);
+        if ((snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document) &&
+            evidence.CaretRectangle is { IsValid: true } &&
+            evidence.CaretOwnerHwnd == snapshot.TopLevelHwnd)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.CaretEvidence);
+        if (evidence.IsTextPatternAvailable)
+            return Result(snapshot, Editability.Unknown, ClassificationReasonCode.TextPatternOnly);
+        return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.NoEditableEvidence);
+    }
+
+    private static ClassificationResult Result(FocusSnapshot snapshot, Editability value, ClassificationReasonCode reason) =>
+        new(snapshot.Version, value, reason, snapshot.IsPassword);
+}

@@ -1,4 +1,4 @@
-﻿# Windows 智能悬浮虚拟键盘开发计划 TODO
+ # Windows 智能悬浮虚拟键盘开发计划 TODO
 
 ## 1. 文档信息
 
@@ -203,12 +203,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`FocusSnapshot` 使用不可变 `RuntimeIdentity`、封闭的 `FocusControlType` 和版本/时间/窗口/状态字段；`FocusSnapshotVersionGenerator` 以进程内原子计数分配版本，并在创建前过滤无效 HWND、无效 PID和自身进程。`FocusSnapshotFactory` 仅读取 ProcessId、NativeWindowHandle、ControlType、RuntimeId、HasKeyboardFocus、IsEnabled、IsOffscreen、IsPassword；不读取 Name/Value。UIA 读取限定在观察线程，元素失效和 COM 异常转换为无快照结果。
   - 验证：Core 33/33、Windows 26/26、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖版本单调性、RuntimeId 深复制、自进程过滤、真实 WPF HWND 元数据和 MTA 观察线程。BoundingRectangle/caret 锚点留待 T2.4/T3.2，在本任务不读取输入内容。
 
-- [ ] **T2.3（P0，1-1.5 人日）实现 EditabilityClassifier**
+- [x] **T2.3（P0，1-1.5 人日）实现 EditabilityClassifier**
   - 支持 Editable/NotEditable/Unknown 和稳定 ReasonCode。
   - 实现 ValuePattern、IsReadOnly、TextEditPattern、Edit、Password、caret 证据规则。
   - TextPattern-only 必须返回 Unknown 或 NotEditable，不能返回 Editable。
   - 添加元素失效、COM 异常和无穷/空矩形处理。
   - 对应：FR-FOC-003、004，AC-006、013。
+  - 实现：Core `EditabilityClassifier` 按身份、启用/焦点/离屏、只读、密码 Edit、ValuePattern、TextEditPattern、caret 和 TextPattern-only 顺序返回封闭的 `ClassificationReasonCode`；`ScreenRectangle` 拒绝 NaN/Infinity、超限、负尺寸和零矩形。Windows `EditabilityEvidenceFactory` 仅读取 Pattern 可用性与 `IsReadOnly`，不读取 Value/Text，并隔离 UIA/COM 异常。
+  - 验证：Core 49/49、Windows 30/30、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖密码 Edit、ValuePattern、TextEditPattern、TextPattern-only、只读优先、焦点/启用/离屏、caret 归属及异常路径。
 
 - [ ] **T2.4（P0，0.75-1 人日）实现 NativeFocusAdapter**
   - 封装 GetForegroundWindow、GetWindowThreadProcessId、GetGUIThreadInfo、ClientToScreen。
