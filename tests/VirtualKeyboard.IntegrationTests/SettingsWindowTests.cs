@@ -309,6 +309,41 @@ public sealed class SettingsWindowTests
         });
     }
 
+    [Fact]
+    public void RecordButtonIsNotCoveredByRecordingHelpInSimplifiedChinese()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            var window = new SettingsWindow(fixture.Repository);
+            Find<ComboBox>(window, "LanguageComboBox").SelectedIndex = 1;
+            Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Find<ComboBox>(window, "CustomActionModeComboBox").SelectedIndex = 1;
+
+            // 窗口高度必须跟随内容（原固定 760 高度会把内容压回重叠）。
+            Assert.Equal(SizeToContent.Height, window.SizeToContent);
+
+            var root = Assert.IsType<Border>(window.Content);
+            root.Measure(new Size(720, double.PositiveInfinity));
+            root.Arrange(new Rect(0, 0, 720, root.DesiredSize.Height));
+
+            Rect buttonRect = ElementRect(root, Find<Button>(window, "RecordShortcutButton"));
+            Rect helpRect = ElementRect(root, Find<TextBlock>(window, "RecordingHelpText"));
+            Assert.InRange(helpRect.Width, 0.5, double.MaxValue);
+            Assert.InRange(helpRect.Height, 0.5, double.MaxValue);
+            double overlapX = Math.Min(buttonRect.Right, helpRect.Right) - Math.Max(buttonRect.Left, helpRect.Left);
+            double overlapY = Math.Min(buttonRect.Bottom, helpRect.Bottom) - Math.Max(buttonRect.Top, helpRect.Top);
+            Assert.True(overlapX <= 0.5 || overlapY <= 0.5,
+                $"录制按键按钮不得被提示文字覆盖: button={buttonRect} help={helpRect} overlapX={overlapX} overlapY={overlapY}");
+        });
+    }
+
+    private static Rect ElementRect(FrameworkElement root, FrameworkElement element)
+    {
+        Point top = element.TranslatePoint(new Point(0, 0), root);
+        return new Rect(top.X, top.Y, element.ActualWidth, element.ActualHeight);
+    }
+
     private static T Find<T>(FrameworkElement root, string name) where T : class => Assert.IsType<T>(root.FindName(name));
     private static void RunOnStaThread(Action action)
     {

@@ -718,6 +718,8 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] `REL-024` GitHub Actions：main/PR 只执行 Release 构建与测试；仅 `v*` 版本 Tag 生成版本化 ZIP、SHA-256、安全报告并创建 GitHub Release。版本由 Tag 传入构建和校验脚本。已本地验证 `-SkipPackage` 门禁，以及以测试版本 2.3.4 生成并校验版本化包；Core 234/234、Windows 210/210、Integration 37/37，0 warning/error，工作流 YAML 解析通过。
 - [x] `REL-025` 现代化视觉：深色圆角键盘 Chrome、分层键帽、悬停/按下/蓝色锁定状态、轻量标题栏，以及浅色卡片式设置窗口；保持 NoActivate、整窗透明、标准排布、缩放与输入语义。已用实际运行窗口检查圆角、对比度、文字和标准排布，并同步更新 README 截图。完整 Release 门禁：Core 234/234、Windows 210/210、Integration 39/39，构建/发布 0 warning/error，发布安全静态检查通过。
 
+- [x] `REL-026` 设置窗口“录制按键”按钮被简体中文两行提示文字覆盖的缺陷修复：窗口改为 `SizeToContent=Height`（保留 `MinHeight`），自定义键行改为 `Auto`，自定义键列表上限 210 DIP 且内部滚动。新增集成测试断言简体中文下按钮与提示文字不相交。完整 Release 门禁：Core 234/234、Windows 210/210、Integration 40/40，构建/发布 0 warning/error，发布安全静态检查通过。
+
 ## 18. 下一步启动清单
 
 - [ ] 评审并批准三份文档作为 MVP 基线。
