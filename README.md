@@ -12,6 +12,8 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 
 键盘标题栏的“设置”可打开独立、允许激活的设置窗口。窗口覆盖启用、自动显示/隐藏、尺寸、透明度、边距、布局、手动位置模式和详细诊断；保存前验证，持久化失败时窗口保持打开并提示，编辑后的有效配置仍保留在内存中。
 
+应用启动后常驻系统托盘。托盘菜单提供启用/暂停、显示当前键盘、设置、重新加载布局和退出；键盘标题栏关闭按钮只隐藏可复用窗口，退出请使用托盘菜单。
+
 ## 先决条件
 
 - **操作系统**：Windows（64 位）。
@@ -90,7 +92,7 @@ M1/M2 验证用的纯测试宿主（无产品逻辑）：
 ## 仓库结构
 
 ```
-src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置；托盘待实现）
+src/VirtualKeyboard.App        WPF 宿主应用（键盘、设置和系统托盘）
 src/VirtualKeyboard.Core       平台无关核心（分类、状态、布局、配置，无 WPF/UIA/P-Invoke 引用）
 src/VirtualKeyboard.Windows    Windows 适配层（目标捕获、UIA、Overlay、定位和 SendInput）
 tests/VirtualKeyboard.Core.Tests

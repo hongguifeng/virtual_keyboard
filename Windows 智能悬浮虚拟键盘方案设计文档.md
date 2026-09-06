@@ -705,6 +705,8 @@ T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\conf
 
 T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段；数值使用 invariant culture 解析，保存前显式调用 `ConfigurationValidator`，再交给 Repository 持久化。验证或保存失败时窗口保持打开并显示不含用户值的固定提示；Repository 的有效内存快照不因 IO 失败回滚。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、清除 TargetSession 和瞬时修饰键并隐藏 Overlay，因此设置窗口及其输入控件的焦点不会建立输入目标，关闭后协调器回到 Hidden/Disabled 并等待焦点刷新。
 
+T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
+
 ## 15. 诊断、隐私与安全设计
 
 ### 15.1 事件模型

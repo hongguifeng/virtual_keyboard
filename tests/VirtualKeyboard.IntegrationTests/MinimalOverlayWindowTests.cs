@@ -147,7 +147,7 @@ public sealed class MinimalOverlayWindowTests
     }
 
     [Fact]
-    public void CloseButtonClosesWindowAndDisposesOwnedResources()
+    public void CloseButtonHidesReusableWindowWithoutDisposingOwnedResources()
     {
         RunOnStaThread(() =>
         {
@@ -158,7 +158,7 @@ public sealed class MinimalOverlayWindowTests
             closeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             Assert.False(window.IsVisible);
-            Assert.True(window.IsDisposed);
+            Assert.False(window.IsDisposed);
         });
     }
 

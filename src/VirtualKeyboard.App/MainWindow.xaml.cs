@@ -11,7 +11,7 @@ using VirtualKeyboard.Windows;
 namespace VirtualKeyboard.App;
 
 /// <summary>Minimal non-activating keyboard window with explicit target capture.</summary>
-public partial class MainWindow : Window, IDisposable
+public partial class MainWindow : Window, IDisposable, ITrayCommands
 {
     private static readonly DipSize ConfiguredOverlaySize = new(760, 340);
     private readonly OverlayWindowAdapter _overlay;
@@ -25,6 +25,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly InputInjectionService _inputQueue;
     private readonly TargetStateCoordinator _coordinator = new();
     private readonly ConfigurationRepository _configurationRepository = new(ConfigurationRepositoryPaths.CreateDefault());
+    private readonly LayoutRepository _layoutRepository;
     private bool _disposed;
 
     public MainWindow()
@@ -54,7 +55,9 @@ public partial class MainWindow : Window, IDisposable
             keySender,
             _hotkeySender,
             new UnicodeTextInputSender(_diagnostics));
-        _configurationRepository.Load();
+        ConfigurationLoadResult configurationLoad = _configurationRepository.Load();
+        if (!configurationLoad.Configuration.Enabled) _coordinator.SetEnabled(false);
+        _layoutRepository = new LayoutRepository(LayoutRepositoryPaths.CreateDefault(AppContext.BaseDirectory));
         LoadBuiltInLayout();
     }
 
@@ -63,6 +66,13 @@ public partial class MainWindow : Window, IDisposable
     internal bool IsDisposed => _disposed;
 
     internal TargetCoordinatorState CoordinatorState => _coordinator.State;
+
+    bool ITrayCommands.IsEnabled => _configurationRepository.Current.Enabled;
+    void ITrayCommands.SetEnabled(bool enabled) => SetApplicationEnabled(enabled);
+    void ITrayCommands.ShowCurrentKeyboard() => ShowCurrentKeyboard();
+    void ITrayCommands.OpenSettings() => OpenSettingsWindow();
+    void ITrayCommands.ReloadLayouts() => LoadBuiltInLayout();
+    void ITrayCommands.Exit() => Application.Current.Shutdown();
 
     internal nint OverlayHandle => _overlay.Handle;
 
@@ -116,7 +126,7 @@ public partial class MainWindow : Window, IDisposable
     {
         _ = sender;
         _ = e;
-        _overlay.Close();
+        _overlay.Hide();
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
@@ -128,6 +138,7 @@ public partial class MainWindow : Window, IDisposable
 
     internal bool OpenSettingsWindow()
     {
+        bool wasEnabled = _configurationRepository.Current.Enabled;
         if (!BeginSettingsSession()) return false;
         try
         {
@@ -135,7 +146,12 @@ public partial class MainWindow : Window, IDisposable
             settings.ShowDialog();
             return true;
         }
-        finally { EndSettingsSession(); }
+        finally
+        {
+            EndSettingsSession();
+            bool isEnabled = _configurationRepository.Current.Enabled;
+            if (wasEnabled != isEnabled) _coordinator.SetEnabled(isEnabled);
+        }
     }
 
     internal bool BeginSettingsSession()
@@ -150,6 +166,31 @@ public partial class MainWindow : Window, IDisposable
     }
 
     internal bool EndSettingsSession() => _coordinator.CloseSettings().Accepted;
+
+    internal void SetApplicationEnabled(bool enabled)
+    {
+        KeyboardConfiguration current = _configurationRepository.Current;
+        if (current.Enabled == enabled) return;
+        _configurationRepository.Save(new(
+            current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
+            current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
+            current.ManualPositionMode, current.DetailedDiagnostics));
+        _coordinator.SetEnabled(enabled);
+        if (!enabled)
+        {
+            _inputQueue.SetCurrentSession(0);
+            _targetSessions.Clear();
+            _keyboardController.ClearTargetSession();
+            _overlay.Hide();
+        }
+    }
+
+    internal void ShowCurrentKeyboard()
+    {
+        if (!_configurationRepository.Current.Enabled) return;
+        KeyboardConfiguration configuration = _configurationRepository.Current;
+        _overlay.ShowAt(40, 40, checked((int)Math.Round(configuration.KeyboardWidthDip)), checked((int)Math.Round(configuration.KeyboardHeightDip)));
+    }
 
     private void OnCaptureTargetClick(object sender, RoutedEventArgs e)
     {
@@ -227,9 +268,10 @@ public partial class MainWindow : Window, IDisposable
 
     private void LoadBuiltInLayout()
     {
-        var repository = new LayoutRepository(LayoutRepositoryPaths.CreateDefault(AppContext.BaseDirectory));
-        LayoutReloadResult loaded = repository.Reload();
-        if (loaded.Layouts.TryGetValue("builtin.qwerty.en-US", out KeyboardLayoutDefinition? layout))
+        LayoutReloadResult loaded = _layoutRepository.Reload();
+        string layoutId = _configurationRepository.Current.LayoutId ?? "builtin.qwerty.en-US";
+        if (loaded.Layouts.TryGetValue(layoutId, out KeyboardLayoutDefinition? layout) ||
+            loaded.Layouts.TryGetValue("builtin.qwerty.en-US", out layout))
         {
             LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(layout));
             return;
