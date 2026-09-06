@@ -48,7 +48,8 @@ public static class ConfigurationDefaults
         layoutId: "builtin.qwerty.en-US",
         manualPositionMode: ManualPositionMode.UntilTargetChanges,
         detailedDiagnostics: false,
-        customKeys: []);
+        customKeys: [],
+        uiLanguage: UiLanguage.English);
 }
 
 /// <summary>Loads recoverably and saves validated configuration with a flushed same-directory replacement.</summary>
@@ -272,6 +273,7 @@ public sealed class ConfigurationRepository
         public string? CustomKeyLabel { get; set; }
         public string? CustomKeyText { get; set; }
         public List<RawCustomKey?>? CustomKeys { get; set; }
+        public UiLanguage? UiLanguage { get; set; }
 
         [JsonIgnore]
         public bool HasAllRequiredValues => SchemaVersion.HasValue && Enabled.HasValue && AutoShow.HasValue && AutoHide.HasValue &&
@@ -289,7 +291,8 @@ public sealed class ConfigurationRepository
             return new(
                 SchemaVersion!.Value, Enabled!.Value, AutoShow!.Value, AutoHide!.Value, Opacity!.Value,
                 KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
-                ManualPositionMode!.Value, DetailedDiagnostics!.Value, customKeys);
+                ManualPositionMode!.Value, DetailedDiagnostics!.Value, customKeys,
+                UiLanguage ?? global::VirtualKeyboard.Core.Configuration.UiLanguage.English);
         }
     }
 

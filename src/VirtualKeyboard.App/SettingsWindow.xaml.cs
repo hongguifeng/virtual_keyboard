@@ -12,11 +12,6 @@ namespace VirtualKeyboard.App;
 public partial class SettingsWindow : Window, IDisposable
 {
     private const string TextMode = "text";
-    private static readonly ManualPositionModeOption[] PositionModeOptions =
-    [
-        new(ManualPositionMode.UntilTargetChanges, "当前输入框", "拖动键盘后，仅为当前输入框保留位置；切换到其他输入框时恢复自动定位。"),
-        new(ManualPositionMode.Persistent, "持续保留", "拖动键盘后继续使用手动位置，不因切换输入框而恢复自动定位。"),
-    ];
     private readonly ConfigurationRepository _repository;
     private readonly ObservableCollection<CustomKeyEditorItem> _customKeys = [];
     private readonly KeyboardChordRecorder _chordRecorder = new();
@@ -24,12 +19,12 @@ public partial class SettingsWindow : Window, IDisposable
     private bool _loadingEditor;
     private bool _isRecordingShortcut;
     private bool _disposed;
+    private AppStrings _strings = AppStrings.For(UiLanguage.English);
 
     public SettingsWindow(ConfigurationRepository repository)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         InitializeComponent();
-        PositionModeComboBox.ItemsSource = PositionModeOptions;
         CustomKeysList.ItemsSource = _customKeys;
         _chordRecorder.Captured += OnChordCaptured;
         _chordRecorder.CaptureFailed += OnChordCaptureFailed;
@@ -47,7 +42,8 @@ public partial class SettingsWindow : Window, IDisposable
             PositionModeComboBox.SelectedItem is ManualPositionModeOption option ? option.Mode : ManualPositionMode.UntilTargetChanges,
             DiagnosticsCheckBox.IsChecked == true,
             _customKeys.Select(static key => new CustomKeyConfiguration(
-                key.Label, key.ActionType, key.Input, key.Modifiers)));
+                key.Label, key.ActionType, key.Input, key.Modifiers)),
+            SelectedLanguage());
     }
 
     internal bool ApplyRecordedChordForTest(params WindowsKeyboardKey[] keys) =>
@@ -55,6 +51,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void LoadConfiguration(KeyboardConfiguration configuration)
     {
+        LanguageComboBox.SelectedIndex = configuration.UiLanguage == UiLanguage.SimplifiedChinese ? 1 : 0;
+        ApplyLanguage(configuration.UiLanguage);
         EnabledCheckBox.IsChecked = configuration.Enabled;
         AutoShowCheckBox.IsChecked = configuration.AutoShow;
         AutoHideCheckBox.IsChecked = configuration.AutoHide;
@@ -63,7 +61,7 @@ public partial class SettingsWindow : Window, IDisposable
         HeightTextBox.Text = configuration.KeyboardHeightDip.ToString(CultureInfo.InvariantCulture);
         MarginTextBox.Text = configuration.MarginDip.ToString(CultureInfo.InvariantCulture);
         LayoutIdTextBox.Text = configuration.LayoutId ?? string.Empty;
-        PositionModeComboBox.SelectedItem = PositionModeOptions.Single(option => option.Mode == configuration.ManualPositionMode);
+        PositionModeComboBox.SelectedItem = PositionModeComboBox.Items.Cast<ManualPositionModeOption>().Single(option => option.Mode == configuration.ManualPositionMode);
         DiagnosticsCheckBox.IsChecked = configuration.DetailedDiagnostics;
         _customKeys.Clear();
         foreach (CustomKeyConfiguration key in configuration.CustomKeys)
@@ -82,12 +80,12 @@ public partial class SettingsWindow : Window, IDisposable
         {
             KeyboardConfiguration configuration = ReadConfiguration();
             ConfigurationValidationResult validation = ConfigurationValidator.Validate(configuration);
-            if (!validation.IsValid) { StatusText.Text = "设置无效，请检查自定义按键或数值范围。"; return; }
+            if (!validation.IsValid) { StatusText.Text = _strings.InvalidSettings; return; }
             ConfigurationSaveResult result = _repository.Save(configuration);
-            if (!result.IsSaved) { StatusText.Text = "设置无法保存，已保留当前内存配置。"; return; }
+            if (!result.IsSaved) { StatusText.Text = _strings.SaveFailed; return; }
             DialogResult = true;
         }
-        catch (FormatException) { StatusText.Text = "设置无效，请输入数字。"; }
+        catch (FormatException) { StatusText.Text = _strings.InvalidNumber; }
     }
 
     private void OnAddCustomKeyClick(object sender, RoutedEventArgs e)
@@ -96,7 +94,7 @@ public partial class SettingsWindow : Window, IDisposable
         _ = e;
         CommitEditor();
         if (_customKeys.Count >= ConfigurationSchemaLimits.MaximumCustomKeys) return;
-        var item = new CustomKeyEditorItem("自定义", LayoutActionTypes.Text, string.Empty, []);
+        var item = new CustomKeyEditorItem(_strings.NewCustomKey, LayoutActionTypes.Text, string.Empty, []);
         _customKeys.Add(item);
         CustomKeysList.SelectedItem = item;
         CustomKeysList.ScrollIntoView(item);
@@ -131,7 +129,7 @@ public partial class SettingsWindow : Window, IDisposable
         bool isText = item?.ActionType == LayoutActionTypes.Text;
         CustomActionModeComboBox.SelectedIndex = isText ? 0 : 1;
         CustomTextTextBox.Text = isText ? item?.Input ?? string.Empty : string.Empty;
-        RecordedShortcutText.Text = item is null || isText ? "尚未录制" : item.GestureDisplay;
+        RecordedShortcutText.Text = item is null || isText ? _strings.NotRecorded : item.GestureDisplay;
         _loadingEditor = false;
         UpdateEditorVisibility();
     }
@@ -159,7 +157,7 @@ public partial class SettingsWindow : Window, IDisposable
             _editingItem.Input = string.Empty;
             _editingItem.Modifiers = [];
             CustomTextTextBox.Text = string.Empty;
-            RecordedShortcutText.Text = "尚未录制";
+            RecordedShortcutText.Text = _strings.NotRecorded;
         }
         UpdateEditorVisibility();
     }
@@ -187,12 +185,12 @@ public partial class SettingsWindow : Window, IDisposable
         }
         if (!_chordRecorder.Start())
         {
-            StatusText.Text = "无法启动键盘录制，请重试。";
+            StatusText.Text = _strings.RecordingFailed;
             return;
         }
         _isRecordingShortcut = true;
-        RecordShortcutButton.Content = "请按下组合键…";
-        RecordedShortcutText.Text = "等待按键，全部松开后完成…";
+        RecordShortcutButton.Content = _strings.PressShortcut;
+        RecordedShortcutText.Text = _strings.WaitingRelease;
     }
 
     private void OnChordCaptured(object? sender, KeyboardChordCapturedEventArgs e)
@@ -221,7 +219,7 @@ public partial class SettingsWindow : Window, IDisposable
     private void ShowChordCaptureFailure()
     {
         StopRecording();
-        RecordedShortcutText.Text = "组合键最多支持 8 个不同按键，请重新录制。";
+        RecordedShortcutText.Text = _strings.TooManyChordKeys;
     }
 
     private bool ApplyRecordedChord(IReadOnlyList<WindowsKeyboardKey> keys)
@@ -239,7 +237,60 @@ public partial class SettingsWindow : Window, IDisposable
     {
         _isRecordingShortcut = false;
         _chordRecorder.Stop();
-        if (RecordShortcutButton is not null) RecordShortcutButton.Content = "开始录制";
+        if (RecordShortcutButton is not null) RecordShortcutButton.Content = _strings.StartRecording;
+    }
+
+    private UiLanguage SelectedLanguage() =>
+        (LanguageComboBox.SelectedItem as ComboBoxItem)?.Tag as string == nameof(UiLanguage.SimplifiedChinese)
+            ? UiLanguage.SimplifiedChinese
+            : UiLanguage.English;
+
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (SaveButton is not null) ApplyLanguage(SelectedLanguage());
+    }
+
+    private void ApplyLanguage(UiLanguage language)
+    {
+        ManualPositionMode selectedMode = PositionModeComboBox.SelectedItem is ManualPositionModeOption selected
+            ? selected.Mode
+            : ManualPositionMode.UntilTargetChanges;
+        _strings = AppStrings.For(language);
+        Title = _strings.SettingsTitle;
+        LanguageLabel.Content = _strings.LanguageLabel;
+        EnabledCheckBox.Content = _strings.Enabled;
+        AutoShowCheckBox.Content = _strings.AutoShow;
+        AutoHideCheckBox.Content = _strings.AutoHide;
+        WidthLabel.Content = _strings.Width;
+        HeightLabel.Content = _strings.Height;
+        MarginLabel.Content = _strings.Margin;
+        TransparencyLabel.Content = _strings.Transparency;
+        LayoutIdLabel.Content = _strings.LayoutId;
+        CustomKeysGroup.Header = _strings.CustomKeys;
+        AddCustomKeyButton.Content = _strings.Add;
+        DeleteCustomKeyButton.Content = _strings.Delete;
+        KeyNameLabel.Content = _strings.KeyName;
+        OnPressLabel.Content = _strings.OnPress;
+        TextModeItem.Content = _strings.EnterText;
+        ShortcutModeItem.Content = _strings.RecordShortcut;
+        TextContentLabel.Content = _strings.TextContent;
+        RecordedLabel.Content = _strings.Recorded;
+        RecordingHelpText.Text = _strings.RecordingHelp;
+        PositionRetentionLabel.Content = _strings.PositionRetention;
+        DiagnosticsCheckBox.Content = _strings.Diagnostics;
+        SaveButton.Content = _strings.Save;
+        CancelButton.Content = _strings.Cancel;
+        PositionModeComboBox.ItemsSource = new[]
+        {
+            new ManualPositionModeOption(ManualPositionMode.UntilTargetChanges, _strings.CurrentField, _strings.CurrentFieldDescription),
+            new ManualPositionModeOption(ManualPositionMode.Persistent, _strings.Persistent, _strings.PersistentDescription),
+        };
+        PositionModeComboBox.SelectedItem = PositionModeComboBox.Items.Cast<ManualPositionModeOption>().Single(option => option.Mode == selectedMode);
+        if (!_isRecordingShortcut && (_editingItem is null || _editingItem.ActionType == LayoutActionTypes.Text || string.IsNullOrEmpty(_editingItem.GestureDisplay)))
+            RecordedShortcutText.Text = _strings.NotRecorded;
+        StopRecording();
     }
 
     protected override void OnClosed(EventArgs e)

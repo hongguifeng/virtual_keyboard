@@ -9,6 +9,12 @@ public enum ManualPositionMode
     Persistent,
 }
 
+public enum UiLanguage
+{
+    English,
+    SimplifiedChinese,
+}
+
 public sealed class CustomKeyConfiguration
 {
     public CustomKeyConfiguration(string? label, string? actionType, string? input, IEnumerable<string>? modifiers = null)
@@ -48,7 +54,8 @@ public sealed class KeyboardConfiguration
         string? layoutId,
         ManualPositionMode manualPositionMode,
         bool detailedDiagnostics,
-        IEnumerable<CustomKeyConfiguration>? customKeys = null)
+        IEnumerable<CustomKeyConfiguration>? customKeys = null,
+        UiLanguage uiLanguage = UiLanguage.English)
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -62,6 +69,7 @@ public sealed class KeyboardConfiguration
         ManualPositionMode = manualPositionMode;
         DetailedDiagnostics = detailedDiagnostics;
         CustomKeys = Array.AsReadOnly((customKeys ?? []).ToArray());
+        UiLanguage = uiLanguage;
     }
 
     public int SchemaVersion { get; }
@@ -76,6 +84,7 @@ public sealed class KeyboardConfiguration
     public ManualPositionMode ManualPositionMode { get; }
     public bool DetailedDiagnostics { get; }
     public IReadOnlyList<CustomKeyConfiguration> CustomKeys { get; }
+    public UiLanguage UiLanguage { get; }
 }
 
 public sealed record ConfigurationValidationError(string Path, string Code, string Message);
@@ -133,6 +142,10 @@ public static class ConfigurationValidator
         if (!Enum.IsDefined(configuration.ManualPositionMode))
         {
             Add(errors, "$.manualPositionMode", "config.manualPositionMode", "The manual position mode is not supported.");
+        }
+        if (!Enum.IsDefined(configuration.UiLanguage))
+        {
+            Add(errors, "$.uiLanguage", "config.uiLanguage", "The UI language is not supported.");
         }
         if (configuration.CustomKeys.Count > ConfigurationSchemaLimits.MaximumCustomKeys)
         {

@@ -1,4 +1,5 @@
 using VirtualKeyboard.App;
+using VirtualKeyboard.Core.Configuration;
 
 namespace VirtualKeyboard.IntegrationTests;
 
@@ -11,12 +12,12 @@ public sealed class TrayIconControllerTests
         using var tray = new TrayIconController(commands, visible: false);
 
         Assert.False(tray.IsVisible);
-        Assert.Equal(["暂停键盘", "显示当前键盘", "设置", "重新加载布局", "", "退出"], tray.MenuLabels);
+        Assert.Equal(["Pause keyboard", "Show keyboard", "Settings", "Reload layouts", "", "Exit"], tray.MenuLabels);
 
         Assert.True(tray.IsEnabledChecked);
         tray.InvokeMenuItem(0);
         Assert.False(commands.IsEnabled);
-        Assert.Equal("启用键盘", tray.MenuLabels[0]);
+        Assert.Equal("Enable keyboard", tray.MenuLabels[0]);
     }
 
     [Fact]
@@ -34,6 +35,15 @@ public sealed class TrayIconControllerTests
     }
 
     [Fact]
+    public void MenuUsesConfiguredSimplifiedChinese()
+    {
+        var commands = new StubCommands { IsEnabled = true, UiLanguage = UiLanguage.SimplifiedChinese };
+        using var tray = new TrayIconController(commands, visible: false);
+
+        Assert.Equal(["暂停键盘", "显示当前键盘", "设置", "重新加载布局", "", "退出"], tray.MenuLabels);
+    }
+
+    [Fact]
     public void DisposeHidesIconAndIsIdempotent()
     {
         var tray = new TrayIconController(new StubCommands(), visible: false);
@@ -45,6 +55,7 @@ public sealed class TrayIconControllerTests
     private sealed class StubCommands : ITrayCommands
     {
         public bool IsEnabled { get; set; }
+        public UiLanguage UiLanguage { get; set; } = UiLanguage.English;
         public int ShowCount { get; private set; }
         public int SettingsCount { get; private set; }
         public int ReloadCount { get; private set; }

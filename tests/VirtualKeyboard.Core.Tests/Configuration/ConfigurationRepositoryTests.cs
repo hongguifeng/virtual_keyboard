@@ -25,7 +25,7 @@ public sealed class ConfigurationRepositoryTests
         using var fixture = new Fixture();
         KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true,
             [new("邮箱", "text", "user@example.com"), new("保存", "hotkey", "S", ["Control", "Shift"]),
-             new("任务视图", "chord", "", ["LeftWindows", "Tab"])]);
+             new("任务视图", "chord", "", ["LeftWindows", "Tab"])], UiLanguage.SimplifiedChinese);
 
         ConfigurationSaveResult saved = fixture.Repository.Save(expected);
         ConfigurationLoadResult loaded = fixture.Repository.Load();
@@ -43,6 +43,7 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(expected.LayoutId, loaded.Configuration.LayoutId);
         Assert.Equal(expected.ManualPositionMode, loaded.Configuration.ManualPositionMode);
         Assert.Equal(expected.DetailedDiagnostics, loaded.Configuration.DetailedDiagnostics);
+        Assert.Equal(UiLanguage.SimplifiedChinese, loaded.Configuration.UiLanguage);
         Assert.Equal(3, loaded.Configuration.CustomKeys.Count);
         Assert.Equal("邮箱", loaded.Configuration.CustomKeys[0].Label);
         Assert.Equal("user@example.com", loaded.Configuration.CustomKeys[0].Input);
@@ -68,6 +69,7 @@ public sealed class ConfigurationRepositoryTests
 
         Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
         Assert.Empty(loaded.Configuration.CustomKeys);
+        Assert.Equal(UiLanguage.English, loaded.Configuration.UiLanguage);
     }
 
     [Fact]

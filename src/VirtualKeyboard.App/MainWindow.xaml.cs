@@ -93,6 +93,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (!configurationLoad.Configuration.Enabled) _coordinator.SetEnabled(false);
         _layoutRepository = new LayoutRepository(LayoutRepositoryPaths.CreateDefault(AppContext.BaseDirectory));
         LoadBuiltInLayout();
+        ApplyLanguage();
     }
 
     internal TargetSession? CurrentTargetSession => _targetSessions.Current;
@@ -104,6 +105,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     internal bool IsAutomaticFocusRunning => _focusObservation?.IsRunning == true;
 
     bool ITrayCommands.IsEnabled => _configurationRepository.Current.Enabled;
+    UiLanguage ITrayCommands.UiLanguage => _configurationRepository.Current.UiLanguage;
     void ITrayCommands.SetEnabled(bool enabled) => SetApplicationEnabled(enabled);
     void ITrayCommands.ShowCurrentKeyboard() => ShowCurrentKeyboard();
     void ITrayCommands.OpenSettings() => OpenSettingsWindow();
@@ -199,6 +201,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             if (_configurationRepository.Current.ManualPositionMode != ManualPositionMode.Persistent) _persistentManualPosition = null;
             _diagnosticSink?.SetDetailedEnabled(_configurationRepository.Current.DetailedDiagnostics);
             LoadBuiltInLayout();
+            ApplyLanguage();
         }
     }
 
@@ -223,7 +226,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
-            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys));
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage));
         if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
@@ -376,12 +379,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (session?.IsPassword == true &&
             (!e.Key.SafeForPassword || !PasswordActionPolicy.Check(e.Key.Action).IsAllowed))
         {
-            TitleStatusText.Text = "密码输入中此按键不可用";
+            TitleStatusText.Text = AppStrings.For(_configurationRepository.Current.UiLanguage).PasswordUnavailable;
             return;
         }
         if (session is null)
         {
-            TitleStatusText.Text = "请先点击可编辑输入框";
+            TitleStatusText.Text = AppStrings.For(_configurationRepository.Current.UiLanguage).SelectEditable;
             return;
         }
 
@@ -412,11 +415,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             if (queued.SendResult is InputSendResult result)
             {
                 InputFailureFeedback feedback = _failureFeedback.Create(result, session.ProcessId);
-                TitleStatusText.Text = feedback.Message;
+                TitleStatusText.Text = AppStrings.For(_configurationRepository.Current.UiLanguage).InputFailure(feedback);
             }
             else
             {
-                TitleStatusText.Text = "输入队列已停止或目标已变化";
+                TitleStatusText.Text = AppStrings.For(_configurationRepository.Current.UiLanguage).QueueStopped;
             }
         }
         finally
@@ -437,9 +440,10 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             return;
         }
 
+        AppStrings strings = AppStrings.For(_configurationRepository.Current.UiLanguage);
         TitleStatusText.Text = loaded.Issues.Count == 0
-            ? "未找到内置键盘布局"
-            : $"布局加载失败：{loaded.Issues[0].Path} · {loaded.Issues[0].Code}";
+            ? strings.LayoutMissing
+            : strings.LayoutFailed(loaded.Issues[0].Path, loaded.Issues[0].Code);
     }
 
     private void ReloadLayoutForTarget(bool isPassword)
@@ -496,12 +500,15 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             width, height, current.MarginDip, current.LayoutId, current.ManualPositionMode,
-            current.DetailedDiagnostics, current.CustomKeys));
+            current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage));
         if (!saved.IsSaved)
         {
             _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         }
     }
+
+    private void ApplyLanguage() =>
+        SettingsButton.Content = AppStrings.For(_configurationRepository.Current.UiLanguage).Settings;
 
     protected override void OnClosed(EventArgs e)
     {

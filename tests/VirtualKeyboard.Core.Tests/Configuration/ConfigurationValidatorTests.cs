@@ -32,6 +32,18 @@ public sealed class ConfigurationValidatorTests
     }
 
     [Fact]
+    public void UnsupportedUiLanguageIsRejected()
+    {
+        KeyboardConfiguration defaults = Default();
+        var configuration = new KeyboardConfiguration(defaults.SchemaVersion, defaults.Enabled, defaults.AutoShow,
+            defaults.AutoHide, defaults.Opacity, defaults.KeyboardWidthDip, defaults.KeyboardHeightDip,
+            defaults.MarginDip, defaults.LayoutId, defaults.ManualPositionMode, defaults.DetailedDiagnostics,
+            defaults.CustomKeys, (UiLanguage)99);
+
+        Assert.Contains(ConfigurationValidator.Validate(configuration).Errors, error => error.Path == "$.uiLanguage");
+    }
+
+    [Fact]
     public void NumericBoundsRejectNonFiniteValues()
     {
         KeyboardConfiguration configuration = new(1, true, true, true, double.NaN, double.PositiveInfinity, double.NegativeInfinity, double.NaN, "layout", ManualPositionMode.UntilTargetChanges, false);

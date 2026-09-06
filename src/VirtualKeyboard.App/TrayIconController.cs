@@ -1,4 +1,5 @@
 using System.Drawing;
+using VirtualKeyboard.Core.Configuration;
 using Forms = System.Windows.Forms;
 
 namespace VirtualKeyboard.App;
@@ -6,6 +7,7 @@ namespace VirtualKeyboard.App;
 internal interface ITrayCommands
 {
     bool IsEnabled { get; }
+    UiLanguage UiLanguage { get; }
     void SetEnabled(bool enabled);
     void ShowCurrentKeyboard();
     void OpenSettings();
@@ -18,19 +20,27 @@ internal sealed class TrayIconController : IDisposable
     private readonly ITrayCommands _commands;
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly Forms.ToolStripMenuItem _enabledItem;
+    private readonly Forms.ToolStripMenuItem _showItem;
+    private readonly Forms.ToolStripMenuItem _settingsItem;
+    private readonly Forms.ToolStripMenuItem _reloadItem;
+    private readonly Forms.ToolStripMenuItem _exitItem;
     private bool _disposed;
 
     public TrayIconController(ITrayCommands commands, bool visible = true)
     {
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
-        _enabledItem = new Forms.ToolStripMenuItem("启用键盘", null, OnToggleEnabled) { CheckOnClick = false };
+        _enabledItem = new Forms.ToolStripMenuItem(string.Empty, null, OnToggleEnabled) { CheckOnClick = false };
+        _showItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.ShowCurrentKeyboard());
+        _settingsItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => { _commands.OpenSettings(); RefreshState(); });
+        _reloadItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.ReloadLayouts());
+        _exitItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.Exit());
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(_enabledItem);
-        menu.Items.Add(new Forms.ToolStripMenuItem("显示当前键盘", null, (_, _) => _commands.ShowCurrentKeyboard()));
-        menu.Items.Add(new Forms.ToolStripMenuItem("设置", null, (_, _) => { _commands.OpenSettings(); RefreshState(); }));
-        menu.Items.Add(new Forms.ToolStripMenuItem("重新加载布局", null, (_, _) => _commands.ReloadLayouts()));
+        menu.Items.Add(_showItem);
+        menu.Items.Add(_settingsItem);
+        menu.Items.Add(_reloadItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(new Forms.ToolStripMenuItem("退出", null, (_, _) => _commands.Exit()));
+        menu.Items.Add(_exitItem);
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = "Virtual Keyboard",
@@ -55,7 +65,12 @@ internal sealed class TrayIconController : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _enabledItem.Checked = _commands.IsEnabled;
-        _enabledItem.Text = _commands.IsEnabled ? "暂停键盘" : "启用键盘";
+        AppStrings strings = AppStrings.For(_commands.UiLanguage);
+        _enabledItem.Text = _commands.IsEnabled ? strings.PauseKeyboard : strings.EnableKeyboard;
+        _showItem.Text = strings.ShowKeyboard;
+        _settingsItem.Text = strings.Settings;
+        _reloadItem.Text = strings.ReloadLayouts;
+        _exitItem.Text = strings.Exit;
     }
 
     private void OnToggleEnabled(object? sender, EventArgs e)

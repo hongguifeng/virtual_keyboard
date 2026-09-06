@@ -32,12 +32,31 @@ public sealed class SettingsWindowTests
             Assert.Equal("custom.layout", Find<TextBox>(window, "LayoutIdTextBox").Text);
             var positionOption = Assert.IsType<ManualPositionModeOption>(Find<ComboBox>(window, "PositionModeComboBox").SelectedItem);
             Assert.Equal(ManualPositionMode.Persistent, positionOption.Mode);
-            Assert.Equal("持续保留", positionOption.DisplayName);
-            Assert.Contains("切换输入框", Find<TextBlock>(window, "PositionModeDescription").Text);
+            Assert.Equal("Keep until changed", positionOption.DisplayName);
+            Assert.Contains("switching", Find<TextBlock>(window, "PositionModeDescription").Text);
             var list = Find<ListBox>(window, "CustomKeysList");
             Assert.Equal(2, list.Items.Count);
             Assert.Equal("邮箱", Assert.IsType<CustomKeyEditorItem>(list.Items[0]).Label);
             Assert.Equal(["Control"], Assert.IsType<CustomKeyEditorItem>(list.Items[1]).Modifiers);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void DefaultsToEnglishAndCanPersistSimplifiedChinese()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            var window = new SettingsWindow(fixture.Repository);
+
+            Assert.Equal("Virtual Keyboard Settings", window.Title);
+            Assert.Equal("Enable keyboard", Find<CheckBox>(window, "EnabledCheckBox").Content);
+            Find<ComboBox>(window, "LanguageComboBox").SelectedIndex = 1;
+
+            Assert.Equal("Virtual Keyboard 设置", window.Title);
+            Assert.Equal("启用键盘", Find<CheckBox>(window, "EnabledCheckBox").Content);
+            Assert.Equal(UiLanguage.SimplifiedChinese, window.ReadConfiguration().UiLanguage);
             window.Close();
         });
     }
@@ -156,7 +175,7 @@ public sealed class SettingsWindowTests
 
             Find<Button>(window, "SaveButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
-            Assert.Contains("无效", Find<TextBlock>(window, "StatusText").Text);
+            Assert.Contains("Invalid", Find<TextBlock>(window, "StatusText").Text);
             Assert.False(File.Exists(fixture.ConfigurationFile));
             window.Close();
         });
@@ -202,7 +221,7 @@ public sealed class SettingsWindowTests
             Find<Button>(window, "SaveButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             Assert.Equal(901, fixture.Repository.Current.KeyboardWidthDip);
-            Assert.Contains("无法保存", Find<TextBlock>(window, "StatusText").Text);
+            Assert.Contains("could not be saved", Find<TextBlock>(window, "StatusText").Text);
             window.Close();
         });
     }
