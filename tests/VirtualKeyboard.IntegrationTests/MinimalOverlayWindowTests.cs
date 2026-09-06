@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using VirtualKeyboard.App;
 using VirtualKeyboard.Core.Diagnostics;
+using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Core.Targeting;
 
 namespace VirtualKeyboard.IntegrationTests;
@@ -74,6 +75,27 @@ public sealed class MinimalOverlayWindowTests
             key.CancelGestureForTest();
             Assert.False(key.EndGestureForTest(isInside: true));
             Assert.Equal(1, invoked);
+        });
+    }
+
+    [Fact]
+    public void PasswordLayoutHidesActionsNotSafeForPassword()
+    {
+        RunOnStaThread(() =>
+        {
+            var action = new LayoutActionDefinition(LayoutActionTypes.Text, value: "phrase");
+            var layout = new KeyboardLayoutDefinition(
+                1, "password", "Password", "en-US",
+                [new KeyboardLayoutRow([
+                    new("safe", "A", 1, true, new(LayoutActionTypes.Key, virtualKey: "A")),
+                    new("unsafe", "Phrase", 1, false, action),
+                    new("unsafe-hotkey", "Copy", 1, true, new(LayoutActionTypes.Hotkey, virtualKey: "C", modifiers: ["Control"]))])]);
+            var view = new KeyboardLayoutView();
+            view.LoadLayout(KeyboardLayoutViewModel.Create(layout), passwordTarget: true);
+
+            NonFocusableKeyButton[] keys = Descendants<NonFocusableKeyButton>(view).ToArray();
+            Assert.Single(keys);
+            Assert.Equal("safe", keys[0].Key.Id);
         });
     }
 

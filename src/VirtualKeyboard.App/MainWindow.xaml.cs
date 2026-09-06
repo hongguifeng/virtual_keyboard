@@ -114,18 +114,25 @@ public partial class MainWindow : Window, IDisposable
 
         _overlay.InvalidateManualPosition();
         TargetSession session = _targetSessions.Replace(result.Snapshot!);
+        ReloadLayoutForTarget(session.IsPassword);
         SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
     }
 
     private void OnLayoutKeyInvoked(object sender, KeyInvokedEventArgs e)
     {
         _ = sender;
-        if (!string.Equals(e.Key.Id, "key.a", StringComparison.Ordinal))
+        TargetSession? session = _targetSessions.Current;
+        if (session?.IsPassword == true &&
+            (!e.Key.SafeForPassword || !PasswordActionPolicy.Check(e.Key.Action).IsAllowed))
         {
-            SessionStatusText.Text = $"{e.Key.Label} 尚未接入输入分发";
+            SessionStatusText.Text = "密码输入中此按键不可用";
             return;
         }
-        TargetSession? session = _targetSessions.Current;
+        if (!string.Equals(e.Key.Id, "key.a", StringComparison.Ordinal))
+        {
+            SessionStatusText.Text = "该按键尚未接入输入分发";
+            return;
+        }
         if (session is null)
         {
             SessionStatusText.Text = "请先捕获目标";
@@ -156,6 +163,14 @@ public partial class MainWindow : Window, IDisposable
         SessionStatusText.Text = loaded.Issues.Count == 0
             ? "未找到内置键盘布局"
             : $"布局加载失败：{loaded.Issues[0].Path} · {loaded.Issues[0].Code}";
+    }
+
+    private void ReloadLayoutForTarget(bool isPassword)
+    {
+        if (LayoutView.Layout is not null)
+        {
+            LayoutView.LoadLayout(LayoutView.Layout, isPassword);
+        }
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)

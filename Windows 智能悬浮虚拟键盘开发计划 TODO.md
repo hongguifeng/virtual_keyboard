@@ -431,11 +431,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core 将已验证布局映射为只读 row/key 视图模型，并以 `KeyGestureController` 约束 Idle→Pressed→Release/Cancel；WPF 视图按 JSON width 创建 Star 列、按行创建 Star 高度，最小键 36×36 DIP。所有按键禁止焦点/Tab，重复按下、键外释放、取消和捕获丢失均不会重复触发，按下态使用不透明度反馈。
   - 验证：Core 164/164、Windows 146/146、Integration 7/7；覆盖模型拒绝未验证布局、权重/动作映射、重复 Down、键内/键外 Up、Cancel、WPF Star 权重、最小点击尺寸、全键 NoFocus/NoTab 和 200% DPI 尺寸；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
-- [ ] **T5.6（P0，0.5 人日）实现密码目标策略**
+- [x] **T5.6（P0，0.5 人日）实现密码目标策略**
   - `safeForPassword=false` 的键隐藏或禁用。
   - 标准安全键可用。
   - 日志不包含控件 Name、Value 或输入动作内容。
   - 对应：FR-INP-007，AC-013。
+  - 实现：Core `PasswordActionPolicy` 对 `safeForPassword` 之外再施加封闭语义白名单，仅允许单个标准字符、标准/编辑 key、Shift/CapsLock；默认拒绝短语、hotkey、scanCode、Ctrl/Alt 和未知动作。WPF 密码布局不生成被拒键，分发前再次校验；结果与提示不携带 label、Name、Value 或动作文本。
 
 - [ ] **T5.7（P1，0.25-0.5 人日）验证触摸点击**
   - 单指点击等价于鼠标单击。

@@ -28,7 +28,7 @@ public sealed class KeyboardLayoutView : Grid
 
     public KeyboardLayoutViewModel? Layout { get; private set; }
 
-    public void LoadLayout(KeyboardLayoutViewModel layout)
+    public void LoadLayout(KeyboardLayoutViewModel layout, bool passwordTarget = false)
     {
         ArgumentNullException.ThrowIfNull(layout);
         Layout = layout;
@@ -38,18 +38,21 @@ public sealed class KeyboardLayoutView : Grid
         for (int rowIndex = 0; rowIndex < layout.Rows.Count; rowIndex++)
         {
             RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star), MinHeight = MinimumKeyHeight });
-            Grid row = CreateRow(layout.Rows[rowIndex]);
+            Grid row = CreateRow(layout.Rows[rowIndex], passwordTarget);
             SetRow(row, rowIndex);
             Children.Add(row);
         }
     }
 
-    private Grid CreateRow(KeyboardRowViewModel rowModel)
+    private Grid CreateRow(KeyboardRowViewModel rowModel, bool passwordTarget)
     {
         var row = new Grid { Focusable = false };
-        for (int keyIndex = 0; keyIndex < rowModel.Keys.Count; keyIndex++)
+        IReadOnlyList<KeyViewModel> keys = passwordTarget
+            ? rowModel.Keys.Where(static key => key.SafeForPassword && PasswordActionPolicy.Check(key.Action).IsAllowed).ToArray()
+            : rowModel.Keys;
+        for (int keyIndex = 0; keyIndex < keys.Count; keyIndex++)
         {
-            KeyViewModel key = rowModel.Keys[keyIndex];
+            KeyViewModel key = keys[keyIndex];
             row.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = new GridLength(key.Width, GridUnitType.Star),

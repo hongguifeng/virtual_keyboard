@@ -651,6 +651,8 @@ T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的
 
 `NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
+T5.6 的 Core `PasswordActionPolicy` 不信任布局作者单独声明的 `safeForPassword`：两者必须同时通过。密码模式仅允许一个 Unicode 标准字符、封闭的 A-Z/D0-D9/Space 与编辑导航 key，以及 Shift/CapsLock；所有 hotkey、多字符 text、scanCode、Control/Alt 和未知动作默认拒绝。WPF 生成密码布局时直接排除不通过的键，事件分发边界在发送前再次执行同一策略，避免仅靠可见性形成安全边界。`PasswordActionCheck` 只返回枚举与固定 reason code，不返回文本；状态提示也不拼接 key label、目标 Name 或 Value。
+
 ## 14. 配置设计
 
 ### 14.1 路径
