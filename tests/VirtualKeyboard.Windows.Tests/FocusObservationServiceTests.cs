@@ -87,11 +87,23 @@ public sealed class FocusObservationServiceTests
         Assert.Equal(0, source.UnregisterCount);
     }
 
+    [Fact]
+    public void LateNativeCallbackAfterDisposeIsIgnored()
+    {
+        var source = new FakeFocusAutomationSource { KeepNotificationAfterUnregister = true };
+        var service = new FocusObservationService(source);
+        service.Start();
+        service.Dispose();
+
+        Assert.Null(Record.Exception(source.Raise));
+    }
+
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {
         private Action? _notification;
 
         public Exception? RegistrationError { get; init; }
+        public bool KeepNotificationAfterUnregister { get; init; }
         public int RegisterCount { get; private set; }
         public int UnregisterCount { get; private set; }
         public int RegisterThreadId { get; private set; }
@@ -116,7 +128,10 @@ public sealed class FocusObservationServiceTests
             Assert.Equal(_notification, notification);
             UnregisterCount++;
             UnregisterThreadId = Environment.CurrentManagedThreadId;
-            _notification = null;
+            if (!KeepNotificationAfterUnregister)
+            {
+                _notification = null;
+            }
         }
 
         public void Raise()

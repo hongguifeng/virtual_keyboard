@@ -176,7 +176,17 @@ public sealed class FocusObservationService : IDisposable
         }
     }
 
-    private void OnSourceFocusChanged() => _focusPending.Set();
+    private void OnSourceFocusChanged()
+    {
+        try
+        {
+            _focusPending.Set();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A native callback already in flight may arrive just after unregistration/disposal.
+        }
+    }
 }
 
 public readonly record struct FocusChangedNotification(DateTimeOffset OccurredAtUtc, int ObserverThreadId);
