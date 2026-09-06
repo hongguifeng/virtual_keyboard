@@ -28,6 +28,22 @@ public sealed class KeyboardLayoutView : Grid
 
     public KeyboardLayoutViewModel? Layout { get; private set; }
 
+    public void UpdateState(KeyboardControllerState state)
+    {
+        foreach (NonFocusableKeyButton button in DescendantButtons(this))
+        {
+            bool active = button.Key.Action.Type == LayoutActionTypes.Modifier && button.Key.Action.Modifier?.ToLowerInvariant() switch
+            {
+                "shift" => state.ShiftLatched,
+                "control" => state.ControlLatched,
+                "alt" => state.AltLatched,
+                "capslock" => state.IsCapsLockKnown && state.IsCapsLockOn,
+                _ => false,
+            };
+            button.SetModifierActive(active);
+        }
+    }
+
     public void LoadLayout(KeyboardLayoutViewModel layout, bool passwordTarget = false)
     {
         ArgumentNullException.ThrowIfNull(layout);
@@ -79,6 +95,22 @@ public sealed class KeyboardLayoutView : Grid
         var button = (NonFocusableKeyButton)sender!;
         KeyInvoked?.Invoke(this, new KeyInvokedEventArgs(button.Key));
     }
+
+    private static IEnumerable<NonFocusableKeyButton> DescendantButtons(DependencyObject root)
+    {
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
+            if (child is NonFocusableKeyButton button)
+            {
+                yield return button;
+            }
+            foreach (NonFocusableKeyButton nested in DescendantButtons(child))
+            {
+                yield return nested;
+            }
+        }
+    }
 }
 
 internal sealed class NonFocusableKeyButton : Button
@@ -99,6 +131,17 @@ internal sealed class NonFocusableKeyButton : Button
     internal KeyViewModel Key { get; }
 
     internal bool IsGesturePressed => _gesture.IsPressed;
+
+    internal bool IsModifierActive { get; private set; }
+
+    internal void SetModifierActive(bool active)
+    {
+        IsModifierActive = active;
+        if (!_gesture.IsPressed)
+        {
+            Opacity = active ? 0.78 : 1;
+        }
+    }
 
     internal bool BeginGestureForTest() => BeginGesture();
 

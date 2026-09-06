@@ -6,6 +6,7 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 > 当前状态：M4 的 T4.1-T4.7 输入引擎及 M5 的 T5.1-T5.7 布局、状态、视图、密码与触摸实现任务已完成；完整键盘端到端输入及实体触摸屏仍待验收，权限/目标切换实机门禁与 M1-M3 交互式矩阵也仍待验收。
 
 动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt 锁存与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
+修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/CapsLock 的活动态不会与实际发送状态分离。
 
 ## 先决条件
 

@@ -12,15 +12,13 @@ public sealed class LayoutActionDispatcher
     private readonly Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> _sendKey;
     private readonly Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> _sendHotkey;
     private readonly Func<string, int, InputSendResult> _sendText;
-    private readonly Func<long, CapsLockOperationResult>? _toggleCapsLock;
 
     public LayoutActionDispatcher(
         TargetSessionValidator validator,
         KeyboardController controller,
         KeyInputSender keySender,
         HotkeyInputSender hotkeySender,
-        UnicodeTextInputSender textSender,
-        CapsLockStateService? capsLock = null)
+        UnicodeTextInputSender textSender)
     {
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _controller = controller ?? throw new ArgumentNullException(nameof(controller));
@@ -30,7 +28,6 @@ public sealed class LayoutActionDispatcher
         _sendKey = keySender.Send;
         _sendHotkey = hotkeySender.Send;
         _sendText = textSender.Send;
-        _toggleCapsLock = capsLock is null ? null : capsLock.Toggle;
     }
 
     internal LayoutActionDispatcher(
@@ -38,15 +35,13 @@ public sealed class LayoutActionDispatcher
         KeyboardController controller,
         Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> sendKey,
         Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> sendHotkey,
-        Func<string, int, InputSendResult> sendText,
-        Func<long, CapsLockOperationResult>? toggleCapsLock = null)
+        Func<string, int, InputSendResult> sendText)
     {
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _controller = controller ?? throw new ArgumentNullException(nameof(controller));
         _sendKey = sendKey ?? throw new ArgumentNullException(nameof(sendKey));
         _sendHotkey = sendHotkey ?? throw new ArgumentNullException(nameof(sendHotkey));
         _sendText = sendText ?? throw new ArgumentNullException(nameof(sendText));
-        _toggleCapsLock = toggleCapsLock;
     }
 
     public InputSendResult Dispatch(long sessionId, KeyViewModel key, CancellationToken cancellationToken = default)
@@ -131,11 +126,13 @@ public sealed class LayoutActionDispatcher
         }
         if (modifier.Equals("CapsLock", StringComparison.OrdinalIgnoreCase))
         {
-            return _toggleCapsLock is null
-                ? Rejected()
-                : _toggleCapsLock(sessionId).IsSuccess
-                    ? new(InputSendStatus.Succeeded, 2, 2, 0)
-                    : new(InputSendStatus.Failed, 2, 0, 0);
+            CapsLockOperationResult caps = _controller.ToggleCapsLock();
+            return caps.Status switch
+            {
+                CapsLockOperationStatus.Succeeded => new(InputSendStatus.Succeeded, 2, 2, 0),
+                CapsLockOperationStatus.Unavailable => new(InputSendStatus.NativeUnavailable, 2, 0, 50),
+                _ => new(InputSendStatus.Failed, 2, 0, 0),
+            };
         }
 
         KeyboardModifier? parsed = modifier.ToLowerInvariant() switch

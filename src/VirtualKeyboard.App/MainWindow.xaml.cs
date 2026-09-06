@@ -50,8 +50,7 @@ public partial class MainWindow : Window, IDisposable
             _keyboardController,
             keySender,
             _hotkeySender,
-            new UnicodeTextInputSender(_diagnostics),
-            capsLock);
+            new UnicodeTextInputSender(_diagnostics));
         LoadBuiltInLayout();
     }
 
@@ -133,6 +132,7 @@ public partial class MainWindow : Window, IDisposable
         TargetSession session = _targetSessions.Replace(result.Snapshot!);
         _inputQueue.SetCurrentSession(session.SessionId);
         _keyboardController.SetTargetSession(session.SessionId);
+        LayoutView.UpdateState(_keyboardController.State);
         ReloadLayoutForTarget(session.IsPassword);
         SessionStatusText.Text = $"会话 {session.SessionId} · PID {session.ProcessId}\n前台 0x{session.TopLevelHwnd:X} · 焦点 0x{session.FocusHwnd:X}";
     }
@@ -169,6 +169,7 @@ public partial class MainWindow : Window, IDisposable
         {
             return;
         }
+        LayoutView.UpdateState(_keyboardController.State);
         if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
         {
             SessionStatusText.Text = $"会话 {session.SessionId} · 按键已发送";

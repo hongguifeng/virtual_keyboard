@@ -432,6 +432,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 验证：Core 164/164、Windows 146/146、Integration 7/7；覆盖模型拒绝未验证布局、权重/动作映射、重复 Down、键内/键外 Up、Cancel、WPF Star 权重、最小点击尺寸、全键 NoFocus/NoTab 和 200% DPI 尺寸；完整 Release 构建和 win-x64 发布通过，0 warning/error。
   - Review 修正：动态按键统一接入有界串行队列和 `LayoutActionDispatcher`，每次发送前复核最新目标与密码策略；key/hotkey/text/modifier 保持独立路径，锁存修饰键参与 hotkey，CapsLock 走系统切换。未知动作在消费状态前失败关闭，退出先停止队列并释放热键安全闩锁，不再只有 A 键可发送。
   - Review 验证：Core 184/184、Windows 154/154、Integration 13/13；覆盖标准 key、锁存/声明 hotkey 合并、Unicode text、CapsLock、会话替换零发送/零状态消费及密码 hotkey/unsafe 拒绝；完整 Release 构建和 win-x64 发布通过，0 warning/error。
+  - Review 修正：CapsLock 改为由 `KeyboardController` 唯一调用 `CapsLockStateService`，按键状态视觉统一由状态快照刷新；输入队列退出顺序固定为停止队列→清理控制器→释放热键闩锁→关闭诊断。
 
 - [x] **T5.6（P0，0.5 人日）实现密码目标策略**
   - `safeForPassword=false` 的键隐藏或禁用。

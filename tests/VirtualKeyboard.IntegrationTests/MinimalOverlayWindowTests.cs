@@ -100,6 +100,27 @@ public sealed class MinimalOverlayWindowTests
     }
 
     [Fact]
+    public void ModifierVisualsMirrorControllerSnapshot()
+    {
+        RunOnStaThread(() =>
+        {
+            using var window = new MainWindow();
+            var view = Assert.IsType<KeyboardLayoutView>(window.FindName("LayoutView"));
+            NonFocusableKeyButton[] buttons = Descendants<NonFocusableKeyButton>(view).ToArray();
+            NonFocusableKeyButton shift = Assert.Single(buttons, button => button.Key.Id == "key.shift");
+            NonFocusableKeyButton control = Assert.Single(buttons, button => button.Key.Id == "key.control");
+            NonFocusableKeyButton caps = Assert.Single(buttons, button => button.Key.Id == "key.capsLock");
+
+            view.UpdateState(new(7, 1, true, false, false, true, true));
+
+            Assert.True(shift.IsModifierActive);
+            Assert.False(control.IsModifierActive);
+            Assert.True(caps.IsModifierActive);
+            Assert.True(shift.Opacity < 1);
+        });
+    }
+
+    [Fact]
     public void CaptureButtonPublishesAndDisplaysTargetSession()
     {
         RunOnStaThread(() =>

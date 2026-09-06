@@ -116,16 +116,18 @@ public sealed class LayoutActionDispatcherTests
 
     private sealed class Fixture : IDisposable
     {
-        private Fixture(TargetSession session, KeyboardController controller, LayoutActionDispatcher dispatcher)
+        private Fixture(TargetSession session, KeyboardController controller, LayoutActionDispatcher dispatcher, FakeCapsLock capsLock)
         {
             Session = session;
             Controller = controller;
             Dispatcher = dispatcher;
+            CapsLock = capsLock;
         }
 
         public TargetSession Session { get; }
         public KeyboardController Controller { get; }
         public LayoutActionDispatcher Dispatcher { get; }
+        private FakeCapsLock CapsLock { get; }
         public int KeyCalls { get; private set; }
         public int HotkeyCalls { get; private set; }
         public int TextCalls { get; private set; }
@@ -135,7 +137,7 @@ public sealed class LayoutActionDispatcherTests
         public nint LastFocusHwnd { get; private set; }
         public int LastProcessId { get; private set; }
         public string? LastText { get; private set; }
-        public long LastCapsSessionId { get; private set; }
+        public long LastCapsSessionId => CapsLock.LastSessionId;
 
         public static Fixture Create(bool isPassword = false)
         {
@@ -151,7 +153,8 @@ public sealed class LayoutActionDispatcherTests
             {
                 session = sessions.Replace(capture);
             }
-            var controller = new KeyboardController(new FakeCapsLock());
+            var capsLock = new FakeCapsLock();
+            var controller = new KeyboardController(capsLock);
             controller.SetTargetSession(session.SessionId);
             var holder = new FixtureHolder();
             var validator = new TargetSessionValidator(sessions, new StubCapture(capture));
@@ -160,9 +163,8 @@ public sealed class LayoutActionDispatcherTests
                 controller,
                 holder.SendKey,
                 holder.SendHotkey,
-                holder.SendText,
-                holder.ToggleCaps);
-            var fixture = new Fixture(session, controller, dispatcher);
+                holder.SendText);
+            var fixture = new Fixture(session, controller, dispatcher, capsLock);
             holder.Target = fixture;
             return fixture;
         }
@@ -207,20 +209,19 @@ public sealed class LayoutActionDispatcherTests
                 return Success();
             }
 
-            public CapsLockOperationResult ToggleCaps(long sessionId)
-            {
-                Target!.LastCapsSessionId = sessionId;
-                return new(CapsLockOperationStatus.Succeeded, true);
-            }
-
             private static InputSendResult Success() => new(InputSendStatus.Succeeded, 2, 2, 0);
         }
     }
 
     private sealed class FakeCapsLock : ICapsLockStateService
     {
+        public long LastSessionId { get; private set; }
         public CapsLockOperationResult Read() => new(CapsLockOperationStatus.Succeeded, false);
-        public CapsLockOperationResult Toggle(long targetSessionId) => new(CapsLockOperationStatus.Succeeded, true);
+        public CapsLockOperationResult Toggle(long targetSessionId)
+        {
+            LastSessionId = targetSessionId;
+            return new(CapsLockOperationStatus.Succeeded, true);
+        }
     }
 
     private sealed class StubCapture(TargetCaptureSnapshot snapshot) : IForegroundTargetCapture
