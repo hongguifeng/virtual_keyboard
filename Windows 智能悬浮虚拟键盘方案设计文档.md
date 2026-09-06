@@ -433,6 +433,8 @@ dip        = physicalPx * 96 / monitorDpi
 
 目标 DPI 优先通过目标窗口/键盘窗口的 `GetDpiForWindow` 获得，必要时使用显示器 DPI 回退。无有效信息时使用 96 DPI，并记录降级事件。
 
+T3.4 的 `MonitorDpiAdapter` 是唯一 Monitor/DPI P/Invoke 边界：物理锚点经 floor/ceil 转换为 Win32 RECT，`MonitorFromRect(MONITOR_DEFAULTTONEAREST)` 选择显示器，`GetMonitorInfo` 返回保留负坐标的 monitor/work-area 强类型矩形。DPI 来源以 `DpiSource` 标记为 TargetWindow、Monitor 或 Default96；API 缺失/失败不抛到 Core，返回 `MonitorMetricsStatus`。
+
 ### 11.2 锚点解析
 
 `AnchorResolver` 按以下顺序返回首个有效结果：

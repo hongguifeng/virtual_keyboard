@@ -282,11 +282,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `PlacementService` 生成 Bottom/Top/Right/Left 原始候选，以原始矩形完全可见、最终不覆盖锚点、可见比例、稳定方向顺序和中心距离排序；选中结果统一 Clamp 到 `rcWork`。期望尺寸超过工作区时按宽高共同约束等比缩小至 95%，结果标记 `WasScaled`；无效锚点、非正工作区/尺寸或非法 margin 返回显式失败。
   - 验证：Core 99/99、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖默认下方、靠近四边的方向选择、负坐标副屏、底部任务栏工作区、等比缩放与最终完全可见、NaN/负 margin 和零宽工作区。
 
-- [ ] **T3.4（P0，0.75 人日）实现 Monitor/DPI 原生适配**
+- [x] **T3.4（P0，0.75 人日）实现 Monitor/DPI 原生适配**
   - 封装 MonitorFromRect、GetMonitorInfo、GetDpiForWindow 等 API。
   - 支持负坐标显示器。
   - DIP 仅在边界转换为目标显示器物理像素。
   - 对应：FR-POS-004、005。
+  - 实现：Windows `MonitorDpiAdapter` 将物理锚点安全转换为 Win32 RECT，以 `MonitorFromRect(MONITOR_DEFAULTTONEAREST)` 选择显示器并读取 `rcMonitor/rcWork`；DPI 依次使用 `GetDpiForWindow`、`GetDpiForMonitor`、96 DPI 受控回退，输出 Core `MonitorMetrics` 和 `DpiSource`。负坐标不归零，非法几何和原生失败转换为封闭 `MonitorMetricsStatus`。
+  - 验证：Core 99/99、Windows 39/39、Integration 4/4，完整 Release 构建和 win-x64 发布通过；覆盖负坐标显示器、任务栏工作区、窗口 DPI 优先、非对称显示器 DPI、96 回退、无显示器/信息失败、无效锚点和原生 API 不可用。
 
 - [ ] **T3.5（P0，0.5 人日）处理 WM_DPICHANGED**
   - 应用建议矩形作为过渡。
