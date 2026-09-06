@@ -83,6 +83,20 @@ public sealed class ConfigurationValidatorTests
         Assert.DoesNotContain('X', error.Message);
     }
 
+    [Fact]
+    public void CustomKeyRequiresBoundedLabelAndTextPair()
+    {
+        KeyboardConfiguration missingText = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false, "Paste", "");
+        KeyboardConfiguration oversized = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
+            new('L', ConfigurationSchemaLimits.MaximumCustomKeyLabelLength + 1), new('T', ConfigurationSchemaLimits.MaximumCustomKeyTextLength + 1));
+
+        Assert.Contains(ConfigurationValidator.Validate(missingText).Errors, error => error.Code == "config.customKeyPair");
+        ConfigurationValidationResult result = ConfigurationValidator.Validate(oversized);
+        Assert.Contains(result.Errors, error => error.Path == "$.customKeyLabel");
+        Assert.Contains(result.Errors, error => error.Path == "$.customKeyText");
+        Assert.DoesNotContain(result.Errors, error => error.Message.Contains('T'));
+    }
+
     private static KeyboardConfiguration Default() =>
         new(1, true, true, true, 0.9, 800, 300, 8, "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false);
 }

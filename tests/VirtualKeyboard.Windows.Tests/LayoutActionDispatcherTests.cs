@@ -61,6 +61,38 @@ public sealed class LayoutActionDispatcherTests
     }
 
     [Fact]
+    public void FunctionLayerSelectsAlternateFunctionKeyAndRemainsActive()
+    {
+        using Fixture fixture = Fixture.Create();
+        KeyViewModel function = Key("fn", new(LayoutActionTypes.Modifier, modifier: "Fn"));
+        KeyViewModel one = Key("one", new(LayoutActionTypes.Key, virtualKey: "D1", fnVirtualKey: "F1"));
+
+        Assert.True(fixture.Dispatch(function).IsSuccess);
+        Assert.True(fixture.Dispatch(one).IsSuccess);
+        Assert.Equal(WindowsKeyboardKey.F1, fixture.LastKey);
+        Assert.True(fixture.Controller.State.FunctionLayerActive);
+
+        Assert.True(fixture.Dispatch(function).IsSuccess);
+        Assert.True(fixture.Dispatch(one).IsSuccess);
+        Assert.Equal(WindowsKeyboardKey.D1, fixture.LastKey);
+    }
+
+    [Fact]
+    public void WindowsModifierUsesHotkeyPathUntilSecondClick()
+    {
+        using Fixture fixture = Fixture.Create();
+        KeyViewModel windows = Key("windows", new(LayoutActionTypes.Modifier, modifier: "Windows"));
+
+        Assert.True(fixture.Dispatch(windows).IsSuccess);
+        Assert.True(fixture.Dispatch(Key("d", new(LayoutActionTypes.Key, virtualKey: "D"))).IsSuccess);
+        Assert.Equal([HotkeyModifier.Windows], fixture.LastModifiers);
+        Assert.True(fixture.Controller.State.WindowsLatched);
+
+        Assert.True(fixture.Dispatch(windows).IsSuccess);
+        Assert.False(fixture.Controller.State.WindowsLatched);
+    }
+
+    [Fact]
     public void DeclaredHotkeyAndLatchAreMergedWithoutDuplicates()
     {
         using Fixture fixture = Fixture.Create();

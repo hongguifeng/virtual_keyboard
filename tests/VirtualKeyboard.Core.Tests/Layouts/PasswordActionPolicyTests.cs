@@ -35,6 +35,8 @@ public sealed class PasswordActionPolicyTests
     [InlineData("Backspace")]
     [InlineData("Enter")]
     [InlineData("Delete")]
+    [InlineData("OemTilde")]
+    [InlineData("OemQuestion")]
     public void StandardAndEditingKeysAreAllowed(string key)
     {
         Assert.True(PasswordActionPolicy.Check(new(LayoutActionTypes.Key, virtualKey: key)).IsAllowed);

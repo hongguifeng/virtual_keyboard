@@ -23,7 +23,7 @@ public sealed class ConfigurationRepositoryTests
     public void SaveThenLoadRoundTripsCamelCaseConfiguration()
     {
         using var fixture = new Fixture();
-        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true);
+        KeyboardConfiguration expected = new(1, false, true, false, 0.75, 900, 400, 12, "custom.layout", ManualPositionMode.Persistent, true, "邮箱", "user@example.com");
 
         ConfigurationSaveResult saved = fixture.Repository.Save(expected);
         ConfigurationLoadResult loaded = fixture.Repository.Load();
@@ -41,9 +41,28 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(expected.LayoutId, loaded.Configuration.LayoutId);
         Assert.Equal(expected.ManualPositionMode, loaded.Configuration.ManualPositionMode);
         Assert.Equal(expected.DetailedDiagnostics, loaded.Configuration.DetailedDiagnostics);
+        Assert.Equal(expected.CustomKeyLabel, loaded.Configuration.CustomKeyLabel);
+        Assert.Equal(expected.CustomKeyText, loaded.Configuration.CustomKeyText);
         using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
         Assert.True(json.RootElement.TryGetProperty("schemaVersion", out _));
         Assert.True(json.RootElement.TryGetProperty("keyboardWidthDip", out _));
+    }
+
+    [Fact]
+    public void OlderSchemaOneFileWithoutCustomKeyFieldsLoadsWithDisabledCustomKey()
+    {
+        using var fixture = new Fixture();
+        File.WriteAllText(fixture.ConfigurationFile, """
+            {"schemaVersion":1,"enabled":true,"autoShow":true,"autoHide":true,"opacity":0.9,
+             "keyboardWidthDip":800,"keyboardHeightDip":300,"marginDip":8,"layoutId":"layout",
+             "manualPositionMode":"UntilTargetChanges","detailedDiagnostics":false}
+            """);
+
+        ConfigurationLoadResult loaded = fixture.Repository.Load();
+
+        Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
+        Assert.Empty(loaded.Configuration.CustomKeyLabel);
+        Assert.Empty(loaded.Configuration.CustomKeyText);
     }
 
     [Fact]

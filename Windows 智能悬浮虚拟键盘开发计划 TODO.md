@@ -357,7 +357,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 记录并只释放本批次合成按下的修饰键。
   - 读取实体键当前状态，测试 Ctrl/Alt/Shift 冲突。
   - 对应：FR-INP-004、005，AC-011。
-  - 实现：`HotkeyInputSender` 快照 1-3 个唯一 Ctrl/Shift/Alt，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 负责 UI 点击切换状态和 CapsLock 状态同步。
+  - 实现：`HotkeyInputSender` 快照 1-4 个唯一 Ctrl/Shift/Alt/Win，读取 `GetAsyncKeyState` 高位；实体已按住的修饰键不重复 Down、也不由程序 Up。其余修饰键按声明顺序 Down，主键 Down/Up，修饰键逆序 Up，并单批提交。`HotkeyInputBatch` 记录 `ModifiersPressedByUs` 及事件索引；短返回按已接受前缀只清理仍可能按下的键，异常时逆序尽力释放修饰键，原热键不重试。提交前取消返回 `Cancelled` 且零原生调用；T5.4 负责 UI 点击切换状态和 CapsLock 状态同步。
   - 验证：Core 111/111、Windows 114/114、Integration 6/6；覆盖三修饰键顺序/逆序快照、实体 Ctrl/Shift/Alt 冲突、可变列表快照、每个部分前缀的精确清理、零返回、异常与清理异常、取消前/准备中取消、无效/重复修饰键、线程/HKL/scan 映射失败、真实 `GetAsyncKeyState` 入口和诊断隐私；完整 Release 构建和 win-x64 发布通过。
 
 - [x] **T4.6（P0，0.5 人日）实现输入失败和 UIPI 提示**
@@ -392,7 +392,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 - [x] **T5.1（P0，0.75 人日）定义版本化 Layout schema**
   - 定义 layout、row、key、action、width、safeForPassword。
-  - 规定行数、按键数、文本长度、热键长度等上限。
+  - 规定行数、按键数、文本长度、热键长度和可选 `fnVirtualKey` 等上限。
   - 明确拒绝 command/script/未知可执行动作。
   - 对应：FR-KEY-002、003。
   - 实现：Core 中提供集合防御性复制的不可变 layout/row/key/action DTO，以及 schema v1 `LayoutValidator`；限制 16 行、每行 64 键、总计 256 键、文本 4096 UTF-16 code unit、热键 1-3 个唯一修饰键。action 仅接受 text/key/hotkey/modifier，严格校验字段组合、宽度、ID 唯一性和封闭键名，command/script/未知类型整份拒绝；错误只含字段路径和非敏感固定描述。
@@ -408,19 +408,20 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 
 - [x] **T5.3（P0，0.75 人日）实现内置 QWERTY 布局**
   - A-Z、0-9、Space、Backspace、Enter、Tab、Escape。
-  - Shift、Ctrl、Alt、CapsLock。
+  - Shift、Ctrl、Alt、Win、Fn、CapsLock 和方向键。
   - 关闭、设置、拖动区域不定义为可注入 action。
   - 对应：FR-KEY-001。
-  - 实现：应用 Content 提供 schema v1 `builtin.qwerty.en-US` 五行布局，覆盖 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Control、Alt、CapsLock，并在 build/publish 时复制到 `layouts\builtin`；关闭、设置、拖动不进入布局 action。
+  - 实现：应用 Content 提供 schema v1 `builtin.qwerty.en-US` 五行布局，主键区按标准美式 QWERTY 顺序覆盖 A-Z、0-9、完整 OEM 标点、Space、Backspace、Enter、Tab、Escape、左右 Shift/Control/Alt、Windows、Fn、CapsLock；四方向键在右侧采用倒 T 排列。数字行通过 `fnVirtualKey` 提供 F1-F12，并在 build/publish 时复制到 `layouts\builtin`。Fn 仅切换应用内部功能层，不伪造硬件 Fn；关闭、设置、拖动不进入布局 action。
   - Review 修正：标准字母、数字和 Space 改走 `key` 而非 `text`，Windows 封闭键枚举扩展到 A-Z、D0-D9、Space 和状态键，避免后续 Shift/Ctrl/Alt 依赖跨语义路径的隐式转换。
   - 验证：Core 146/146、Windows 142/142、Integration 6/6；自动加载发布用 JSON，断言 26 个字母、10 个数字全部使用 key、全部必需功能/状态键及无 close/settings/drag action；新增 A、D0、Space 映射覆盖；完整 Release 构建 0 warning/error，win-x64 发布目录已确认包含布局文件。
+  - 本次 review：补齐标准美式 OEM 标点、左右修饰键、Shift 双字符图例及右侧倒 T 方向布局，并增加 Win/Fn 功能层；完整 Release 门禁 Core 214/214、Windows 163/163、Integration 26/26，build/publish 通过且 0 warning/error。
 
 - [x] **T5.4（P0，0.75 人日）实现 KeyboardController 状态**
   - Shift、Ctrl、Alt 点击切换保持策略和 CapsLock 系统同步。
   - 实体键盘改变 CapsLock 后刷新标签。
   - 目标变化或退出时清理瞬时状态。
   - 对应：FR-INP-005。
-  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift/Control/Alt 第一次点击保持、再次点击释放，普通输入动作只读取而不消费；无目标拒绝准备动作，Session 替换、清空和 Dispose 清理全部保持状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
+  - 实现：Core `KeyboardController` 串行维护版本化状态快照，Shift/Control/Alt/Windows/Fn 第一次点击保持、再次点击释放，普通输入动作只读取而不消费；Windows 参与热键批次，Fn 只选择 `fnVirtualKey`。无目标拒绝准备动作，Session 替换、清空和 Dispose 清理全部保持状态。Windows `CapsLockStateService` 读取系统 toggle bit，并通过 `ValidatedKeyInputSender` 在最新目标复核后切换 CapsLock，再读取系统真值；失败时标记未知而不猜测。
   - 验证：覆盖 Shift/Ctrl/Alt 跨普通动作保持及二次点击释放、Shift+D1/D2 数字行组合、目标切换/清空/退出、无目标拒绝、CapsLock 实体刷新/切换/失败未知态，以及切换前目标复核和零误发；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [x] **T5.5（P0，0.75 人日）实现相对布局和按键交互**
@@ -463,10 +464,10 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 ### TODO
 
 - [x] **T6.1（P0，0.75 人日）实现 Config schema 和验证**
-  - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关。
+  - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关、自定义键标签与文本。
   - 设置合理范围，opacity 限制 30%-100%。
   - 对应：FR-CFG-001、002。
-  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；`ConfigurationValidator` 校验 schema v1、透明度 0.30–1.00、宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP、布局 ID 长度和封闭手动定位模式。
+  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；`ConfigurationValidator` 校验 schema v1、透明度 0.30–1.00、宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP、布局 ID 长度和封闭手动定位模式。Review 增补自定义键标签/文本成对校验与 32/256 长度上限，旧 schema v1 缺字段时安全禁用。
   - 验证：Core 199/199；覆盖默认配置、版本/模式、NaN/Infinity/所有数值边界、空/超长布局 ID 及错误消息不泄露 ID；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [x] **T6.2（P0，0.75 人日）实现 ConfigRepository**
@@ -481,8 +482,10 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 设置窗口独立且允许激活。
   - 打开期间状态机进入 SettingsOpen，忽略自身输入控件。
   - 保存前验证，保存失败保留内存状态并提示。
-  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；保存前执行数值解析和 `ConfigurationValidator`，IO 失败保持窗口及有效内存配置并显示固定提示。打开期间复用 `TargetStateCoordinator.SettingsOpen`，使输入队列会话失效、清除目标/瞬时状态并隐藏 Overlay，关闭后回到 Hidden/Disabled。
+  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段及自定义键标签/文本；保存前执行数值解析和 `ConfigurationValidator`，IO 失败保持窗口及有效内存配置并显示固定提示。打开期间复用 `TargetStateCoordinator.SettingsOpen`，使输入队列会话失效、清除目标/瞬时状态并隐藏 Overlay，关闭后回到 Hidden/Disabled 并重新组合布局；自定义文本键固定插入右侧方向区上方且密码模式隐藏。
+  - Review 增补：无边框 Overlay 通过 `WindowChrome` 支持拖动四边/四角缩放，`WM_EXITSIZEMOVE` 后一次性保存最终 DIP 尺寸，继续保持 `WS_EX_NOACTIVATE`。
   - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
+  - 本次 review 验证：覆盖自定义键配置往返/旧配置兼容/长度与成对校验、方向区上方布局、密码隐藏、最终缩放尺寸持久化；完整 Release 门禁 Core 214/214、Windows 163/163、Integration 26/26，build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

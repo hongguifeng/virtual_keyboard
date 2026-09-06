@@ -51,6 +51,8 @@ public static class PasswordActionPolicy
         return action.VirtualKey.Length == 1 && char.IsAsciiLetterOrDigit(action.VirtualKey[0]) ||
             action.VirtualKey.Length == 2 && action.VirtualKey[0] is 'D' or 'd' && char.IsAsciiDigit(action.VirtualKey[1]) ||
             action.VirtualKey.Equals("Space", StringComparison.OrdinalIgnoreCase) ||
+            action.VirtualKey is "OemSemicolon" or "OemPlus" or "OemComma" or "OemMinus" or "OemPeriod" or
+                "OemQuestion" or "OemTilde" or "OemOpenBrackets" or "OemPipe" or "OemCloseBrackets" or "OemQuotes" ||
             action.VirtualKey is "Backspace" or "Enter" or "Tab" or "Escape" or
                 "Left" or "Right" or "Up" or "Down" or "Home" or "End" or "PageUp" or "PageDown" or "Insert" or "Delete";
     }

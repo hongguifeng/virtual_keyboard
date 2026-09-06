@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using VirtualKeyboard.App;
+using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Geometry;
 using VirtualKeyboard.Core.Layouts;
@@ -25,6 +26,9 @@ public sealed class MinimalOverlayWindowTests
             Assert.False(window.ShowInTaskbar);
             Assert.False(window.ShowActivated);
             Assert.True(window.Topmost);
+            Assert.Equal(ResizeMode.CanResize, window.ResizeMode);
+            Assert.True(window.MinWidth >= ConfigurationSchemaLimits.MinimumKeyboardWidthDip);
+            Assert.True(window.MinHeight >= ConfigurationSchemaLimits.MinimumKeyboardHeightDip);
 
             var dragArea = Assert.IsType<Grid>(window.FindName("DragArea"));
             var closeButton = Assert.IsType<Button>(window.FindName("CloseButton"));
@@ -109,13 +113,19 @@ public sealed class MinimalOverlayWindowTests
             NonFocusableKeyButton[] buttons = Descendants<NonFocusableKeyButton>(view).ToArray();
             NonFocusableKeyButton shift = Assert.Single(buttons, button => button.Key.Id == "key.shift");
             NonFocusableKeyButton control = Assert.Single(buttons, button => button.Key.Id == "key.control");
+            NonFocusableKeyButton windows = Assert.Single(buttons, button => button.Key.Id == "key.windows");
+            NonFocusableKeyButton function = Assert.Single(buttons, button => button.Key.Id == "key.fn");
+            NonFocusableKeyButton numberOne = Assert.Single(buttons, button => button.Key.Id == "key.1");
             NonFocusableKeyButton caps = Assert.Single(buttons, button => button.Key.Id == "key.capsLock");
 
-            view.UpdateState(new(7, 1, true, false, false, true, true));
+            view.UpdateState(new(7, 1, true, false, false, true, true, true, true));
 
             Assert.True(shift.IsModifierActive);
             Assert.False(control.IsModifierActive);
+            Assert.True(windows.IsModifierActive);
+            Assert.True(function.IsModifierActive);
             Assert.True(caps.IsModifierActive);
+            Assert.Equal("F1", numberOne.Content);
             Assert.True(shift.Opacity < 1);
         });
     }
@@ -224,7 +234,7 @@ public sealed class MinimalOverlayWindowTests
             }
 
             Assert.True(GetWindowRect(window.OverlayHandle, out NativeRectangle actual));
-            Assert.Equal(new NativeRectangle(-9000, -8000, -7480, -7320), actual);
+            Assert.Equal(new NativeRectangle(-9000, -8000, -7400, -7400), actual);
             Assert.False(window.HasManualPosition(1));
         });
     }

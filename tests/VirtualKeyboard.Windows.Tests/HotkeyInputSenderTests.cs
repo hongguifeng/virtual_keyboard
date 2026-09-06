@@ -13,6 +13,7 @@ public sealed class HotkeyInputSenderTests
         _ = api.GetAsyncKeyState((int)HotkeyModifier.Control);
         _ = api.GetAsyncKeyState((int)HotkeyModifier.Shift);
         _ = api.GetAsyncKeyState((int)HotkeyModifier.Alt);
+        _ = api.GetAsyncKeyState((int)HotkeyModifier.Windows);
     }
 
     [Fact]
@@ -57,6 +58,22 @@ public sealed class HotkeyInputSenderTests
         AssertEvent(batch.Inputs[3], 0x10, 0x0002);
         Assert.Equal(HotkeyModifier.Shift, Assert.Single(batch.ModifiersPressedByUs).Modifier);
         Assert.DoesNotContain(batch.Inputs, static item => item.Data.Keyboard.VirtualKey == 0x11);
+    }
+
+    [Fact]
+    public void WindowsModifierUsesExtendedKeyEvents()
+    {
+        var input = new SequencedInputApi(4u);
+
+        InputSendResult result = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi()).Send(
+            [HotkeyModifier.Windows],
+            WindowsKeyboardKey.D,
+            (nint)10);
+
+        Assert.True(result.IsSuccess);
+        NativeInput[] batch = Assert.Single(input.Batches);
+        AssertEvent(batch[0], 0x5B, 0x0001);
+        AssertEvent(batch[3], 0x5B, 0x0003);
     }
 
     [Theory]

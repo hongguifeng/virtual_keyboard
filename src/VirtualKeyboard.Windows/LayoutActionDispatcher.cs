@@ -70,7 +70,12 @@ public sealed class LayoutActionDispatcher
         }
 
         WindowsKeyboardKey parsedKey = default;
-        if (action.Type is LayoutActionTypes.Key or LayoutActionTypes.Hotkey && !TryParseKey(action, out parsedKey))
+        string? requestedVirtualKey = action.VirtualKey;
+        if (action.Type == LayoutActionTypes.Key && _controller.State.FunctionLayerActive && action.FnVirtualKey is not null)
+        {
+            requestedVirtualKey = action.FnVirtualKey;
+        }
+        if (action.Type is LayoutActionTypes.Key or LayoutActionTypes.Hotkey && !TryParseKey(requestedVirtualKey, out parsedKey))
         {
             return Rejected();
         }
@@ -140,6 +145,8 @@ public sealed class LayoutActionDispatcher
             "shift" => KeyboardModifier.Shift,
             "control" => KeyboardModifier.Control,
             "alt" => KeyboardModifier.Alt,
+            "windows" or "win" => KeyboardModifier.Windows,
+            "fn" => KeyboardModifier.Function,
             _ => null,
         };
         if (parsed is null)
@@ -150,11 +157,11 @@ public sealed class LayoutActionDispatcher
         return new(InputSendStatus.Succeeded, 0, 0, 0);
     }
 
-    private static bool TryParseKey(LayoutActionDefinition action, out WindowsKeyboardKey key)
+    private static bool TryParseKey(string? virtualKey, out WindowsKeyboardKey key)
     {
         key = default;
-        return action.VirtualKey is not null &&
-            Enum.TryParse(action.VirtualKey, ignoreCase: true, out key) &&
+        return virtualKey is not null &&
+            Enum.TryParse(virtualKey, ignoreCase: true, out key) &&
             Enum.IsDefined(key);
     }
 
@@ -172,6 +179,7 @@ public sealed class LayoutActionDispatcher
                 "shift" => HotkeyModifier.Shift,
                 "control" => HotkeyModifier.Control,
                 "alt" => HotkeyModifier.Alt,
+                "windows" or "win" => HotkeyModifier.Windows,
                 _ => null,
             };
             if (modifier is null || result.Contains(modifier.Value))
@@ -185,10 +193,11 @@ public sealed class LayoutActionDispatcher
 
     private static HotkeyModifier[] ModifiersFrom(KeyboardActionPreparation preparation)
     {
-        var modifiers = new List<HotkeyModifier>(3);
+        var modifiers = new List<HotkeyModifier>(4);
         if (preparation.UseShift) modifiers.Add(HotkeyModifier.Shift);
         if (preparation.UseControl) modifiers.Add(HotkeyModifier.Control);
         if (preparation.UseAlt) modifiers.Add(HotkeyModifier.Alt);
+        if (preparation.UseWindows) modifiers.Add(HotkeyModifier.Windows);
         return modifiers.ToArray();
     }
 

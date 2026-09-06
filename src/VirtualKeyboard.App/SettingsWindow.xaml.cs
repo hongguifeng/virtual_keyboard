@@ -20,14 +20,15 @@ public partial class SettingsWindow : Window
         EnabledCheckBox.IsChecked == true, AutoShowCheckBox.IsChecked == true, AutoHideCheckBox.IsChecked == true,
         Parse(OpacityTextBox.Text), Parse(WidthTextBox.Text), Parse(HeightTextBox.Text), Parse(MarginTextBox.Text),
         LayoutIdTextBox.Text, PositionModeComboBox.SelectedItem is ManualPositionMode mode ? mode : ManualPositionMode.UntilTargetChanges,
-        DiagnosticsCheckBox.IsChecked == true);
+        DiagnosticsCheckBox.IsChecked == true, CustomKeyLabelTextBox.Text, CustomKeyTextBox.Text);
 
     private void LoadConfiguration(KeyboardConfiguration c)
     {
         EnabledCheckBox.IsChecked = c.Enabled; AutoShowCheckBox.IsChecked = c.AutoShow; AutoHideCheckBox.IsChecked = c.AutoHide;
         OpacityTextBox.Text = c.Opacity.ToString(CultureInfo.InvariantCulture); WidthTextBox.Text = c.KeyboardWidthDip.ToString(CultureInfo.InvariantCulture);
         HeightTextBox.Text = c.KeyboardHeightDip.ToString(CultureInfo.InvariantCulture); MarginTextBox.Text = c.MarginDip.ToString(CultureInfo.InvariantCulture);
-        LayoutIdTextBox.Text = c.LayoutId ?? string.Empty; PositionModeComboBox.SelectedItem = c.ManualPositionMode; DiagnosticsCheckBox.IsChecked = c.DetailedDiagnostics;
+        LayoutIdTextBox.Text = c.LayoutId ?? string.Empty; PositionModeComboBox.SelectedItem = c.ManualPositionMode;
+        CustomKeyLabelTextBox.Text = c.CustomKeyLabel; CustomKeyTextBox.Text = c.CustomKeyText; DiagnosticsCheckBox.IsChecked = c.DetailedDiagnostics;
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)

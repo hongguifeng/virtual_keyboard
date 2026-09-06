@@ -12,12 +12,16 @@ public sealed class KeyboardControllerTests
         controller.SetTargetSession(1);
         controller.ToggleModifier(KeyboardModifier.Shift);
         controller.ToggleModifier(KeyboardModifier.Control);
+        controller.ToggleModifier(KeyboardModifier.Windows);
+        controller.ToggleModifier(KeyboardModifier.Function);
 
         KeyboardControllerState state = controller.SetTargetSession(2);
 
         Assert.Equal(2, state.TargetSessionId);
         Assert.False(state.ShiftLatched);
         Assert.False(state.ControlLatched);
+        Assert.False(state.WindowsLatched);
+        Assert.False(state.FunctionLayerActive);
         Assert.True(state.IsCapsLockKnown);
         Assert.True(state.IsCapsLockOn);
         Assert.Equal(2, caps.ReadCalls);
@@ -59,6 +63,23 @@ public sealed class KeyboardControllerTests
 
         Assert.False(controller.ToggleModifier(KeyboardModifier.Control).ControlLatched);
         Assert.False(controller.ToggleModifier(KeyboardModifier.Alt).AltLatched);
+    }
+
+    [Fact]
+    public void WindowsAndFunctionLayerToggleIndependently()
+    {
+        using var controller = ControllerWithTarget();
+
+        KeyboardControllerState enabledWindows = controller.ToggleModifier(KeyboardModifier.Windows);
+        KeyboardControllerState enabledFunction = controller.ToggleModifier(KeyboardModifier.Function);
+        KeyboardActionPreparation action = controller.PrepareAction(KeyAction("D1"));
+
+        Assert.True(enabledWindows.WindowsLatched);
+        Assert.True(enabledFunction.FunctionLayerActive);
+        Assert.True(action.UseWindows);
+        Assert.True(action.UseFunctionLayer);
+        Assert.False(controller.ToggleModifier(KeyboardModifier.Windows).WindowsLatched);
+        Assert.False(controller.ToggleModifier(KeyboardModifier.Function).FunctionLayerActive);
     }
 
     [Theory]
@@ -142,12 +163,14 @@ public sealed class KeyboardControllerTests
         controller.ToggleModifier(KeyboardModifier.Shift);
         controller.ToggleModifier(KeyboardModifier.Control);
         controller.ToggleModifier(KeyboardModifier.Alt);
+        controller.ToggleModifier(KeyboardModifier.Windows);
+        controller.ToggleModifier(KeyboardModifier.Function);
 
         KeyboardControllerState cleared = controller.ClearTargetSession();
         controller.Dispose();
 
         Assert.Equal(0, cleared.TargetSessionId);
-        Assert.False(cleared.ShiftLatched || cleared.ControlLatched || cleared.AltLatched);
+        Assert.False(cleared.ShiftLatched || cleared.ControlLatched || cleared.AltLatched || cleared.WindowsLatched || cleared.FunctionLayerActive);
         Assert.Throws<ObjectDisposedException>(() => controller.ToggleModifier(KeyboardModifier.Shift));
     }
 

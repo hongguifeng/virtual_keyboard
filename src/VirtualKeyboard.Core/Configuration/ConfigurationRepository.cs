@@ -46,7 +46,9 @@ public static class ConfigurationDefaults
         marginDip: 8,
         layoutId: "builtin.qwerty.en-US",
         manualPositionMode: ManualPositionMode.UntilTargetChanges,
-        detailedDiagnostics: false);
+        detailedDiagnostics: false,
+        customKeyLabel: "",
+        customKeyText: "");
 }
 
 /// <summary>Loads recoverably and saves validated configuration with a flushed same-directory replacement.</summary>
@@ -267,6 +269,8 @@ public sealed class ConfigurationRepository
         public string? LayoutId { get; set; }
         public ManualPositionMode? ManualPositionMode { get; set; }
         public bool? DetailedDiagnostics { get; set; }
+        public string? CustomKeyLabel { get; set; }
+        public string? CustomKeyText { get; set; }
 
         [JsonIgnore]
         public bool HasAllRequiredValues => SchemaVersion.HasValue && Enabled.HasValue && AutoShow.HasValue && AutoHide.HasValue &&
@@ -276,6 +280,6 @@ public sealed class ConfigurationRepository
         public KeyboardConfiguration ToConfiguration() => new(
             SchemaVersion!.Value, Enabled!.Value, AutoShow!.Value, AutoHide!.Value, Opacity!.Value,
             KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
-            ManualPositionMode!.Value, DetailedDiagnostics!.Value);
+            ManualPositionMode!.Value, DetailedDiagnostics!.Value, CustomKeyLabel ?? string.Empty, CustomKeyText ?? string.Empty);
     }
 }

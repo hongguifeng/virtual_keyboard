@@ -88,6 +88,7 @@ public sealed class KeyInputSenderTests
     [InlineData(WindowsKeyboardKey.Space, 0x39)]
     [InlineData(WindowsKeyboardKey.D0, 0x0B)]
     [InlineData(WindowsKeyboardKey.A, 0x1E)]
+    [InlineData(WindowsKeyboardKey.OemQuestion, 0x35)]
     public void SenderMapsCommonKeysUsingTargetThreadLayout(WindowsKeyboardKey key, uint scanCode)
     {
         var input = new FakeInputApi { ReturnCount = 2 };

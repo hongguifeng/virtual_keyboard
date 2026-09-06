@@ -12,7 +12,8 @@ public sealed class LayoutRepositoryTests
         using var fixture = new RepositoryFixture(builtInDirectory);
 
         KeyboardLayoutDefinition layout = Assert.Single(fixture.Repository.Reload().Layouts).Value;
-        KeyboardKeyDefinition[] keys = layout.Rows!.SelectMany(row => row.Keys!).ToArray();
+        IReadOnlyList<KeyboardLayoutRow> rows = layout.Rows!;
+        KeyboardKeyDefinition[] keys = rows.SelectMany(row => row.Keys!).ToArray();
 
         Assert.Equal("builtin.qwerty.en-US", layout.Id);
         Assert.Equal(26, keys.Count(key => key.Id is { Length: 5 } && key.Id.StartsWith("key.", StringComparison.Ordinal) && char.IsAsciiLetterLower(key.Id[4])));
@@ -21,10 +22,21 @@ public sealed class LayoutRepositoryTests
             keys.Where(key => key.Id is { Length: 5 } && char.IsAsciiLetterOrDigit(key.Id[4])),
             key => Assert.Equal(LayoutActionTypes.Key, key.Action!.Type));
         Assert.Contains(keys, key => key.Action?.VirtualKey == "Space" || key.Action?.Value == " ");
-        foreach (string id in new[] { "key.backspace", "key.enter", "key.tab", "key.escape", "key.shift", "key.control", "key.alt", "key.capsLock" })
+        foreach (string id in new[] { "key.backspace", "key.enter", "key.tab", "key.escape", "key.shift", "key.control", "key.alt", "key.windows", "key.fn", "key.left", "key.up", "key.down", "key.right", "key.capsLock" })
         {
             Assert.Contains(keys, key => key.Id == id);
         }
+        Assert.Equal(
+            Enumerable.Range(1, 12).Select(number => $"F{number}"),
+            keys.Where(key => key.Action?.FnVirtualKey is not null).Select(key => key.Action!.FnVirtualKey));
+        Assert.Equal(
+            ["key.escape", "key.grave", "key.1", "key.2", "key.3", "key.4", "key.5", "key.6", "key.7", "key.8", "key.9", "key.0", "key.minus", "key.equals", "key.backspace"],
+            rows[0].Keys!.Select(key => key.Id));
+        Assert.Equal(
+            ["key.tab", "key.q", "key.w", "key.e", "key.r", "key.t", "key.y", "key.u", "key.i", "key.o", "key.p", "key.openBracket", "key.closeBracket", "key.backslash"],
+            rows[1].Keys!.Select(key => key.Id));
+        Assert.Equal(["key.left", "key.down", "key.right"], rows[4].Keys!.TakeLast(3).Select(key => key.Id));
+        Assert.Equal("key.up", rows[3].Keys![^1].Id);
         Assert.DoesNotContain(keys, key => key.Id is "key.close" or "key.settings" or "key.drag");
     }
 

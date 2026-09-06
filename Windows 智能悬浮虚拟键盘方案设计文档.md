@@ -387,7 +387,7 @@ SetWindowPos(
 
 不得在按键处理过程中调用 `Activate`、`Focus`、`SetForegroundWindow` 或把目标窗口强行带到前台。
 
-T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。适配器只接受 UI 线程调用并拒绝非正尺寸。
+T1.1 的最小实现位于 `VirtualKeyboard.Windows.OverlayWindowAdapter`：窗口在 `SourceInitialized` 后集中设置 `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`，通过 `HwndSource.AddHook` 将 `WM_MOUSEACTIVATE` 返回为 `MA_NOACTIVATE`，并以 `SetWindowPos(HWND_TOPMOST, ..., SWP_NOACTIVATE)` 完成显示、移动和尺寸更新。无边框窗口使用 WPF `WindowChrome` 提供 7 DIP 非客户区缩放边界；适配器在 `WM_EXITSIZEMOVE` 后仅发布一次最终 DIP 尺寸，由 App 验证并原子保存，避免拖动期间反复写盘。适配器只接受 UI 线程调用并拒绝非正尺寸。
 
 T1.2 的最小目标捕获实现位于 `VirtualKeyboard.Windows.NativeForegroundTargetCapture`。适配器通过 `GetForegroundWindow` 获取前台顶层 HWND，再用 `GetWindowThreadProcessId` 获取进程 ID 和 GUI 线程，最后通过 `GetGUIThreadInfo` 获取焦点 HWND；任何句柄、线程或进程查询失败都返回可判定的 `TargetCaptureStatus`，不会读取标题、进程名或输入内容，也不会改变前台窗口。捕获本程序自身窗口时返回 `OwnProcess`。`VirtualKeyboard.Core.TargetSessionStore` 使用不可变 DTO 和锁保护的原子替换生成单调 `SessionId`；该适配器在最终实现中用于发送前目标复核，早期 `MainWindow` 手动捕获按钮及 PID/HWND 展示已经删除。
 
@@ -555,7 +555,7 @@ T4.4 的 `KeyInputSender` 接收封闭的 `WindowsKeyboardKey` 和目标焦点 H
 - 异常、取消和进程退出路径都调用安全释放。
 - CapsLock 默认发送 `VK_CAPITAL` 改变系统锁定状态，并在随后通过 `GetKeyState` 刷新 UI。
 
-T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-3 个互不重复的 Ctrl、Shift、Alt；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。Shift/Ctrl/Alt 的点击切换状态和 CapsLock 状态刷新由 T5.4 `KeyboardController` 实现。
+T4.5 的 `HotkeyInputSender` 在入口复制修饰键列表快照，只接受 1-4 个互不重复的 Ctrl、Shift、Alt、Win；通过 `GetAsyncKeyState` 高位读取提交前实体按下状态。实体已按住的修饰键参与系统热键语义，但不进入 `ModifiersPressedByUs`，程序既不重复按下也不释放。其余修饰键按声明顺序 Down，主键 Down/Up，最后逆序 Up，并作为一个 `SendInput` 批次提交。批次记录每个合成 Down/Up 的索引：短返回时根据已接受前缀只补发仍可能按下的主键和修饰键 KeyUp，不重试原热键；未知发送异常时逆序尽力释放本批次计划按下的修饰键，清理失败不覆盖原始结果。取消在原生提交前返回 `Cancelled` 且零输入调用；同步 `SendInput` 提交本身不可中断。调用方列表快照避免并发修改破坏按下/释放配对。Shift/Ctrl/Alt/Win 的点击切换状态和 CapsLock 状态刷新由 T5.4 `KeyboardController` 实现。
 
 T5.4 的 Core `KeyboardController` 用单锁维护版本化不可变状态快照。Shift、Control、Alt 均为独立点击开关：第一次点击保持，再次点击释放；准备输入动作只复制当前修饰键快照，不消费状态，因此 Shift+D1、Shift+D2 等数字行组合以及连续 Ctrl/Alt 组合都持续生效。每个发送批次仍由 HotkeyInputSender 成对按下/释放系统修饰键，避免真实按键卡住。无目标会话不得准备动作；目标 SessionId 改变、目标清空或 Dispose 均清除三个保持状态，避免跨目标泄漏。
 
@@ -592,7 +592,7 @@ T5.2 的 `LayoutRepositoryPaths.CreateDefault` 将内置目录固定解析为应
 
 每个布局文件限制为 1 MiB，JSON 最大深度为 16，禁止注释、尾随逗号、大小写不匹配字段和未知字段，并兼容 UTF-8 BOM。Repository 以规范化文件路径缓存最后一次有效的不可变快照；显式重新加载时，新文件只有通过 JSON/schema 校验且 ID 不冲突才替换缓存。相同文件损坏、暂时不可读或改成冲突 ID 时继续发布旧快照并标记 `RetainedPrevious`；文件被删除则从快照移除。目录枚举暂时失败时保留该来源现有缓存。Reload 通过单锁串行化，读者获得一次性只读字典快照，不会观察半更新状态。
 
-T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均以 `PreserveNewest` 复制到上述只读目录。布局共五行：数字行包含 Escape、0-9、Backspace，三行 QWERTY 字母区包含 Tab、Enter、Shift、CapsLock，底行包含 Control、Alt、Space。字母、数字、空格及编辑/导航键均使用 `key`，使它们可直接参与 Shift/Ctrl/Alt 键盘语义；自定义 Unicode 短语才使用 `text`，状态键使用 `modifier`。Windows 封闭键枚举同步覆盖 A-Z、D0-D9、Space、Shift、Control、Alt、CapsLock。所有 MVP 输入键均标记 `safeForPassword=true`。关闭、设置和拖动不在 JSON 中，不可能被布局解析成输入 action。
+T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均以 `PreserveNewest` 复制到上述只读目录。布局共五行，主键区遵循标准美式 QWERTY 顺序：Escape/重音符与完整数字标点行、Tab/QWERTY/方括号/反斜杠行、CapsLock/ASDF/分号/引号/Enter 行、左右 Shift/ZXCV/逗号/句点/斜杠行，以及左右 Ctrl/Alt、Win、Space、Fn 底行。方向键位于右侧并采用倒 T 排列。数字行的 1-0、减号、等号分别声明 F1-F12 `fnVirtualKey`。字母、数字、标点、空格及编辑/导航键均使用 `key`，使它们可直接参与 Shift/Ctrl/Alt/Win 键盘语义；自定义 Unicode 短语才使用 `text`，状态键使用 `modifier`。Windows 封闭键枚举同步覆盖 A-Z、D0-D9、F1-F12、标准 OEM 标点、方向/导航键和所需状态键。Win/Fn 标记为密码目标不安全；其余标准输入键按密码策略处理。关闭、设置和拖动不在 JSON 中，不可能被布局解析成输入 action。
 
 ### 13.2 布局 JSON 示例
 
@@ -638,9 +638,9 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 - `width` 必须是有限正数且不大于 `16`。`safeForPassword` 为每个 key 必填布尔语义，密码目标执行动作前仍由控制器执行该标志门禁。
 - action 是严格字段联合，只接受小写 `text`、`key`、`hotkey`、`modifier`；混入其他 action 类型的字段也视为无效。
 - `text` 只使用 `value`，长度为 1-4096 UTF-16 code unit；日志和校验错误仅给出 `$.rows[n][n].action.value` 路径，不得回显内容。
-- `key` 必须且只能声明 `virtualKey` 或 `scanCode` 之一。`scanCode` 范围为 1-65535；`virtualKey` 使用封闭集合：A-Z、0-9、Space、Backspace、Enter、Tab、Escape 和方向/导航键。
-- `hotkey` 使用与 `key` 相同的一个主键，并声明 1-3 个按顺序排列、互不重复的 `Shift`、`Control`、`Alt` 修饰键；总 chord 长度因此最多为 4。
-- `modifier` 只接受 `Shift`、`Control`、`Alt`、`CapsLock` 状态名。动作名和键名按 schema 规定的大小写解析；修饰键名和 virtual key 名由校验器按 ASCII 大小写不敏感匹配。
+- `key` 必须且只能声明 `virtualKey` 或 `scanCode` 之一，并可选声明一个 `fnVirtualKey`。`scanCode` 范围为 1-65535；两个 virtual key 字段都使用封闭集合：A-Z、0-9、F1-F12、标准美式主键区 OEM 标点、Space、Backspace、Enter、Tab、Escape 和方向/导航键。
+- `hotkey` 使用与 `key` 相同的一个主键，并声明 1-3 个按顺序排列、互不重复的 `Shift`、`Control`、`Alt`、`Windows` 修饰键；与界面保持状态合并后的发送批次最多包含四个修饰键。
+- `modifier` 只接受 `Shift`、`Control`、`Alt`、`Windows`、`Fn`、`CapsLock` 状态名。Fn 不进入 SendInput 修饰键数组，只选择 `fnVirtualKey`；动作名和键名按 schema 规定的大小写解析，修饰键名和 virtual key 名由校验器按 ASCII 大小写不敏感匹配。
 - 出现 `command`、脚本或未知可执行动作时拒绝整个布局。
 - T5.1 的 `KeyboardLayoutDefinition`、`KeyboardLayoutRow`、`KeyboardKeyDefinition` 和 `LayoutActionDefinition` 在构造时复制集合，调用方后续修改源集合不会改变已验证模型。`LayoutValidator` 返回稳定错误 code、具体 JSON 字段路径及固定非敏感消息。
 - `LayoutLoadIssue` 仅携带来源枚举、文件名、JSON 字段路径、稳定错误 code、固定消息和是否保留旧快照；不携带布局文本值或完整本机路径。校验失败继续使用最后一个有效布局，后续 UI 可直接使用这些非敏感字段显示错误。
@@ -649,14 +649,14 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 
 `KeyboardController` 将布局模型映射为不可变 `KeyViewModel` 集合。宽度采用 Grid 星号或等价权重算法；最小点击尺寸、间距和字体由主题资源控制。视图只绑定动作 ID，不直接持有原生 VK 常量处理逻辑。
 
-T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽，行列最小尺寸均为 36 DIP，窗口配置尺寸扩大到 760×340 DIP 以容纳完整 MVP 布局。
+T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽，行列最小尺寸均为 36 DIP；完整标准布局的窗口下限为 620×280 DIP，默认配置为 800×300 DIP。
 
 `NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
-M5 review 修正增加 Windows `LayoutActionDispatcher`。动态 `KeyInvoked` 先进入 Core `InputInjectionService` 有界串行队列；消费者同步复核 SessionId、前台、焦点和密码策略，再把标准 key 送入 `KeyInputSender`，把显式或锁存修饰键组合送入 `HotkeyInputSender`，把 Unicode text 保持在 `UnicodeTextInputSender`，modifier 则只更新控制器或经验证切换系统 CapsLock。未知键/修饰键在消费锁存状态前拒绝。UI 不再硬编码仅发送 A；状态文本也不回显 label 或 text。退出顺序为停止队列、清理控制器、Dispose 热键安全闩锁、最后关闭诊断。
+M5 review 修正增加 Windows `LayoutActionDispatcher`。动态 `KeyInvoked` 先进入 Core `InputInjectionService` 有界串行队列；消费者同步复核 SessionId、前台、焦点和密码策略，再把标准 key 送入 `KeyInputSender`，把显式或保持的 Shift/Ctrl/Alt/Win 组合送入 `HotkeyInputSender`，把 Unicode text 保持在 `UnicodeTextInputSender`；Fn 选择 key 的 `fnVirtualKey`，其他 modifier 更新控制器或经验证切换系统 CapsLock。未知键/修饰键在发送前拒绝。UI 不再硬编码仅发送 A；状态文本也不回显 label 或 text。退出顺序为停止队列、清理控制器、Dispose 热键安全闩锁、最后关闭诊断。
 动作完成或失败后，`KeyboardLayoutView.UpdateState` 使用同一 `KeyboardControllerState` 更新状态键视觉；因此再次点击释放、目标切换或 CapsLock 刷新不会留下过时高亮。
 
-T5.6 的 Core `PasswordActionPolicy` 不信任布局作者单独声明的 `safeForPassword`：两者必须同时通过。密码模式仅允许一个 Unicode 标准字符、封闭的 A-Z/D0-D9/Space 与编辑导航 key，以及 Shift/CapsLock；所有 hotkey、多字符 text、scanCode、Control/Alt 和未知动作默认拒绝。WPF 生成密码布局时直接排除不通过的键，事件分发边界在发送前再次执行同一策略，避免仅靠可见性形成安全边界。`PasswordActionCheck` 只返回枚举与固定 reason code，不返回文本；状态提示也不拼接 key label、目标 Name 或 Value。
+T5.6 的 Core `PasswordActionPolicy` 不信任布局作者单独声明的 `safeForPassword`：两者必须同时通过。密码模式仅允许一个 Unicode 标准字符、封闭的 A-Z/D0-D9/OEM 标点/Space 与编辑导航 key，以及 Shift/CapsLock；所有 hotkey、多字符 text、scanCode、Control/Alt/Win/Fn 和未知动作默认拒绝。WPF 生成密码布局时直接排除不通过的键，事件分发边界在发送前再次执行同一策略，避免仅靠可见性形成安全边界。`PasswordActionCheck` 只返回枚举与固定 reason code，不返回文本；状态提示也不拼接 key label、目标 Name 或 Value。
 
 T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture。TouchDown 捕获单一触点并进入与鼠标相同的 `KeyGestureController`；TouchUp 使用相对触点坐标判定是否仍在键内，先结束手势再释放捕获；丢失捕获统一取消。各触摸事件标记 handled，防止 WPF 将同一触摸继续提升为鼠标点击而重复执行。拖动区域只处理自身鼠标手势，不共享按键的触摸捕获。自动测试环境无实体触摸设备，真实单指点击和拖动手柄邻键冲突保留为 P1 实机验收项。
 
@@ -701,11 +701,11 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
 
 配置模型与运行时模型分离；运行时始终获得经过验证的不可变配置快照。
 
-T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，字段覆盖 schemaVersion、enabled、autoShow、autoHide、opacity、keyboardWidthDip、keyboardHeightDip、marginDip、layoutId、manualPositionMode 和 detailedDiagnostics。`ConfigurationValidator` 只接受 schema v1，透明度范围为 0.30–1.00，尺寸/边距采用有界 DIP 范围（宽 240–2000、高 120–1000、边距 0–128），布局 ID 为非空且不超过 128 个字符；手动位置模式为封闭枚举。验证错误不回显布局 ID，T6.2 负责 JSON 读取与默认值恢复。
+T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，字段覆盖 schemaVersion、enabled、autoShow、autoHide、opacity、keyboardWidthDip、keyboardHeightDip、marginDip、layoutId、manualPositionMode、detailedDiagnostics、customKeyLabel 和 customKeyText。`ConfigurationValidator` 只接受 schema v1，透明度范围为 0.30–1.00，尺寸/边距采用有界 DIP 范围（宽 620–2000、高 280–1000、边距 0–128），布局 ID 为非空且不超过 128 个字符；自定义键标签/文本必须同时为空或同时存在，分别限制为 32/256 个 UTF-16 code unit；手动位置模式为封闭枚举。验证错误不回显布局 ID 或自定义文本，T6.2 负责 JSON 读取与默认值恢复。旧 schema v1 文件缺少两个新增可选字段时按禁用自定义键加载。
 
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
-T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段；数值使用 invariant culture 解析，保存前显式调用 `ConfigurationValidator`，再交给 Repository 持久化。验证或保存失败时窗口保持打开并显示不含用户值的固定提示；Repository 的有效内存快照不因 IO 失败回滚。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、清除 TargetSession 和瞬时修饰键并隐藏 Overlay，因此设置窗口及其输入控件的焦点不会建立输入目标，关闭后协调器回到 Hidden/Disabled 并等待焦点刷新。
+T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段，包括可选自定义键标签与文本；数值使用 invariant culture 解析，保存前显式调用 `ConfigurationValidator`，再交给 Repository 持久化。验证或保存失败时窗口保持打开并显示不含用户值的固定提示；Repository 的有效内存快照不因 IO 失败回滚。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、清除 TargetSession 和瞬时修饰键并隐藏 Overlay，因此设置窗口及其输入控件的焦点不会建立输入目标，关闭后重新组合布局并等待焦点刷新。启用的自定义键以 `safeForPassword=false` 的 `text` action 插入第三行末端，即右侧倒 T 方向区上方；分发仍复用目标复核、串行队列和 Unicode 文本发送路径。
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 

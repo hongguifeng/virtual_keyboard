@@ -5,14 +5,14 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 
 > 当前状态：M6 已完成，M7 按项目决策跳过，M8 的验收表、打包和用户文档已完成。发布评审后已接通自动焦点宿主，但仍缺实机矩阵/M7 证据且制品未签名、未有效扫描；该构建仍仅限内部验证。
 
-动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt 锁存与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
+动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt/Win 锁存、Fn 功能层与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
 
 目标会话完全由自动焦点识别建立，最终界面不再包含早期调试用的“捕获当前目标”按钮，也不会向用户显示 PID 或窗口句柄。
-修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/CapsLock 的活动态不会与实际发送状态分离。
+修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/Win/Fn/CapsLock 的活动态不会与实际发送状态分离。
 
-`VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 240–2000 DIP、高度 120–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
+`VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
 
-键盘标题栏的“设置”可打开独立、允许激活的设置窗口。窗口覆盖启用、自动显示/隐藏、尺寸、透明度、边距、布局、手动位置模式和详细诊断；保存前验证，持久化失败时窗口保持打开并提示，编辑后的有效配置仍保留在内存中。
+键盘标题栏的“设置”可打开独立、允许激活的设置窗口。窗口覆盖启用、自动显示/隐藏、尺寸、透明度、边距、布局、手动位置模式、详细诊断，以及一个自定义文本按键的标签和输入内容；保存前验证，持久化失败时窗口保持打开并提示，编辑后的有效配置仍保留在内存中。自定义键显示在右侧方向键区域上方，并在密码目标中隐藏。
 
 应用启动后常驻系统托盘。托盘菜单提供启用/暂停、显示当前键盘、设置、重新加载布局和退出；键盘标题栏关闭按钮只隐藏可复用窗口，退出请使用托盘菜单。
 
@@ -72,13 +72,15 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 `VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。
 
-内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`，包含 A-Z、0-9、Space、Backspace、Enter、Tab、Escape、Shift、Ctrl、Alt 和 CapsLock。标准键统一走可受 Shift/Ctrl/Alt 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
+内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`。主键区按标准美式 QWERTY 顺序排列，包含完整数字与标点行、三行字母/标点区、左右 Shift/Ctrl/Alt、Space、Win、Fn、CapsLock，方向键在右侧采用倒 T 排列。Fn 是应用内部功能层开关：数字行 1-0、减号、等号切换为 F1-F12，不尝试发送厂商专用物理 Fn。标准键统一走可受 Shift/Ctrl/Alt/Win 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
 
-`KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt 点击开关状态：第一次点击保持，再次点击释放，普通按键不会自动清除；Shift 保持时数字行经标准 key/hotkey 路径产生当前系统布局对应的符号。目标替换、清空及退出都会清理保持状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
+`KeyboardController` 保存与目标会话绑定的 Shift/Ctrl/Alt/Win/Fn 点击开关状态：第一次点击保持，再次点击释放，普通按键不会自动清除；Shift 保持时数字行产生当前系统布局对应的符号，Fn 保持时数字行发送 F1-F12。目标替换、清空及退出都会清理保持状态。CapsLock 使用经过目标复核的系统按键切换，并在刷新时读取真实系统 toggle bit，不用虚拟状态猜测。
 
 `KeyboardLayoutView` 从 JSON 对应的不可变视图模型生成五行按键，行列都使用星号权重，最小按键尺寸为 36×36 DIP。每个按键均不可聚焦、不可进入 Tab 导航；按下时显示状态，释放到键外、丢失鼠标捕获或取消不会触发动作，同一按下最多触发一次。
 
-密码目标采用双层白名单：视图不生成不安全按键，动作分发前再次检查。只允许单个标准字符、封闭的标准/编辑键以及 Shift/CapsLock；自定义短语、hotkey、不透明扫描码、Ctrl/Alt 和未知动作均默认拒绝。判定结果只包含封闭 reason code，不携带控件 Name、Value 或动作文本。
+悬浮键盘的四边和四角可直接拖动缩放；交互结束后最终宽高以 DIP 写回配置。窗口仍保持 NoActivate，不会因缩放抢走目标输入框焦点。标准布局的最小可用尺寸为 620×280 DIP。
+
+密码目标采用双层白名单：视图不生成不安全按键，动作分发前再次检查。只允许单个标准字符、封闭的字母/数字/OEM 标点/编辑键以及 Shift/CapsLock；自定义短语、hotkey、不透明扫描码、Ctrl/Alt/Win/Fn 和未知动作均默认拒绝。判定结果只包含封闭 reason code，不携带控件 Name、Value 或动作文本。
 
 按键显式处理单指 TouchDown/Move/Up/LostCapture，并复用鼠标的单次手势状态机；触摸事件标记 handled，避免 WPF 鼠标提升造成双触发。当前机器没有可自动驱动的实体触摸屏，因此真实触摸与拖动冲突仍作为明确 P1 实机风险，不能用合成鼠标结果冒充通过。
 

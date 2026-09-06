@@ -21,7 +21,9 @@ public sealed class KeyboardConfiguration
         double marginDip,
         string? layoutId,
         ManualPositionMode manualPositionMode,
-        bool detailedDiagnostics)
+        bool detailedDiagnostics,
+        string customKeyLabel = "",
+        string customKeyText = "")
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -34,6 +36,8 @@ public sealed class KeyboardConfiguration
         LayoutId = layoutId;
         ManualPositionMode = manualPositionMode;
         DetailedDiagnostics = detailedDiagnostics;
+        CustomKeyLabel = customKeyLabel ?? string.Empty;
+        CustomKeyText = customKeyText ?? string.Empty;
     }
 
     public int SchemaVersion { get; }
@@ -47,6 +51,8 @@ public sealed class KeyboardConfiguration
     public string? LayoutId { get; }
     public ManualPositionMode ManualPositionMode { get; }
     public bool DetailedDiagnostics { get; }
+    public string CustomKeyLabel { get; }
+    public string CustomKeyText { get; }
 }
 
 public sealed record ConfigurationValidationError(string Path, string Code, string Message);
@@ -65,13 +71,15 @@ public static class ConfigurationSchemaLimits
     public const int SupportedSchemaVersion = 1;
     public const double MinimumOpacity = 0.30;
     public const double MaximumOpacity = 1.0;
-    public const double MinimumKeyboardWidthDip = 240;
+    public const double MinimumKeyboardWidthDip = 620;
     public const double MaximumKeyboardWidthDip = 2000;
-    public const double MinimumKeyboardHeightDip = 120;
+    public const double MinimumKeyboardHeightDip = 280;
     public const double MaximumKeyboardHeightDip = 1000;
     public const double MinimumMarginDip = 0;
     public const double MaximumMarginDip = 128;
     public const int MaximumLayoutIdLength = 128;
+    public const int MaximumCustomKeyLabelLength = 32;
+    public const int MaximumCustomKeyTextLength = 256;
 }
 
 public static class ConfigurationValidator
@@ -101,6 +109,20 @@ public static class ConfigurationValidator
         if (!Enum.IsDefined(configuration.ManualPositionMode))
         {
             Add(errors, "$.manualPositionMode", "config.manualPositionMode", "The manual position mode is not supported.");
+        }
+        bool hasCustomLabel = !string.IsNullOrWhiteSpace(configuration.CustomKeyLabel);
+        bool hasCustomText = !string.IsNullOrEmpty(configuration.CustomKeyText);
+        if (hasCustomLabel != hasCustomText)
+        {
+            Add(errors, "$.customKey", "config.customKeyPair", "Custom key label and text must either both be present or both be empty.");
+        }
+        if (configuration.CustomKeyLabel.Length > ConfigurationSchemaLimits.MaximumCustomKeyLabelLength)
+        {
+            Add(errors, "$.customKeyLabel", "config.customKeyLabel", $"Custom key label cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeyLabelLength} characters.");
+        }
+        if (configuration.CustomKeyText.Length > ConfigurationSchemaLimits.MaximumCustomKeyTextLength)
+        {
+            Add(errors, "$.customKeyText", "config.customKeyText", $"Custom key text cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeyTextLength} characters.");
         }
 
         return new(errors);

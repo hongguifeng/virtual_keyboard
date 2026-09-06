@@ -37,10 +37,16 @@ public sealed class KeyboardLayoutView : Grid
                 "shift" => state.ShiftLatched,
                 "control" => state.ControlLatched,
                 "alt" => state.AltLatched,
+                "windows" or "win" => state.WindowsLatched,
+                "fn" => state.FunctionLayerActive,
                 "capslock" => state.IsCapsLockKnown && state.IsCapsLockOn,
                 _ => false,
             };
             button.SetModifierActive(active);
+            if (button.Key.Action.Type == LayoutActionTypes.Key && button.Key.Action.FnVirtualKey is not null)
+            {
+                button.Content = state.FunctionLayerActive ? button.Key.Action.FnVirtualKey : button.Key.Label;
+            }
         }
     }
 
@@ -79,7 +85,7 @@ public sealed class KeyboardLayoutView : Grid
                 Content = key.Label,
                 Margin = new Thickness(2),
                 MinHeight = MinimumKeyHeight,
-                FontSize = 16,
+                FontSize = key.Label.Contains('\n', StringComparison.Ordinal) ? 12 : 16,
             };
             AutomationProperties.SetAutomationId(button, key.Id == "key.a" ? "KeyAButton" : key.Id);
             button.Invoked += OnButtonInvoked;

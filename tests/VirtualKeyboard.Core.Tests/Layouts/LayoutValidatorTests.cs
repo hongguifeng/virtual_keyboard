@@ -165,7 +165,7 @@ public sealed class LayoutValidatorTests
         LayoutValidationResult duplicate = LayoutValidator.Validate(Layout(
             Key("duplicate", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: ["Control", "control"]))));
         LayoutValidationResult unknown = LayoutValidator.Validate(Layout(
-            Key("unknown", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: ["Windows"]))));
+            Key("unknown", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: ["Meta"]))));
         LayoutValidationResult longHotkey = LayoutValidator.Validate(Layout(
             Key("long", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: ["Control", "Shift", "Alt", "Control"]))));
 
@@ -193,9 +193,32 @@ public sealed class LayoutValidatorTests
     public void ModifierActionUsesClosedStateModifierSet()
     {
         LayoutValidationResult result = LayoutValidator.Validate(Layout(
-            Key("bad", new(LayoutActionTypes.Modifier, modifier: "Windows"))));
+            Key("bad", new(LayoutActionTypes.Modifier, modifier: "Meta"))));
 
         AssertError(result, "$.rows[0][0].action.modifier", "action.modifier");
+    }
+
+    [Fact]
+    public void WindowsFnAndFunctionLayerKeysAreAllowlisted()
+    {
+        LayoutValidationResult result = LayoutValidator.Validate(Layout(
+            Key("windows", new(LayoutActionTypes.Modifier, modifier: "Windows")),
+            Key("fn", new(LayoutActionTypes.Modifier, modifier: "Fn")),
+            Key("f1", new(LayoutActionTypes.Key, virtualKey: "D1", fnVirtualKey: "F1"))));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void FunctionLayerKeyMustBeAllowlistedAndOnlyBelongsToKeyAction()
+    {
+        LayoutValidationResult unknown = LayoutValidator.Validate(Layout(
+            Key("unknown", new(LayoutActionTypes.Key, virtualKey: "D1", fnVirtualKey: "Power"))));
+        LayoutValidationResult wrongShape = LayoutValidator.Validate(Layout(
+            Key("text", new(LayoutActionTypes.Text, value: "x", fnVirtualKey: "F1"))));
+
+        AssertError(unknown, "$.rows[0][0].action.fnVirtualKey", "action.virtualKey");
+        AssertError(wrongShape, "$.rows[0][0].action.fnVirtualKey", "action.unexpectedField");
     }
 
     [Fact]
@@ -207,11 +230,12 @@ public sealed class LayoutValidatorTests
             virtualKey: "A",
             scanCode: 30,
             modifiers: ["Control"],
-            modifier: "Shift");
+            modifier: "Shift",
+            fnVirtualKey: "F1");
 
         LayoutValidationResult result = LayoutValidator.Validate(Layout(Key("mixed", action)));
 
-        Assert.Equal(4, result.Errors.Count(error => error.Code == "action.unexpectedField"));
+        Assert.Equal(5, result.Errors.Count(error => error.Code == "action.unexpectedField"));
     }
 
     private static KeyboardLayoutDefinition Layout(params KeyboardKeyDefinition[] keys) =>

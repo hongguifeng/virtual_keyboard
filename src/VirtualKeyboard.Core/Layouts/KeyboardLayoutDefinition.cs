@@ -72,7 +72,8 @@ public sealed class LayoutActionDefinition
         string? virtualKey = null,
         int? scanCode = null,
         IEnumerable<string>? modifiers = null,
-        string? modifier = null)
+        string? modifier = null,
+        string? fnVirtualKey = null)
     {
         Type = type;
         Value = value;
@@ -80,6 +81,7 @@ public sealed class LayoutActionDefinition
         ScanCode = scanCode;
         Modifiers = modifiers is null ? null : Array.AsReadOnly(modifiers.ToArray());
         Modifier = modifier;
+        FnVirtualKey = fnVirtualKey;
     }
 
     public string? Type { get; }
@@ -93,4 +95,7 @@ public sealed class LayoutActionDefinition
     public IReadOnlyList<string>? Modifiers { get; }
 
     public string? Modifier { get; }
+
+    /// <summary>Optional function-layer virtual key used while the internal Fn toggle is active.</summary>
+    public string? FnVirtualKey { get; }
 }

@@ -15,7 +15,6 @@ namespace VirtualKeyboard.App;
 /// <summary>Non-activating keyboard window driven by automatic focus observation.</summary>
 public partial class MainWindow : Window, IDisposable, ITrayCommands
 {
-    private static readonly DipSize ConfiguredOverlaySize = new(760, 340);
     private readonly OverlayWindowAdapter _overlay;
     private readonly IForegroundTargetCapture _targetCapture;
     private readonly TargetSessionStore _targetSessions;
@@ -55,10 +54,14 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         InitializeComponent();
         _overlay = new OverlayWindowAdapter(this);
         _overlay.DpiChanged += OnOverlayDpiChanged;
+        _overlay.ResizeCompleted += ApplyCompletedResize;
         _targetCapture = targetCapture ?? throw new ArgumentNullException(nameof(targetCapture));
         _targetSessions = targetSessions ?? throw new ArgumentNullException(nameof(targetSessions));
         _configurationRepository = configurationRepository ?? throw new ArgumentNullException(nameof(configurationRepository));
         ConfigurationLoadResult configurationLoad = _configurationRepository.Load();
+        Width = configurationLoad.Configuration.KeyboardWidthDip;
+        Height = configurationLoad.Configuration.KeyboardHeightDip;
+        Opacity = configurationLoad.Configuration.Opacity;
         if (createFileDiagnostics)
         {
             string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualKeyboard", "logs");
@@ -182,6 +185,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             bool isEnabled = _configurationRepository.Current.Enabled;
             if (wasEnabled != isEnabled) _coordinator.SetEnabled(isEnabled);
             _diagnosticSink?.SetDetailedEnabled(_configurationRepository.Current.DetailedDiagnostics);
+            LoadBuiltInLayout();
         }
     }
 
@@ -206,7 +210,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ConfigurationSaveResult saved = _configurationRepository.Save(new(
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
-            current.ManualPositionMode, current.DetailedDiagnostics));
+            current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeyLabel, current.CustomKeyText));
         if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
@@ -394,7 +398,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (loaded.Layouts.TryGetValue(layoutId, out KeyboardLayoutDefinition? layout) ||
             loaded.Layouts.TryGetValue("builtin.qwerty.en-US", out layout))
         {
-            LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(layout));
+            LayoutView.LoadLayout(KeyboardLayoutViewModel.Create(AddConfiguredCustomKey(layout, _configurationRepository.Current)));
             return;
         }
 
@@ -419,12 +423,48 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             return;
         }
 
-        PhysicalPixelSize size = change.DpiScale.ToPhysicalPixels(ConfiguredOverlaySize);
+        KeyboardConfiguration configuration = _configurationRepository.Current;
+        PhysicalPixelSize size = change.DpiScale.ToPhysicalPixels(new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip));
         _overlay.Move(
             checked((int)Math.Round(change.SuggestedRectangle.X)),
             checked((int)Math.Round(change.SuggestedRectangle.Y)),
             checked((int)Math.Round(size.Width)),
             checked((int)Math.Round(size.Height)));
+    }
+
+    internal void ApplyCompletedResize(double widthDip, double heightDip)
+    {
+        if (_disposed || !double.IsFinite(widthDip) || !double.IsFinite(heightDip)) return;
+        KeyboardConfiguration current = _configurationRepository.Current;
+        double width = Math.Clamp(widthDip, ConfigurationSchemaLimits.MinimumKeyboardWidthDip, ConfigurationSchemaLimits.MaximumKeyboardWidthDip);
+        double height = Math.Clamp(heightDip, ConfigurationSchemaLimits.MinimumKeyboardHeightDip, ConfigurationSchemaLimits.MaximumKeyboardHeightDip);
+        ConfigurationSaveResult saved = _configurationRepository.Save(new(
+            current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
+            width, height, current.MarginDip, current.LayoutId, current.ManualPositionMode,
+            current.DetailedDiagnostics, current.CustomKeyLabel, current.CustomKeyText));
+        if (!saved.IsSaved)
+        {
+            _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
+        }
+    }
+
+    private static KeyboardLayoutDefinition AddConfiguredCustomKey(KeyboardLayoutDefinition layout, KeyboardConfiguration configuration)
+    {
+        IReadOnlyList<KeyboardLayoutRow>? sourceRows = layout.Rows;
+        if (string.IsNullOrWhiteSpace(configuration.CustomKeyLabel) || string.IsNullOrEmpty(configuration.CustomKeyText) ||
+            sourceRows is null || sourceRows.Count < 3 || sourceRows[2].Keys is not { } customRowKeys ||
+            customRowKeys.Count >= LayoutSchemaLimits.MaximumKeysPerRow ||
+            sourceRows.SelectMany(static row => row.Keys ?? []).Any(static key => key.Id == "key.custom"))
+        {
+            return layout;
+        }
+
+        KeyboardLayoutRow[] rows = sourceRows.Select((row, index) => index == 2
+            ? new KeyboardLayoutRow(row.Keys!.Append(new KeyboardKeyDefinition(
+                "key.custom", configuration.CustomKeyLabel, 1.6, false,
+                new LayoutActionDefinition(LayoutActionTypes.Text, value: configuration.CustomKeyText))))
+            : row).ToArray();
+        return new(layout.SchemaVersion, layout.Id, layout.Name, layout.Culture, rows);
     }
 
     protected override void OnClosed(EventArgs e)
@@ -450,6 +490,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _keyboardController.Dispose();
         _hotkeySender.Dispose();
         _overlay.DpiChanged -= OnOverlayDpiChanged;
+        _overlay.ResizeCompleted -= ApplyCompletedResize;
         _overlay.Dispose();
         _diagnostics.Dispose();
         _diagnosticSink?.Dispose();

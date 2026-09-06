@@ -16,6 +16,7 @@ public sealed class OverlayWindowAdapter : IDisposable
     private const long ToolWindowExtendedStyle = 0x00000080L;
     private const int MouseActivateMessage = 0x0021;
     private const int DpiChangedMessage = 0x02E0;
+    private const int ExitSizeMoveMessage = 0x0232;
     private const int NoActivateMouseResult = 3;
     private const uint NoActivatePositionFlag = 0x0010;
     private const uint ShowWindowPositionFlag = 0x0040;
@@ -48,6 +49,9 @@ public sealed class OverlayWindowAdapter : IDisposable
 
     /// <summary>Raised after the system suggested rectangle is applied without activation.</summary>
     public event Action<OverlayDpiChangedNotification>? DpiChanged;
+
+    /// <summary>Raised once after an interactive edge resize finishes.</summary>
+    public event Action<double, double>? ResizeCompleted;
 
     public bool BeginManualMove(long sessionId)
     {
@@ -220,6 +224,12 @@ public sealed class OverlayWindowAdapter : IDisposable
         {
             handled = true;
             return new IntPtr(NoActivateMouseResult);
+        }
+
+        if (message == ExitSizeMoveMessage)
+        {
+            try { ResizeCompleted?.Invoke(_window.ActualWidth, _window.ActualHeight); }
+            catch { /* Persistence failures must not escape the native window procedure. */ }
         }
 
 

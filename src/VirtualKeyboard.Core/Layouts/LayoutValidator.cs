@@ -38,11 +38,11 @@ public static class LayoutValidator
     private static readonly HashSet<string> ValidVirtualKeys = CreateVirtualKeySet();
     private static readonly HashSet<string> ValidHotkeyModifiers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Shift", "Control", "Alt",
+        "Shift", "Control", "Alt", "Windows",
     };
     private static readonly HashSet<string> ValidStateModifiers = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Shift", "Control", "Alt", "CapsLock",
+        "Shift", "Control", "Alt", "Windows", "Fn", "CapsLock",
     };
 
     public static LayoutValidationResult Validate(KeyboardLayoutDefinition? layout)
@@ -191,7 +191,12 @@ public static class LayoutValidator
     private static void ValidateKeyAction(LayoutActionDefinition action, string path, List<LayoutValidationError> errors)
     {
         ValidateMainKey(action, path, errors);
-        RejectUnexpectedKeyFields(action, path, errors, allowKey: true);
+        if (action.FnVirtualKey is not null &&
+            (string.IsNullOrWhiteSpace(action.FnVirtualKey) || !ValidVirtualKeys.Contains(action.FnVirtualKey)))
+        {
+            Add(errors, $"{path}.fnVirtualKey", "action.virtualKey", "The function-layer virtual key is not allowlisted.");
+        }
+        RejectUnexpectedKeyFields(action, path, errors, allowKey: true, allowFnKey: true);
     }
 
     private static void ValidateHotkeyAction(LayoutActionDefinition action, string path, List<LayoutValidationError> errors)
@@ -259,7 +264,8 @@ public static class LayoutValidator
         bool allowValue = false,
         bool allowKey = false,
         bool allowModifiers = false,
-        bool allowModifier = false)
+        bool allowModifier = false,
+        bool allowFnKey = false)
     {
         if (!allowValue && action.Value is not null)
         {
@@ -280,6 +286,10 @@ public static class LayoutValidator
         if (!allowModifier && action.Modifier is not null)
         {
             Add(errors, $"{path}.modifier", "action.unexpectedField", "The field is not valid for this action type.");
+        }
+        if (!allowFnKey && action.FnVirtualKey is not null)
+        {
+            Add(errors, $"{path}.fnVirtualKey", "action.unexpectedField", "The field is not valid for this action type.");
         }
     }
 
@@ -307,6 +317,8 @@ public static class LayoutValidator
         {
             "Space", "Backspace", "Enter", "Tab", "Escape", "PageUp", "PageDown", "End", "Home",
             "Left", "Up", "Right", "Down", "Insert", "Delete",
+            "OemSemicolon", "OemPlus", "OemComma", "OemMinus", "OemPeriod", "OemQuestion", "OemTilde",
+            "OemOpenBrackets", "OemPipe", "OemCloseBrackets", "OemQuotes",
         };
         for (char letter = 'A'; letter <= 'Z'; letter++)
         {
@@ -316,6 +328,10 @@ public static class LayoutValidator
         {
             keys.Add(digit.ToString());
             keys.Add($"D{digit}");
+        }
+        for (int number = 1; number <= 12; number++)
+        {
+            keys.Add($"F{number}");
         }
 
         return keys;

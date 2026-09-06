@@ -9,6 +9,7 @@ public enum HotkeyModifier : ushort
     Shift = 0x10,
     Control = 0x11,
     Alt = 0x12,
+    Windows = 0x5B,
 }
 
 internal readonly record struct ResolvedHotkeyModifier(
@@ -76,7 +77,7 @@ internal static class HotkeyInputBuilder
         IReadOnlyList<ResolvedHotkeyModifier> modifiers)
     {
         ArgumentNullException.ThrowIfNull(modifiers);
-        if (modifiers.Count is < 1 or > 3 || modifiers.Select(static item => item.Modifier).Distinct().Count() != modifiers.Count)
+        if (modifiers.Count is < 1 or > 4 || modifiers.Select(static item => item.Modifier).Distinct().Count() != modifiers.Count)
         {
             throw new ArgumentException("A hotkey requires one to three unique modifiers.", nameof(modifiers));
         }
@@ -181,7 +182,7 @@ public sealed class HotkeyInputSender : IDisposable
         }
 
         HotkeyModifier[] modifierSnapshot = modifiers.ToArray();
-        if (modifierSnapshot.Length is < 1 or > 3 ||
+        if (modifierSnapshot.Length is < 1 or > 4 ||
             modifierSnapshot.Distinct().Count() != modifierSnapshot.Length ||
             modifierSnapshot.Any(static modifier => !Enum.IsDefined(modifier)))
         {
@@ -205,7 +206,7 @@ public sealed class HotkeyInputSender : IDisposable
                 HotkeyModifier modifier = modifierSnapshot[index];
                 resolvedModifiers[index] = new ResolvedHotkeyModifier(
                     modifier,
-                    Resolve((ushort)modifier, keyboardLayout, forceExtended: false),
+                    Resolve((ushort)modifier, keyboardLayout, forceExtended: modifier == HotkeyModifier.Windows),
                     (_modifierStateApi.GetAsyncKeyState((int)modifier) & 0x8000) != 0);
             }
             batch = HotkeyInputBuilder.Build(mainKey, resolvedModifiers);

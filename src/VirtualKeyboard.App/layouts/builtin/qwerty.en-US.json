@@ -6,16 +6,19 @@
   "rows": [
     [
       { "id": "key.escape", "label": "Esc", "width": 1.2, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Escape" } },
-      { "id": "key.1", "label": "1", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D1" } },
-      { "id": "key.2", "label": "2", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D2" } },
-      { "id": "key.3", "label": "3", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D3" } },
-      { "id": "key.4", "label": "4", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D4" } },
-      { "id": "key.5", "label": "5", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D5" } },
-      { "id": "key.6", "label": "6", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D6" } },
-      { "id": "key.7", "label": "7", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D7" } },
-      { "id": "key.8", "label": "8", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D8" } },
-      { "id": "key.9", "label": "9", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D9" } },
-      { "id": "key.0", "label": "0", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D0" } },
+      { "id": "key.grave", "label": "~\n`", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemTilde" } },
+      { "id": "key.1", "label": "!\n1", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D1", "fnVirtualKey": "F1" } },
+      { "id": "key.2", "label": "@\n2", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D2", "fnVirtualKey": "F2" } },
+      { "id": "key.3", "label": "#\n3", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D3", "fnVirtualKey": "F3" } },
+      { "id": "key.4", "label": "$\n4", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D4", "fnVirtualKey": "F4" } },
+      { "id": "key.5", "label": "%\n5", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D5", "fnVirtualKey": "F5" } },
+      { "id": "key.6", "label": "^\n6", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D6", "fnVirtualKey": "F6" } },
+      { "id": "key.7", "label": "&\n7", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D7", "fnVirtualKey": "F7" } },
+      { "id": "key.8", "label": "*\n8", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D8", "fnVirtualKey": "F8" } },
+      { "id": "key.9", "label": "(\n9", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D9", "fnVirtualKey": "F9" } },
+      { "id": "key.0", "label": ")\n0", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "D0", "fnVirtualKey": "F10" } },
+      { "id": "key.minus", "label": "_\n-", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemMinus", "fnVirtualKey": "F11" } },
+      { "id": "key.equals", "label": "+\n=", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemPlus", "fnVirtualKey": "F12" } },
       { "id": "key.backspace", "label": "Backspace", "width": 2.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Backspace" } }
     ],
     [
@@ -29,7 +32,10 @@
       { "id": "key.u", "label": "U", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "U" } },
       { "id": "key.i", "label": "I", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "I" } },
       { "id": "key.o", "label": "O", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "O" } },
-      { "id": "key.p", "label": "P", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "P" } }
+      { "id": "key.p", "label": "P", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "P" } },
+      { "id": "key.openBracket", "label": "{\n[", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemOpenBrackets" } },
+      { "id": "key.closeBracket", "label": "}\n]", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemCloseBrackets" } },
+      { "id": "key.backslash", "label": "|\n\\", "width": 1.5, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemPipe" } }
     ],
     [
       { "id": "key.capsLock", "label": "Caps", "width": 1.8, "safeForPassword": true, "action": { "type": "modifier", "modifier": "CapsLock" } },
@@ -42,7 +48,9 @@
       { "id": "key.j", "label": "J", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "J" } },
       { "id": "key.k", "label": "K", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "K" } },
       { "id": "key.l", "label": "L", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "L" } },
-      { "id": "key.enter", "label": "Enter", "width": 2.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Enter" } }
+      { "id": "key.semicolon", "label": ":\n;", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemSemicolon" } },
+      { "id": "key.quote", "label": "\"\n'", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemQuotes" } },
+      { "id": "key.enter", "label": "Enter", "width": 2.2, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Enter" } }
     ],
     [
       { "id": "key.shift", "label": "Shift", "width": 2.2, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Shift" } },
@@ -52,12 +60,24 @@
       { "id": "key.v", "label": "V", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "V" } },
       { "id": "key.b", "label": "B", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "B" } },
       { "id": "key.n", "label": "N", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "N" } },
-      { "id": "key.m", "label": "M", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "M" } }
+      { "id": "key.m", "label": "M", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "M" } },
+      { "id": "key.comma", "label": "<\n,", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemComma" } },
+      { "id": "key.period", "label": ">\n.", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemPeriod" } },
+      { "id": "key.slash", "label": "?\n/", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "OemQuestion" } },
+      { "id": "key.shiftRight", "label": "Shift", "width": 2.2, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Shift" } },
+      { "id": "key.up", "label": "↑", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Up" } }
     ],
     [
-      { "id": "key.control", "label": "Ctrl", "width": 1.5, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Control" } },
-      { "id": "key.alt", "label": "Alt", "width": 1.5, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Alt" } },
-      { "id": "key.space", "label": "Space", "width": 7.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Space" } }
+      { "id": "key.control", "label": "Ctrl", "width": 1.4, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Control" } },
+      { "id": "key.windows", "label": "Win", "width": 1.2, "safeForPassword": false, "action": { "type": "modifier", "modifier": "Windows" } },
+      { "id": "key.alt", "label": "Alt", "width": 1.4, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Alt" } },
+      { "id": "key.space", "label": "Space", "width": 5.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Space" } },
+      { "id": "key.altRight", "label": "Alt", "width": 1.4, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Alt" } },
+      { "id": "key.fn", "label": "Fn", "width": 1.2, "safeForPassword": false, "action": { "type": "modifier", "modifier": "Fn" } },
+      { "id": "key.controlRight", "label": "Ctrl", "width": 1.4, "safeForPassword": true, "action": { "type": "modifier", "modifier": "Control" } },
+      { "id": "key.left", "label": "←", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Left" } },
+      { "id": "key.down", "label": "↓", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Down" } },
+      { "id": "key.right", "label": "→", "width": 1.0, "safeForPassword": true, "action": { "type": "key", "virtualKey": "Right" } }
     ]
   ]
 }

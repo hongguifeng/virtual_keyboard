@@ -5,6 +5,8 @@ public enum KeyboardModifier
     Shift,
     Control,
     Alt,
+    Windows,
+    Function,
 }
 
 public enum CapsLockOperationStatus
@@ -32,6 +34,8 @@ public readonly record struct KeyboardControllerState(
     bool ShiftLatched,
     bool ControlLatched,
     bool AltLatched,
+    bool WindowsLatched,
+    bool FunctionLayerActive,
     bool IsCapsLockKnown,
     bool IsCapsLockOn);
 
@@ -39,6 +43,8 @@ public readonly record struct KeyboardActionPreparation(
     bool UseShift,
     bool UseControl,
     bool UseAlt,
+    bool UseWindows,
+    bool UseFunctionLayer,
     bool IsPrintable,
     KeyboardControllerState StateAfterPreparation);
 
@@ -52,6 +58,8 @@ public sealed class KeyboardController : IDisposable
     private bool _shift;
     private bool _control;
     private bool _alt;
+    private bool _windows;
+    private bool _function;
     private bool _capsKnown;
     private bool _capsOn;
     private bool _disposed;
@@ -95,7 +103,7 @@ public sealed class KeyboardController : IDisposable
         lock (_gate)
         {
             ThrowIfDisposed();
-            if (_targetSessionId != 0 || _shift || _control || _alt)
+            if (_targetSessionId != 0 || _shift || _control || _alt || _windows || _function)
             {
                 _targetSessionId = 0;
                 ClearTransient();
@@ -120,6 +128,12 @@ public sealed class KeyboardController : IDisposable
                     break;
                 case KeyboardModifier.Alt:
                     _alt = !_alt;
+                    break;
+                case KeyboardModifier.Windows:
+                    _windows = !_windows;
+                    break;
+                case KeyboardModifier.Function:
+                    _function = !_function;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(modifier));
@@ -180,7 +194,9 @@ public sealed class KeyboardController : IDisposable
             bool useShift = _shift;
             bool useControl = _control;
             bool useAlt = _alt;
-            return new(useShift, useControl, useAlt, printable, Snapshot());
+            bool useWindows = _windows;
+            bool useFunction = _function;
+            return new(useShift, useControl, useAlt, useWindows, useFunction, printable, Snapshot());
         }
     }
 
@@ -245,6 +261,8 @@ public sealed class KeyboardController : IDisposable
         _shift = false;
         _control = false;
         _alt = false;
+        _windows = false;
+        _function = false;
     }
 
     private KeyboardControllerState Snapshot() => new(
@@ -253,6 +271,8 @@ public sealed class KeyboardController : IDisposable
         _shift,
         _control,
         _alt,
+        _windows,
+        _function,
         _capsKnown,
         _capsOn);
 
