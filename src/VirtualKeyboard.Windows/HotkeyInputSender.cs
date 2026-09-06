@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Input;
+using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.Windows;
 
@@ -241,6 +242,84 @@ public sealed class HotkeyInputSender : IDisposable
         }
     }
 
+    /// <summary>Sends an ordered key chord as Down events followed by reverse-order Up events.</summary>
+    public InputSendResult SendChord(
+        IReadOnlyList<WindowsKeyboardKey> keys,
+        nint targetFocusHwnd,
+        int targetProcessId = -1,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_sendGate)
+        {
+            if (_safetyLatch.IsBlocked) return new(InputSendStatus.SafetyFaulted, 0, 0, GeneralFailureError);
+            if (cancellationToken.IsCancellationRequested) return new(InputSendStatus.Cancelled, 0, 0, 0);
+            if (keys is null || targetFocusHwnd == nint.Zero) return InvalidInput(targetProcessId);
+            WindowsKeyboardKey[] snapshot = keys.ToArray();
+            if (snapshot.Length is < 1 or > LayoutSchemaLimits.MaximumChordKeys ||
+                snapshot.Distinct().Count() != snapshot.Length ||
+                snapshot.Any(static key => !Enum.IsDefined(key) || !LayoutValidator.IsAllowedChordKey(key.ToString())))
+            {
+                return InvalidInput(targetProcessId);
+            }
+
+            ResolvedKeyInput[] resolved;
+            try
+            {
+                uint targetThreadId = _mappingApi.GetWindowThreadProcessId(targetFocusHwnd, out _);
+                nint keyboardLayout = targetThreadId == 0 ? nint.Zero : _mappingApi.GetKeyboardLayout(targetThreadId);
+                if (keyboardLayout == nint.Zero) return InvalidInput(targetProcessId);
+                resolved = snapshot
+                    .Where(key => !IsHeldChordKey(key) && !IsPhysicallyHeldChordKey(key))
+                    .Select(key => Resolve((ushort)key, keyboardLayout,
+                        key is WindowsKeyboardKey.LeftWindows or WindowsKeyboardKey.RightWindows || IsNavigationExtendedKey(key)))
+                    .ToArray();
+            }
+            catch (Exception exception) when (IsNativeUnavailable(exception))
+            {
+                LogFailure(targetProcessId, 0, 0, NativeUnavailableError);
+                return new(InputSendStatus.NativeUnavailable, 0, 0, NativeUnavailableError);
+            }
+            catch (ArgumentException)
+            {
+                return InvalidInput(targetProcessId);
+            }
+
+            if (resolved.Length == 0) return new(InputSendStatus.Succeeded, 0, 0, 0);
+            NativeInput[] inputs = resolved.Select(key => KeyInputBuilder.Build(key, KeyInputTransition.KeyDown)[0])
+                .Concat(resolved.Reverse().Select(key => KeyInputBuilder.Build(key, KeyInputTransition.KeyUp)[0]))
+                .ToArray();
+            if (cancellationToken.IsCancellationRequested) return new(InputSendStatus.Cancelled, 0, 0, 0);
+            try
+            {
+                uint nativeCount = _inputApi.SendInput(inputs);
+                int sent = nativeCount > int.MaxValue ? int.MaxValue : (int)nativeCount;
+                InputSendStatus status = sent == inputs.Length
+                    ? InputSendStatus.Succeeded
+                    : sent == 0 ? InputSendStatus.Failed : InputSendStatus.PartialFailure;
+                int errorCode = status == InputSendStatus.Succeeded ? 0 : _inputApi.LastError;
+                if (status != InputSendStatus.Succeeded)
+                {
+                    NativeInput[] cleanup = BuildChordCleanup(resolved, sent);
+                    int released = TryBestEffortRelease(cleanup);
+                    LatchUnreleasedKeys(cleanup.Skip(Math.Clamp(released, 0, cleanup.Length)), targetProcessId, cleanup.Length, released, errorCode);
+                }
+                LogCompletion(status, targetProcessId, inputs.Length, sent, errorCode);
+                return new(status, inputs.Length, sent, errorCode);
+            }
+            catch (Exception exception)
+            {
+                NativeInput[] cleanup = resolved.Reverse()
+                    .Select(static key => KeyInputBuilder.Build(key, KeyInputTransition.KeyUp)[0]).ToArray();
+                int released = TryBestEffortRelease(cleanup);
+                int errorCode = IsNativeUnavailable(exception) ? NativeUnavailableError : GeneralFailureError;
+                InputSendStatus status = IsNativeUnavailable(exception) ? InputSendStatus.NativeUnavailable : InputSendStatus.Failed;
+                LatchUnreleasedKeys(cleanup.Skip(Math.Clamp(released, 0, cleanup.Length)), targetProcessId, cleanup.Length, released, errorCode);
+                LogFailure(targetProcessId, inputs.Length, 0, errorCode);
+                return new(status, inputs.Length, 0, errorCode);
+            }
+        }
+    }
+
     /// <summary>Best-effort releases all modifiers held by this sender.</summary>
     public void ReleaseLatchedModifiers()
     {
@@ -381,6 +460,39 @@ public sealed class HotkeyInputSender : IDisposable
         _heldModifiers.Clear();
         int released = TryBestEffortRelease(releases);
         LatchUnreleasedKeys(releases.Skip(Math.Clamp(released, 0, releases.Length)), -1, releases.Length, released, GeneralFailureError);
+    }
+
+    private bool IsHeldChordKey(WindowsKeyboardKey key) => key switch
+    {
+        WindowsKeyboardKey.Shift => _heldModifiers.ContainsKey(HotkeyModifier.Shift),
+        WindowsKeyboardKey.Control => _heldModifiers.ContainsKey(HotkeyModifier.Control),
+        WindowsKeyboardKey.Alt => _heldModifiers.ContainsKey(HotkeyModifier.Alt),
+        WindowsKeyboardKey.LeftWindows or WindowsKeyboardKey.RightWindows => _heldModifiers.ContainsKey(HotkeyModifier.Windows),
+        _ => false,
+    };
+
+    private bool IsPhysicallyHeldChordKey(WindowsKeyboardKey key) => key switch
+    {
+        WindowsKeyboardKey.Shift or WindowsKeyboardKey.Control or WindowsKeyboardKey.Alt or
+            WindowsKeyboardKey.LeftWindows or WindowsKeyboardKey.RightWindows =>
+            (_modifierStateApi.GetAsyncKeyState((int)key) & 0x8000) != 0,
+        _ => false,
+    };
+
+    private static NativeInput[] BuildChordCleanup(ResolvedKeyInput[] keys, int acceptedCount)
+    {
+        int bounded = Math.Clamp(acceptedCount, 0, keys.Length * 2);
+        var cleanup = new List<NativeInput>();
+        for (int index = keys.Length - 1; index >= 0; index--)
+        {
+            int downIndex = index;
+            int upIndex = keys.Length + (keys.Length - 1 - index);
+            if (downIndex < bounded && upIndex >= bounded)
+            {
+                cleanup.Add(KeyInputBuilder.Build(keys[index], KeyInputTransition.KeyUp)[0]);
+            }
+        }
+        return cleanup.ToArray();
     }
 
     private ResolvedKeyInput Resolve(ushort virtualKey, nint keyboardLayout, bool forceExtended)

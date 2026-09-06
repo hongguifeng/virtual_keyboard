@@ -79,7 +79,6 @@ public sealed class KeyboardLayoutView : Grid
             row.ColumnDefinitions.Add(new ColumnDefinition
             {
                 Width = new GridLength(key.Width, GridUnitType.Star),
-                MinWidth = MinimumKeyWidth,
             });
             var button = new NonFocusableKeyButton(key)
             {
@@ -124,7 +123,6 @@ public sealed class KeyboardLayoutView : Grid
 public sealed class CustomKeyColumnView : Grid
 {
     public const int KeysPerColumn = 5;
-    public const double ColumnWidth = 120;
 
     public CustomKeyColumnView()
     {
@@ -133,6 +131,8 @@ public sealed class CustomKeyColumnView : Grid
     }
 
     public event EventHandler<KeyInvokedEventArgs>? KeyInvoked;
+
+    public int ColumnCount => ColumnDefinitions.Count;
 
     public void LoadKeys(IReadOnlyList<CustomKeyConfiguration> keys, bool passwordTarget)
     {
@@ -150,7 +150,7 @@ public sealed class CustomKeyColumnView : Grid
         int columnCount = (keys.Count + KeysPerColumn - 1) / KeysPerColumn;
         for (int column = 0; column < columnCount; column++)
         {
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ColumnWidth) });
+            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         }
 
         for (int index = 0; index < keys.Count; index++)

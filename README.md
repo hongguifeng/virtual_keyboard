@@ -5,14 +5,14 @@ C# + WPF + .NET 10 LTS，MVP 首发平台为 Windows x64（`win-x64`）。
 
 > 当前状态：M6 已完成，M7 按项目决策跳过，M8 的验收表、打包和用户文档已完成。发布评审后已接通自动焦点宿主，但仍缺实机矩阵/M7 证据且制品未签名、未有效扫描；该构建仍仅限内部验证。
 
-动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt/Win 锁存、Fn 功能层与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
+动态键盘已通过统一动作分发器接入实际输入：每次动作先进入有界串行队列并重新验证 TargetSession，再按 `key`、`hotkey`、`chord`、`text`、`modifier` 独立路径发送。Shift/Ctrl/Alt/Win 锁存、Fn 功能层与 CapsLock 系统切换已接入；目标替换会使尚未执行的旧动作失效，退出会先停止队列再释放热键安全闩锁。
 
 目标会话完全由自动焦点识别建立，最终界面不再包含早期调试用的“捕获当前目标”按钮，也不会向用户显示 PID 或窗口句柄。
 修正后的状态视觉由同一个 `KeyboardControllerState` 快照驱动，Shift/Ctrl/Alt/Win/Fn/CapsLock 的活动态不会与实际发送状态分离。
 
-`VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：透明度限制 30%–100%，键盘宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
+`VirtualKeyboard.Core.Configuration` 已定义 schema v1 配置模型、验证器和 `ConfigurationRepository`：内部整窗不透明度限制为 30%–100%（设置页反向显示为 0%–70% 透明程度），键盘宽度 620–2000 DIP、高度 280–1000 DIP、边距 0–128 DIP，布局 ID 最长 128 字符。仓库从 `%LocalAppData%\\VirtualKeyboard\\config.json` 加载，保存使用同目录临时文件、Flush 和原子替换；损坏配置会备份到 `recovery` 并回退安全默认值，保存失败保留内存配置。
 
-键盘标题栏的“设置”可打开独立、允许激活的设置窗口。透明度使用 30%–100% 滑块调节。自定义键最多配置 12 项，界面只需选择“输入文字”或“录制按键或组合键”；录制时直接按下 `Ctrl+Shift+S` 等实际组合，无需理解或填写内部修饰键字段。保存后的按键每列最多 5 个，在标准键盘右侧自动新增列，不使用滚动条，并在密码目标中隐藏。
+键盘标题栏的“设置”可打开独立、允许激活的设置窗口。“透明程度”滑块范围为 0%–70%：0% 完全不透明，数值越大整个窗口越透明。自定义键最多配置 12 项，界面只需选择“输入文字”或“录制按键或组合键”；录制会收集从首次按下到全部松开的完整按键集合（例如 `Win+Tab` 或 `Ctrl+Shift+S`），无需理解或填写内部修饰键字段。保存后的按键每列最多 5 个，在标准键盘右侧自动新增列，不使用滚动条；自定义区和标准区随窗口宽度按比例共同缩放、不会互相覆盖，并在密码目标中隐藏。
 
 应用启动后常驻系统托盘。托盘菜单提供启用/暂停、显示当前键盘、设置、重新加载布局和退出；键盘标题栏关闭按钮只隐藏可复用窗口，退出请使用托盘菜单。
 
@@ -70,7 +70,7 @@ M8 当前验收事实见 [兼容矩阵](docs/release/compatibility-matrix-1.0.0.
 
 ## 布局 schema
 
-`VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`modifier`，不提供命令或脚本入口。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。托盘命令和界面提示将在后续 UI 任务中接入。
+`VirtualKeyboard.Core.Layouts` 提供版本 1 的不可变布局 DTO、严格验证器和 `LayoutRepository`。布局限制为最多 16 行、每行 64 键、合计 256 键；动作仅允许 `text`、`key`、`hotkey`、`chord`、`modifier`，不提供命令或脚本入口。`chord.keys` 可按顺序保存 1–8 个互不重复的封闭键。Repository 先加载安装目录的只读内置布局，再加载 `%LocalAppData%\VirtualKeyboard\layouts` 用户布局；内置 ID 优先，单文件不超过 1 MiB。重载失败会保留同一文件最后一次有效快照，错误包含 JSON 风格字段路径，但不会回显 `text.value`。
 
 内置 `builtin.qwerty.en-US` 随应用构建和 win-x64 发布到 `layouts\builtin\qwerty.en-US.json`。主键区按标准美式 QWERTY 顺序排列，包含完整数字与标点行、三行字母/标点区、左右 Shift/Ctrl/Alt、Space、Win、Fn、CapsLock，方向键在右侧采用倒 T 排列，Up 与 Down 使用相同水平中心。Fn 是应用内部功能层开关：数字行 1-0、减号、等号切换为 F1-F12，不尝试发送厂商专用物理 Fn。标准键统一走可受 Shift/Ctrl/Alt/Win 影响的 `key` 路径，自定义 Unicode 文本才走 `text`。关闭、设置和拖动是窗口 UI 行为，不在布局中声明输入 action。
 

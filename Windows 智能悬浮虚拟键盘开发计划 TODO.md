@@ -470,7 +470,7 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - schemaVersion、enabled、autoShow、autoHide、尺寸 DIP、opacity、marginDip、layoutId、手动位置模式、诊断开关、自定义键列表。
   - 设置合理范围，opacity 限制 30%-100%。
   - 对应：FR-CFG-001、002。
-  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；Review 将单个自定义文本键升级为最多 12 项的 `customKeys`，支持 text/key/hotkey 封闭动作、32/256 长度限制，并兼容迁移旧单键字段。
+  - 实现：Core `KeyboardConfiguration` 与 `ManualPositionMode` 不可变模型；Review 将单个自定义文本键升级为最多 12 项的 `customKeys`，支持 text/key/hotkey/chord 封闭动作、32/256 长度限制，并兼容迁移旧单键字段。chord 复用 schema v1 的 modifiers 数组持久化 1–8 个有序完整键名，input 为空。
   - 验证：Core 199/199；覆盖默认配置、版本/模式、NaN/Infinity/所有数值边界、空/超长布局 ID 及错误消息不泄露 ID；完整 Release 构建和 win-x64 发布通过，0 warning/error。
 
 - [x] **T6.2（P0，0.75 人日）实现 ConfigRepository**
@@ -485,10 +485,11 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 设置窗口独立且允许激活。
   - 打开期间状态机进入 SettingsOpen，忽略自身输入控件。
   - 保存前验证，保存失败保留内存状态并提示。
-  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；透明度改用带百分比的 30%–100% Slider。自定义键改为列表加详情编辑器，组合键通过实体键盘录制并自动识别；主键盘右侧每列最多 5 键，超出后自动新增列且无滚动条，密码模式隐藏。打开设置会释放保持修饰键、使输入会话失效并隐藏 Overlay。
+  - 实现：独立可激活 WPF 设置窗口覆盖 schema v1 全字段；透明程度改用带百分比的 0%–70% Slider，并反向映射到整窗 Opacity 1.00–0.30。自定义键改为列表加详情编辑器，组合键通过实体键盘录制并自动识别；主键盘右侧每列最多 5 键，超出后自动新增列且无滚动条，密码模式隐藏。打开设置会释放保持修饰键、使输入会话失效并隐藏 Overlay。
   - Review 增补：无边框 Overlay 通过 `WindowChrome` 支持拖动四边/四角缩放，`WM_EXITSIZEMOVE` 后一次性保存最终 DIP 尺寸，继续保持 `WS_EX_NOACTIVATE`。
   - 验证：Core 206/206、Windows 154/154、Integration 18/18；新增 4 项覆盖窗口激活与字段装载、无效设置不落盘、保存失败内存保持/提示、SettingsOpen 生命周期与目标清理；完整 Release 构建和 win-x64 发布通过，0 warning/error。
   - 2026-09-06 二次反馈修正验证：覆盖透明度 Slider 装载、Ctrl+Shift+S 实体组合录制、7 个自定义键按 5+2 自动分列、无滚动容器、密码目标整体折叠及最终缩放尺寸持久化；完整 Release 门禁 Core 219/219、Windows 166/166、Integration 27/27，build/publish 通过且 0 warning/error。
+  - 2026-09-06 三次反馈修正：标准区使用 16 份 Star、自定义区每列使用 2.5 份 Star，移除会造成横向溢出的标准键固定最小列宽；620 DIP 窄窗口下两区共同缩放且不覆盖。透明程度 0%/70% 分别保存为整窗 Opacity 1.0/0.3。新增 `WH_KEYBOARD_LL` 完整 chord 录制，抑制录制期间系统处理并支持 Win+Tab，最多 8 个不同封闭键；发送时全部 KeyDown、逆序 KeyUp，覆盖短发送/异常清理、已保持或实体保持修饰键不重复释放及密码目标拒绝。完整 Release 门禁 Core 226/226、Windows 195/195、Integration 29/29，build/publish 通过且 0 warning/error。
 
 - [x] **T6.4（P0，0.5 人日）实现托盘菜单**
   - 启用/暂停、显示当前键盘、设置、重新加载布局、退出。

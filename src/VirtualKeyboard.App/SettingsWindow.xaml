@@ -2,8 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Virtual Keyboard 设置" Width="700" Height="700"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        PreviewKeyDown="OnPreviewKeyDown">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Grid Margin="16">
         <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <Grid Grid.Row="0">
@@ -19,8 +18,8 @@
             <StackPanel Grid.Row="5" Orientation="Horizontal"><Label Content="边距 (DIP)" Width="130"/><TextBox x:Name="MarginTextBox" Width="120"/></StackPanel>
             <Grid Grid.Row="6" Margin="0,2">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="240"/><ColumnDefinition Width="60"/></Grid.ColumnDefinitions>
-                <Label Content="透明度"/>
-                <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.30" Maximum="1.00" TickFrequency="0.05"
+                <Label Content="透明程度"/>
+                <Slider x:Name="OpacitySlider" Grid.Column="1" Minimum="0.00" Maximum="0.70" TickFrequency="0.05"
                         IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" Text="{Binding ElementName=OpacitySlider, Path=Value, StringFormat={}{0:P0}}"
                            VerticalAlignment="Center" Margin="10,0,0,0"/>
@@ -64,7 +63,7 @@
                                     Width="110" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnRecordShortcutClick"/>
                         </Grid>
                         <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Foreground="DimGray" TextWrapping="Wrap"
-                                   Text="录制时直接按下所需按键，例如 Ctrl+Shift+S；无需单独填写修饰键。"/>
+                                   Text="录制时按下全部按键并全部松开，例如 Win+Tab 或 Ctrl+Shift+S。"/>
                     </Grid>
                 </Grid>
             </GroupBox>

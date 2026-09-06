@@ -178,7 +178,7 @@ public sealed class KeyboardController : IDisposable
     {
         ArgumentNullException.ThrowIfNull(action);
         if (action.Type == LayoutActionTypes.Modifier ||
-            action.Type is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey))
+            action.Type is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey or LayoutActionTypes.Chord))
         {
             throw new ArgumentException("Only validated input actions can be prepared.", nameof(action));
         }

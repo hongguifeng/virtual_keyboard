@@ -29,6 +29,7 @@ public sealed class CustomKeyConfiguration
         LayoutActionTypes.Text => new(LayoutActionTypes.Text, value: Input),
         LayoutActionTypes.Key => new(LayoutActionTypes.Key, virtualKey: Input),
         LayoutActionTypes.Hotkey => new(LayoutActionTypes.Hotkey, virtualKey: Input, modifiers: Modifiers),
+        LayoutActionTypes.Chord => new(LayoutActionTypes.Chord, keys: Modifiers),
         _ => new(ActionType),
     };
 }
@@ -152,21 +153,21 @@ public static class ConfigurationValidator
         {
             Add(errors, $"{path}.label", "config.customKeyLabel", $"Custom key label must contain between 1 and {ConfigurationSchemaLimits.MaximumCustomKeyLabelLength} characters.");
         }
-        if (string.IsNullOrEmpty(key.Input) || key.Input.Length > ConfigurationSchemaLimits.MaximumCustomKeyTextLength)
+        if ((key.ActionType != LayoutActionTypes.Chord && string.IsNullOrEmpty(key.Input)) || key.Input.Length > ConfigurationSchemaLimits.MaximumCustomKeyTextLength)
         {
             Add(errors, $"{path}.input", "config.customKeyInput", $"Custom key input must contain between 1 and {ConfigurationSchemaLimits.MaximumCustomKeyTextLength} characters.");
         }
-        if (key.ActionType is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey))
+        if (key.ActionType is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey or LayoutActionTypes.Chord))
         {
-            Add(errors, $"{path}.actionType", "config.customKeyAction", "Custom key action must be text, key, or hotkey.");
+            Add(errors, $"{path}.actionType", "config.customKeyAction", "Custom key action must be text, key, hotkey, or chord.");
             return;
         }
-        if (key.ActionType != LayoutActionTypes.Hotkey && key.Modifiers.Count > 0)
+        if (key.ActionType is not (LayoutActionTypes.Hotkey or LayoutActionTypes.Chord) && key.Modifiers.Count > 0)
         {
-            Add(errors, $"{path}.modifiers", "config.customKeyModifiers", "Only hotkey actions may declare modifiers.");
+            Add(errors, $"{path}.modifiers", "config.customKeyModifiers", "Only hotkey or chord actions may declare key lists.");
             return;
         }
-        if (key.ActionType != LayoutActionTypes.Text && key.Input.Length > LayoutSchemaLimits.MaximumLabelLength)
+        if (key.ActionType is not (LayoutActionTypes.Text or LayoutActionTypes.Chord) && key.Input.Length > LayoutSchemaLimits.MaximumLabelLength)
         {
             Add(errors, $"{path}.input", "config.customKeyInput", "Custom key virtual key name is too long.");
             return;

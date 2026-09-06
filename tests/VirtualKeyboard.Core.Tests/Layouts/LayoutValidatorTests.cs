@@ -13,6 +13,7 @@ public sealed class LayoutValidatorTests
             Key("key-vk", new(LayoutActionTypes.Key, virtualKey: "Enter")),
             Key("key-scan", new(LayoutActionTypes.Key, scanCode: 30)),
             Key("hotkey", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: ["Control", "Shift"])),
+            Key("chord", new(LayoutActionTypes.Chord, keys: ["LeftWindows", "Tab", "A"])),
             Key("modifier", new(LayoutActionTypes.Modifier, modifier: "CapsLock")));
 
         LayoutValidationResult result = LayoutValidator.Validate(layout);
@@ -25,22 +26,25 @@ public sealed class LayoutValidatorTests
     public void ConstructorSnapshotsRowsKeysAndModifiers()
     {
         var modifiers = new List<string> { "Control" };
+        var chordKeys = new List<string> { "LeftWindows", "Tab" };
         var keys = new List<KeyboardKeyDefinition>
         {
             Key("hotkey", new(LayoutActionTypes.Hotkey, virtualKey: "A", modifiers: modifiers)),
+            Key("chord", new(LayoutActionTypes.Chord, keys: chordKeys)),
         };
         var rows = new List<KeyboardLayoutRow> { new(keys) };
         var layout = new KeyboardLayoutDefinition(1, "layout", "Layout", "en-US", rows);
 
         modifiers.Add("Shift");
+        chordKeys.Add("A");
         keys.Clear();
         rows.Clear();
 
         IReadOnlyList<KeyboardLayoutRow> storedRows = Assert.IsAssignableFrom<IReadOnlyList<KeyboardLayoutRow>>(layout.Rows);
         KeyboardLayoutRow storedRow = Assert.Single(storedRows);
         IReadOnlyList<KeyboardKeyDefinition> storedKeys = Assert.IsAssignableFrom<IReadOnlyList<KeyboardKeyDefinition>>(storedRow.Keys);
-        KeyboardKeyDefinition storedKey = Assert.Single(storedKeys);
-        Assert.Equal(["Control"], storedKey.Action!.Modifiers);
+        Assert.Equal(["Control"], storedKeys[0].Action!.Modifiers);
+        Assert.Equal(["LeftWindows", "Tab"], storedKeys[1].Action!.Keys);
     }
 
     [Theory]
@@ -176,6 +180,35 @@ public sealed class LayoutValidatorTests
     }
 
     [Fact]
+    public void ChordKeysMustBePresentBoundedUniqueAndAllowlisted()
+    {
+        LayoutValidationResult missing = LayoutValidator.Validate(Layout(
+            Key("missing", new(LayoutActionTypes.Chord))));
+        LayoutValidationResult tooLong = LayoutValidator.Validate(Layout(
+            Key("long", new(LayoutActionTypes.Chord, keys: Enumerable.Repeat("A", LayoutSchemaLimits.MaximumChordKeys + 1)))));
+        LayoutValidationResult duplicate = LayoutValidator.Validate(Layout(
+            Key("duplicate", new(LayoutActionTypes.Chord, keys: ["LeftWindows", "Tab", "tab"]))));
+        LayoutValidationResult unknown = LayoutValidator.Validate(Layout(
+            Key("unknown", new(LayoutActionTypes.Chord, keys: ["LeftWindows", "Power"]))));
+
+        AssertError(missing, "$.rows[0][0].action.keys", "action.chordLength");
+        AssertError(tooLong, "$.rows[0][0].action.keys", "action.chordLength");
+        AssertError(duplicate, "$.rows[0][0].action.keys[2]", "action.chordDuplicate");
+        AssertError(unknown, "$.rows[0][0].action.keys[1]", "action.chordKey");
+    }
+
+    [Fact]
+    public void ChordRejectsFieldsFromOtherActionShapes()
+    {
+        LayoutActionDefinition action = new(LayoutActionTypes.Chord, value: "x", virtualKey: "A", scanCode: 30,
+            modifiers: ["Control"], modifier: "Shift", fnVirtualKey: "F1", keys: ["Tab"]);
+
+        LayoutValidationResult result = LayoutValidator.Validate(Layout(Key("mixed", action)));
+
+        Assert.Equal(6, result.Errors.Count(error => error.Code == "action.unexpectedField"));
+    }
+
+    [Fact]
     public void KeyRequiresExactlyOneAllowlistedEncoding()
     {
         LayoutValidationResult missing = LayoutValidator.Validate(Layout(Key("missing", new(LayoutActionTypes.Key))));
@@ -231,11 +264,12 @@ public sealed class LayoutValidatorTests
             scanCode: 30,
             modifiers: ["Control"],
             modifier: "Shift",
-            fnVirtualKey: "F1");
+            fnVirtualKey: "F1",
+            keys: ["Tab"]);
 
         LayoutValidationResult result = LayoutValidator.Validate(Layout(Key("mixed", action)));
 
-        Assert.Equal(5, result.Errors.Count(error => error.Code == "action.unexpectedField"));
+        Assert.Equal(6, result.Errors.Count(error => error.Code == "action.unexpectedField"));
     }
 
     private static KeyboardLayoutDefinition Layout(params KeyboardKeyDefinition[] keys) =>

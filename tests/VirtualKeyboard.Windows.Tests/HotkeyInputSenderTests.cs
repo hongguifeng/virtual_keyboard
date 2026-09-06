@@ -1,5 +1,6 @@
 using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Input;
+using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.Windows.Tests;
@@ -74,6 +75,98 @@ public sealed class HotkeyInputSenderTests
         NativeInput[] batch = Assert.Single(input.Batches);
         AssertEvent(batch[0], 0x5B, 0x0001);
         AssertEvent(batch[3], 0x5B, 0x0003);
+    }
+
+    [Fact]
+    public void ChordPressesEveryKeyInOrderAndReleasesInReverseOrder()
+    {
+        var input = new SequencedInputApi(6u);
+
+        InputSendResult result = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi()).SendChord(
+            [WindowsKeyboardKey.LeftWindows, WindowsKeyboardKey.Tab, WindowsKeyboardKey.A],
+            (nint)10);
+
+        Assert.True(result.IsSuccess);
+        NativeInput[] batch = Assert.Single(input.Batches);
+        Assert.Equal(new ushort[] { 0x5B, 0x09, 0x41, 0x41, 0x09, 0x5B },
+            batch.Select(static item => item.Data.Keyboard.VirtualKey));
+        AssertEvent(batch[0], 0x5B, 0x0001);
+        AssertEvent(batch[3], 0x41, 0x0002);
+        AssertEvent(batch[4], 0x09, 0x0002);
+        AssertEvent(batch[5], 0x5B, 0x0003);
+    }
+
+    [Theory]
+    [InlineData(1, new ushort[] { 0x5B })]
+    [InlineData(2, new ushort[] { 0x09, 0x5B })]
+    [InlineData(3, new ushort[] { 0x41, 0x09, 0x5B })]
+    [InlineData(4, new ushort[] { 0x09, 0x5B })]
+    [InlineData(5, new ushort[] { 0x5B })]
+    public void PartialChordSendReleasesOnlyKeysStillDown(int acceptedCount, ushort[] expectedCleanup)
+    {
+        var input = new SequencedInputApi((uint)acceptedCount, (uint)expectedCleanup.Length) { Error = 5 };
+
+        InputSendResult result = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi()).SendChord(
+            [WindowsKeyboardKey.LeftWindows, WindowsKeyboardKey.Tab, WindowsKeyboardKey.A],
+            (nint)10);
+
+        Assert.Equal(InputSendStatus.PartialFailure, result.Status);
+        Assert.Equal(expectedCleanup, input.Batches[1].Select(static item => item.Data.Keyboard.VirtualKey));
+        Assert.All(input.Batches[1], static item => Assert.NotEqual(0u, item.Data.Keyboard.Flags & 0x0002));
+    }
+
+    [Fact]
+    public void ChordExceptionReleasesAllPressedKeysInReverseOrder()
+    {
+        var input = new SequencedInputApi(new InvalidOperationException("send"), 3u);
+
+        InputSendResult result = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi()).SendChord(
+            [WindowsKeyboardKey.LeftWindows, WindowsKeyboardKey.Tab, WindowsKeyboardKey.A],
+            (nint)10);
+
+        Assert.Equal(InputSendStatus.Failed, result.Status);
+        Assert.Equal(new ushort[] { 0x41, 0x09, 0x5B }, input.Batches[1].Select(static item => item.Data.Keyboard.VirtualKey));
+    }
+
+    [Fact]
+    public void InvalidChordsAreRejectedBeforeNativeCalls()
+    {
+        var input = new SequencedInputApi();
+        using var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+
+        Assert.Equal(InputSendStatus.InvalidInput, sender.SendChord([], (nint)10).Status);
+        Assert.Equal(InputSendStatus.InvalidInput, sender.SendChord([WindowsKeyboardKey.A, WindowsKeyboardKey.A], (nint)10).Status);
+        Assert.Equal(InputSendStatus.InvalidInput, sender.SendChord(
+            Enumerable.Repeat(WindowsKeyboardKey.A, LayoutSchemaLimits.MaximumChordKeys + 1).ToArray(), (nint)10).Status);
+        Assert.Equal(0, input.Calls);
+    }
+
+    [Fact]
+    public void ChordDoesNotDuplicateOrReleaseLatchedModifier()
+    {
+        var input = new SequencedInputApi(1u, 2u, 1u);
+        using var sender = new HotkeyInputSender(input, ValidMapping(), new FakeModifierStateApi());
+        Assert.True(sender.SendModifierTransition(HotkeyModifier.Control, (nint)10, KeyInputTransition.KeyDown).IsSuccess);
+
+        Assert.True(sender.SendChord([WindowsKeyboardKey.Control, WindowsKeyboardKey.A], (nint)10).IsSuccess);
+
+        Assert.Equal(new ushort[] { 0x41, 0x41 }, input.Batches[1].Select(static item => item.Data.Keyboard.VirtualKey));
+        sender.ReleaseLatchedModifiers();
+        Assert.Equal((ushort)0x11, input.Batches[2][0].Data.Keyboard.VirtualKey);
+    }
+
+    [Fact]
+    public void ChordDoesNotDuplicateOrReleasePhysicallyHeldModifier()
+    {
+        var input = new SequencedInputApi(2u);
+        var state = new FakeModifierStateApi((int)WindowsKeyboardKey.Control);
+
+        InputSendResult result = new HotkeyInputSender(input, ValidMapping(), state).SendChord(
+            [WindowsKeyboardKey.Control, WindowsKeyboardKey.A], (nint)10);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new ushort[] { 0x41, 0x41 }, Assert.Single(input.Batches)
+            .Select(static item => item.Data.Keyboard.VirtualKey));
     }
 
     [Fact]

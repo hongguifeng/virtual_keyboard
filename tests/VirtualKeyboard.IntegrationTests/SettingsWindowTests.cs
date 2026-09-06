@@ -28,13 +28,31 @@ public sealed class SettingsWindowTests
             Assert.True(window.ShowActivated);
             Assert.True(Find<CheckBox>(window, "AutoShowCheckBox").IsChecked);
             Assert.Equal("900", Find<TextBox>(window, "WidthTextBox").Text);
-            Assert.Equal(0.75, Find<Slider>(window, "OpacitySlider").Value);
+            Assert.Equal(0.25, Find<Slider>(window, "OpacitySlider").Value, precision: 12);
             Assert.Equal("custom.layout", Find<TextBox>(window, "LayoutIdTextBox").Text);
             Assert.Equal(ManualPositionMode.Persistent, Find<ComboBox>(window, "PositionModeComboBox").SelectedItem);
             var list = Find<ListBox>(window, "CustomKeysList");
             Assert.Equal(2, list.Items.Count);
             Assert.Equal("邮箱", Assert.IsType<CustomKeyEditorItem>(list.Items[0]).Label);
             Assert.Equal(["Control"], Assert.IsType<CustomKeyEditorItem>(list.Items[1]).Modifiers);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void TransparencySliderStoresInverseWholeWindowOpacity()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            var window = new SettingsWindow(fixture.Repository);
+            Slider slider = Find<Slider>(window, "OpacitySlider");
+
+            slider.Value = 0;
+            Assert.Equal(1, window.ReadConfiguration().Opacity, precision: 12);
+            slider.Value = 0.70;
+            Assert.Equal(0.30, window.ReadConfiguration().Opacity, precision: 12);
+
             window.Close();
         });
     }
@@ -89,6 +107,42 @@ public sealed class SettingsWindowTests
     }
 
     [Fact]
+    public void CustomColumnsShrinkWithWindowWithoutOverlappingStandardKeyboard()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            Assert.True(fixture.Repository.Save(new(1, true, true, true, 0.65, 1000, 300, 8,
+                "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false,
+                Enumerable.Range(1, 12).Select(index => new CustomKeyConfiguration($"自定义 {index}", "key", "Enter")))).IsSaved);
+            using var window = new MainWindow(new UnusedCapture(), new TargetSessionStore(), fixture.Repository);
+            var body = Find<Grid>(window, "KeyboardBodyGrid");
+            var layout = Find<KeyboardLayoutView>(window, "LayoutView");
+            var custom = Find<CustomKeyColumnView>(window, "CustomKeysView");
+
+            window.ShowAt(-12000, -11000, 1000, 300);
+            window.UpdateLayout();
+            double wideLayout = layout.ActualWidth;
+            double wideCustom = custom.ActualWidth;
+
+            window.ShowAt(-12000, -11000, 620, 300);
+            window.UpdateLayout();
+
+            Assert.True(layout.ActualWidth < wideLayout);
+            Assert.True(custom.ActualWidth < wideCustom);
+            Assert.Equal(3, custom.ColumnCount);
+            Assert.All(custom.ColumnDefinitions,
+                column => Assert.InRange(Math.Abs(column.ActualWidth - custom.ColumnDefinitions[0].ActualWidth), 0, 0.5));
+            Point layoutRight = layout.TranslatePoint(new Point(layout.ActualWidth, 0), body);
+            Point customLeft = custom.TranslatePoint(new Point(0, 0), body);
+            Point customRight = custom.TranslatePoint(new Point(custom.ActualWidth, 0), body);
+            Assert.True(layoutRight.X <= customLeft.X);
+            Assert.True(customRight.X <= body.ActualWidth + 0.5);
+            Assert.Equal(0.65, window.Opacity, precision: 12);
+        });
+    }
+
+    [Fact]
     public void InvalidSettingsAreRejectedBeforeRepositorySave()
     {
         RunOnStaThread(() =>
@@ -117,13 +171,17 @@ public sealed class SettingsWindowTests
             Find<ComboBox>(window, "CustomActionModeComboBox").SelectedIndex = 1;
             Find<Button>(window, "RecordShortcutButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
-            Assert.True(window.RecordShortcutForTest(Key.S, ModifierKeys.Control | ModifierKeys.Shift));
+            Assert.True(window.ApplyRecordedChordForTest(
+                WindowsKeyboardKey.LeftWindows,
+                WindowsKeyboardKey.Tab,
+                WindowsKeyboardKey.A));
             CustomKeyConfiguration recorded = Assert.Single(window.ReadConfiguration().CustomKeys);
 
-            Assert.Equal(LayoutActionTypes.Hotkey, recorded.ActionType);
-            Assert.Equal("S", recorded.Input);
-            Assert.Equal(["Control", "Shift"], recorded.Modifiers);
-            Assert.Equal("Ctrl+Shift+S", Find<TextBlock>(window, "RecordedShortcutText").Text);
+            Assert.Equal(LayoutActionTypes.Chord, recorded.ActionType);
+            Assert.Empty(recorded.Input);
+            Assert.Equal(["LeftWindows", "Tab", "A"], recorded.Modifiers);
+            Assert.Equal("Win+Tab+A", Find<TextBlock>(window, "RecordedShortcutText").Text);
+            Assert.False(window.ApplyRecordedChordForTest(WindowsKeyboardKey.B));
             window.Close();
         });
     }

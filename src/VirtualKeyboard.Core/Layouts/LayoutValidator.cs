@@ -16,6 +16,7 @@ public static class LayoutSchemaLimits
     public const double MaximumKeyWidth = 16;
     public const int MaximumTextLength = 4096;
     public const int MaximumHotkeyModifiers = 3;
+    public const int MaximumChordKeys = 8;
 }
 
 public sealed record LayoutValidationError(string Path, string Code, string Message);
@@ -35,6 +36,8 @@ public sealed class LayoutValidationResult
 /// <summary>Applies structural limits and a closed action/key allowlist without exposing sensitive text.</summary>
 public static class LayoutValidator
 {
+    public static bool IsAllowedChordKey(string? key) => key is not null && ValidChordKeys.Contains(key);
+
     private static readonly HashSet<string> ValidVirtualKeys = CreateVirtualKeySet();
     private static readonly HashSet<string> ValidHotkeyModifiers = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -152,7 +155,7 @@ public static class LayoutValidator
         string path,
         List<LayoutValidationError> errors)
     {
-        if (action.Type is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey or LayoutActionTypes.Modifier))
+        if (action.Type is not (LayoutActionTypes.Text or LayoutActionTypes.Key or LayoutActionTypes.Hotkey or LayoutActionTypes.Chord or LayoutActionTypes.Modifier))
         {
             Add(errors, $"{path}.type", "action.type", "The action type is not allowlisted.");
             return;
@@ -168,6 +171,9 @@ public static class LayoutValidator
                 break;
             case LayoutActionTypes.Hotkey:
                 ValidateHotkeyAction(action, path, errors);
+                break;
+            case LayoutActionTypes.Chord:
+                ValidateChordAction(action, path, errors);
                 break;
             case LayoutActionTypes.Modifier:
                 ValidateModifierAction(action, path, errors);
@@ -236,6 +242,31 @@ public static class LayoutValidator
         RejectUnexpectedKeyFields(action, path, errors, allowModifier: true);
     }
 
+    private static void ValidateChordAction(LayoutActionDefinition action, string path, List<LayoutValidationError> errors)
+    {
+        if (action.Keys is null || action.Keys.Count is < 1 or > LayoutSchemaLimits.MaximumChordKeys)
+        {
+            Add(errors, $"{path}.keys", "action.chordLength", $"A chord must contain between 1 and {LayoutSchemaLimits.MaximumChordKeys} keys.");
+        }
+        else
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int index = 0; index < action.Keys.Count; index++)
+            {
+                string? key = action.Keys[index];
+                if (key is null || !ValidChordKeys.Contains(key))
+                {
+                    Add(errors, $"{path}.keys[{index}]", "action.chordKey", "The chord key is not allowlisted.");
+                }
+                else if (!seen.Add(key))
+                {
+                    Add(errors, $"{path}.keys[{index}]", "action.chordDuplicate", "Chord keys must be unique.");
+                }
+            }
+        }
+        RejectUnexpectedKeyFields(action, path, errors, allowChordKeys: true);
+    }
+
     private static void ValidateMainKey(LayoutActionDefinition action, string path, List<LayoutValidationError> errors)
     {
         bool hasVirtualKey = !string.IsNullOrWhiteSpace(action.VirtualKey);
@@ -265,7 +296,8 @@ public static class LayoutValidator
         bool allowKey = false,
         bool allowModifiers = false,
         bool allowModifier = false,
-        bool allowFnKey = false)
+        bool allowFnKey = false,
+        bool allowChordKeys = false)
     {
         if (!allowValue && action.Value is not null)
         {
@@ -290,6 +322,10 @@ public static class LayoutValidator
         if (!allowFnKey && action.FnVirtualKey is not null)
         {
             Add(errors, $"{path}.fnVirtualKey", "action.unexpectedField", "The field is not valid for this action type.");
+        }
+        if (!allowChordKeys && action.Keys is not null)
+        {
+            Add(errors, $"{path}.keys", "action.unexpectedField", "The field is not valid for this action type.");
         }
     }
 
@@ -334,6 +370,15 @@ public static class LayoutValidator
             keys.Add($"F{number}");
         }
 
+        return keys;
+    }
+
+    private static readonly HashSet<string> ValidChordKeys = CreateChordKeySet();
+
+    private static HashSet<string> CreateChordKeySet()
+    {
+        HashSet<string> keys = CreateVirtualKeySet();
+        keys.UnionWith(["Shift", "Control", "Alt", "LeftWindows", "RightWindows"]);
         return keys;
     }
 }

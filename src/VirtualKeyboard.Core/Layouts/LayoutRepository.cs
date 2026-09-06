@@ -332,7 +332,8 @@ public sealed class LayoutRepository
 
     private static LayoutActionDefinition? Convert(RawAction? action) => action is null
         ? null
-        : new(action.Type, action.Value, action.VirtualKey, action.ScanCode, action.Modifiers?.Select(value => value!), action.Modifier, action.FnVirtualKey);
+        : new(action.Type, action.Value, action.VirtualKey, action.ScanCode, action.Modifiers?.Select(value => value!), action.Modifier, action.FnVirtualKey,
+            action.Keys?.Select(value => value!));
 
     private static string SanitizeJsonPath(string? path)
     {
@@ -406,5 +407,8 @@ public sealed class LayoutRepository
 
         [JsonPropertyName("fnVirtualKey")]
         public string? FnVirtualKey { get; set; }
+
+        [JsonPropertyName("keys")]
+        public List<string?>? Keys { get; set; }
     }
 }

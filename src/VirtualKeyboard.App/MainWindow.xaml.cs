@@ -369,6 +369,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             LayoutActionTypes.Text => InputActionKind.Text,
             LayoutActionTypes.Key => InputActionKind.Key,
             LayoutActionTypes.Hotkey => InputActionKind.Hotkey,
+            LayoutActionTypes.Chord => InputActionKind.Hotkey,
             LayoutActionTypes.Modifier => InputActionKind.Modifier,
             _ => InputActionKind.Key,
         };
@@ -427,6 +428,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private void LoadConfiguredCustomKeys(bool passwordTarget)
     {
         CustomKeysView.LoadKeys(_configurationRepository.Current.CustomKeys, passwordTarget);
+        int customColumns = CustomKeysView.ColumnCount;
+        StandardKeyboardColumn.Width = new GridLength(16, GridUnitType.Star);
+        CustomKeyboardColumn.Width = new GridLength(customColumns * 2.5, GridUnitType.Star);
     }
 
     private void OnOverlayDpiChanged(OverlayDpiChangedNotification change)

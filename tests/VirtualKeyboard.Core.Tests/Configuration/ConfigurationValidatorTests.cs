@@ -1,9 +1,14 @@
 using VirtualKeyboard.Core.Configuration;
+using VirtualKeyboard.Core.Layouts;
 
 namespace VirtualKeyboard.Core.Tests.Configuration;
 
 public sealed class ConfigurationValidatorTests
 {
+    private static readonly string[] EmptyChord = [];
+    private static readonly string[] DuplicateChord = ["LeftWindows", "Tab", "tab"];
+    private static readonly string[] UnknownChord = ["LeftWindows", "Power"];
+
     [Fact]
     public void DefaultConfigurationIsValid()
     {
@@ -106,6 +111,32 @@ public sealed class ConfigurationValidatorTests
 
         Assert.True(ConfigurationValidator.Validate(valid).IsValid);
     }
+
+    [Fact]
+    public void CustomChordAcceptsCompleteOrderedKeyCombination()
+    {
+        KeyboardConfiguration valid = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
+            [new("任务视图", LayoutActionTypes.Chord, "", ["LeftWindows", "Tab"])]);
+
+        Assert.True(ConfigurationValidator.Validate(valid).IsValid);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidChords))]
+    public void CustomChordRejectsInvalidKeySets(string[] keys)
+    {
+        KeyboardConfiguration invalid = new(1, true, true, true, 0.9, 800, 300, 8, "layout", ManualPositionMode.UntilTargetChanges, false,
+            [new("无效", LayoutActionTypes.Chord, "", keys)]);
+
+        Assert.Contains(ConfigurationValidator.Validate(invalid).Errors, error => error.Code == "config.customKeyAction");
+    }
+
+    public static TheoryData<string[]> InvalidChords => new()
+    {
+        EmptyChord,
+        DuplicateChord,
+        UnknownChord,
+    };
 
     private static KeyboardConfiguration Default() =>
         new(1, true, true, true, 0.9, 800, 300, 8, "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false);

@@ -62,6 +62,7 @@ public enum WindowsKeyboardKey : ushort
     Y = 0x59,
     Z = 0x5A,
     LeftWindows = 0x5B,
+    RightWindows = 0x5C,
     F1 = 0x70,
     F2 = 0x71,
     F3 = 0x72,

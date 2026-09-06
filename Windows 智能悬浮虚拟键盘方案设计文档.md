@@ -636,10 +636,11 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 - `schemaVersion` 当前只接受整数 `1`；布局必须有 1-16 行，每行 1-64 键，总计不得超过 256 键。
 - layout `id` 长度为 1-128，key `id` 长度为 1-64，key `id` 在整个布局内区分大小写且唯一；`name`、`culture`、`label` 上限分别为 64、32、32 个 UTF-16 code unit，且均不得为空白。
 - `width` 必须是有限正数且不大于 `16`。`safeForPassword` 为每个 key 必填布尔语义，密码目标执行动作前仍由控制器执行该标志门禁。
-- action 是严格字段联合，只接受小写 `text`、`key`、`hotkey`、`modifier`；混入其他 action 类型的字段也视为无效。
+- action 是严格字段联合，只接受小写 `text`、`key`、`hotkey`、`chord`、`modifier`；混入其他 action 类型的字段也视为无效。
 - `text` 只使用 `value`，长度为 1-4096 UTF-16 code unit；日志和校验错误仅给出 `$.rows[n][n].action.value` 路径，不得回显内容。
 - `key` 必须且只能声明 `virtualKey` 或 `scanCode` 之一，并可选声明一个 `fnVirtualKey`。`scanCode` 范围为 1-65535；两个 virtual key 字段都使用封闭集合：A-Z、0-9、F1-F12、标准美式主键区 OEM 标点、Space、Backspace、Enter、Tab、Escape 和方向/导航键。
 - `hotkey` 使用与 `key` 相同的一个主键，并声明 1-3 个按顺序排列、互不重复的 `Shift`、`Control`、`Alt`、`Windows` 修饰键；与界面保持状态合并后的发送批次最多包含四个修饰键。
+- `chord` 只使用 `keys`，包含 1–8 个按 KeyDown 先后排列且大小写不敏感去重的封闭键；允许普通键、Shift/Control/Alt 和左右 Windows 键。发送器先按序构造全部 KeyDown，再逆序构造全部 KeyUp，短发送只释放已成功按下且尚未释放的键。
 - `modifier` 只接受 `Shift`、`Control`、`Alt`、`Windows`、`Fn`、`CapsLock` 状态名。Fn 不进入 SendInput 修饰键数组，只选择 `fnVirtualKey`；动作名和键名按 schema 规定的大小写解析，修饰键名和 virtual key 名由校验器按 ASCII 大小写不敏感匹配。
 - 出现 `command`、脚本或未知可执行动作时拒绝整个布局。
 - T5.1 的 `KeyboardLayoutDefinition`、`KeyboardLayoutRow`、`KeyboardKeyDefinition` 和 `LayoutActionDefinition` 在构造时复制集合，调用方后续修改源集合不会改变已验证模型。`LayoutValidator` 返回稳定错误 code、具体 JSON 字段路径及固定非敏感消息。
@@ -649,7 +650,7 @@ T5.3 的 `builtin.qwerty.en-US` 是应用项目的 Content，构建与发布均�
 
 `KeyboardController` 将布局模型映射为不可变 `KeyViewModel` 集合。宽度采用 Grid 星号或等价权重算法；最小点击尺寸、间距和字体由主题资源控制。视图只绑定动作 ID，不直接持有原生 VK 常量处理逻辑。
 
-T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽，行列最小尺寸均为 36 DIP；完整标准布局的窗口下限为 620×280 DIP，默认配置为 800×300 DIP。
+T5.5 的 `KeyboardLayoutViewModel.Create` 只接受再次通过 schema 校验的布局，并生成只读 row/key 集合；action 对象保持语义身份，不在视图层解释为原生常量。WPF `KeyboardLayoutView` 为每行分配等权 Star 高度、为每键按 `width` 分配 Star 列宽；按键保持 36 DIP 最小高度，但列不设置会导致横向溢出的固定最小宽度。完整窗口下限为 620×280 DIP，默认配置为 800×300 DIP。
 
 `NonFocusableKeyButton` 固定 `Focusable=false`、`IsTabStop=false`。其 `KeyGestureController` 只接受 Idle→Pressed→Release/Cancel：重复 Down 被忽略，只有曾成功 Begin 且在键内 Release 才发出一次 `KeyInvoked`；键外释放、鼠标捕获丢失和 Cancel 都恢复视觉状态且不触发。按下时通过不透明度提供明确视觉反馈，动作事件只携带经过验证的 `KeyViewModel`。
 
@@ -701,11 +702,11 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
 
 配置模型与运行时模型分离；运行时始终获得经过验证的不可变配置快照。
 
-T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，除基础字段外包含 `customKeys`。`customKeys` 最多 12 项，每项标签不超过 32、输入不超过 256 UTF-16 code unit，动作仅允许 `text`、`key`、`hotkey` 并复用布局封闭键名/修饰键校验。验证错误不回显布局 ID 或自定义内容。旧 schema v1 的单个 customKeyLabel/customKeyText 会在内存中迁移为一个 text 项，完全缺失时按空列表加载。
+T6.1 的 Core `KeyboardConfiguration` 为不可变运行时快照，除基础字段外包含 `customKeys`。`customKeys` 最多 12 项，每项标签不超过 32、输入不超过 256 UTF-16 code unit，动作仅允许 `text`、`key`、`hotkey`、`chord` 并复用布局封闭键名/修饰键校验。为兼容 schema v1，`chord` 的有序完整键列表存放在现有 `modifiers` 数组且 `input` 为空，转换为布局动作时映射到 `action.keys`。验证错误不回显布局 ID 或自定义内容。旧 schema v1 的单个 customKeyLabel/customKeyText 会在内存中迁移为一个 text 项，完全缺失时按空列表加载。
 
 T6.2 的 `ConfigurationRepository` 使用 `%LocalAppData%\\VirtualKeyboard\\config.json` 和同目录 `recovery` 子目录。读取限制为 64 KiB、JSON 深度 8，兼容 UTF-8 BOM，拒绝注释/尾逗号并忽略未知字段以保持前向兼容；反序列化后再次执行 schema 验证。损坏或无效文件先复制为带 UTC 时间和随机后缀的恢复文件，再返回安全默认配置；恢复失败也不会阻止启动。保存先验证，在目标目录创建随机临时文件并 `Flush(true)`，随后使用 `File.Replace`（首次保存使用 `File.Move`）完成原子更新；任意 IO/权限失败删除临时文件、保留已验证的内存快照并返回脱敏固定错误。仓库通过锁串行化 `Current`、`Load` 与 `Save`。
 
-T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。不透明度由 0.30–1.00、步进 0.05 且显示百分比的 Slider 输入。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”；录制状态在 `PreviewKeyDown` 捕获实体主键及 `Keyboard.Modifiers`，通过 `KeyInterop.VirtualKeyFromKey` 映射到封闭 `WindowsKeyboardKey`，自动生成 key/hotkey 配置并以 `Ctrl+Shift+S` 等形式回显。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey 发送路径。
+T6.3 的 WPF `SettingsWindow` 是独立、可激活的模态窗口，编辑 schema v1 的全部用户字段。界面 Slider 表示 0.00–0.70 的“透明程度”，保存时用 `opacity = 1 - transparency` 转换为 WPF 整窗 `Opacity` 0.30–1.00；不使用背景色或亮度模拟透明。自定义键采用左侧列表加右侧详情编辑器，界面只暴露“输入文字”和“录制按键或组合键”。`KeyboardChordRecorder` 使用 `WH_KEYBOARD_LL` 捕获并抑制录制期间的 KeyDown/KeyUp：记录最多 8 个不同封闭键的首次 KeyDown 顺序，全部释放后生成 `chord`，因此 `Win+Tab` 不会先触发系统任务视图；失败、取消、切换项目/模式或关闭设置都会卸载 hook。保存仍经过统一 schema 验证。主窗口以现有 `TargetStateCoordinator.OpenSettings/CloseSettings` 包围整个模态生命周期；进入时使输入队列会话失效、释放真实保持修饰键、清除目标并隐藏 Overlay。`CustomKeyColumnView` 使用五行 Grid，每列最多 5 键，第 6/11 项自动创建第二/第三列，不使用滚动容器；主键区使用 16 份 Star、自定义区每列使用 2.5 份 Star，内部各列等分，使两区随窗口宽度同步缩放且不重叠。密码目标时整体折叠，每项继续复用目标复核、串行队列和 text/key/hotkey/chord 发送路径。
 
 T6.4 使用 Windows Desktop 框架自带 `NotifyIcon` 实现系统托盘，不增加第三方依赖。`TrayIconController` 只通过 `ITrayCommands` 调用宿主，菜单固定为启用/暂停、显示当前键盘、设置、重新加载布局和退出；启用项每次操作后从 ConfigurationRepository 的当前快照刷新。启用切换同步持久化配置和 `TargetStateCoordinator`，暂停时使输入队列会话失效、清除目标/瞬时状态并隐藏窗口；布局重载复用单一 `LayoutRepository`，首选配置 layoutId，缺失时回退内置 QWERTY。应用采用显式退出生命周期，退出前隐藏并释放 NotifyIcon；标题栏关闭仅隐藏 Overlay，使托盘可再次显示同一窗口。
 

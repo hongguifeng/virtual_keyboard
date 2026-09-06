@@ -61,7 +61,7 @@ public sealed class MinimalOverlayWindowTests
             Assert.All(firstRow.ColumnDefinitions, column =>
             {
                 Assert.True(column.Width.IsStar);
-                Assert.True(column.MinWidth >= KeyboardLayoutView.MinimumKeyWidth);
+                Assert.Equal(0, column.MinWidth);
             });
             Assert.Equal(1.2, firstRow.ColumnDefinitions[0].Width.Value);
             Assert.Equal(1.0, firstRow.ColumnDefinitions[1].Width.Value);

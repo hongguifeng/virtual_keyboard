@@ -3,21 +3,22 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using VirtualKeyboard.Core.Configuration;
 using VirtualKeyboard.Core.Layouts;
 using VirtualKeyboard.Windows;
 
 namespace VirtualKeyboard.App;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Window, IDisposable
 {
     private const string TextMode = "text";
     private readonly ConfigurationRepository _repository;
     private readonly ObservableCollection<CustomKeyEditorItem> _customKeys = [];
+    private readonly KeyboardChordRecorder _chordRecorder = new();
     private CustomKeyEditorItem? _editingItem;
     private bool _loadingEditor;
     private bool _isRecordingShortcut;
+    private bool _disposed;
 
     public SettingsWindow(ConfigurationRepository repository)
     {
@@ -25,6 +26,8 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         PositionModeComboBox.ItemsSource = Enum.GetValues<ManualPositionMode>();
         CustomKeysList.ItemsSource = _customKeys;
+        _chordRecorder.Captured += OnChordCaptured;
+        _chordRecorder.CaptureFailed += OnChordCaptureFailed;
         LoadConfiguration(_repository.Current);
     }
 
@@ -34,22 +37,22 @@ public partial class SettingsWindow : Window
         return new(
             ConfigurationSchemaLimits.SupportedSchemaVersion,
             EnabledCheckBox.IsChecked == true, AutoShowCheckBox.IsChecked == true, AutoHideCheckBox.IsChecked == true,
-            OpacitySlider.Value, Parse(WidthTextBox.Text), Parse(HeightTextBox.Text), Parse(MarginTextBox.Text),
+            1 - OpacitySlider.Value, Parse(WidthTextBox.Text), Parse(HeightTextBox.Text), Parse(MarginTextBox.Text),
             LayoutIdTextBox.Text, PositionModeComboBox.SelectedItem is ManualPositionMode mode ? mode : ManualPositionMode.UntilTargetChanges,
             DiagnosticsCheckBox.IsChecked == true,
             _customKeys.Select(static key => new CustomKeyConfiguration(
                 key.Label, key.ActionType, key.Input, key.Modifiers)));
     }
 
-    internal bool RecordShortcutForTest(Key key, ModifierKeys modifiers) =>
-        _isRecordingShortcut && RecordShortcut(key, modifiers);
+    internal bool ApplyRecordedChordForTest(params WindowsKeyboardKey[] keys) =>
+        _isRecordingShortcut && ApplyRecordedChord(keys);
 
     private void LoadConfiguration(KeyboardConfiguration configuration)
     {
         EnabledCheckBox.IsChecked = configuration.Enabled;
         AutoShowCheckBox.IsChecked = configuration.AutoShow;
         AutoHideCheckBox.IsChecked = configuration.AutoHide;
-        OpacitySlider.Value = configuration.Opacity;
+        OpacitySlider.Value = 1 - configuration.Opacity;
         WidthTextBox.Text = configuration.KeyboardWidthDip.ToString(CultureInfo.InvariantCulture);
         HeightTextBox.Text = configuration.KeyboardHeightDip.ToString(CultureInfo.InvariantCulture);
         MarginTextBox.Text = configuration.MarginDip.ToString(CultureInfo.InvariantCulture);
@@ -170,28 +173,58 @@ public partial class SettingsWindow : Window
         _ = sender;
         _ = e;
         if (_editingItem is null) return;
-        _isRecordingShortcut = !_isRecordingShortcut;
-        RecordShortcutButton.Content = _isRecordingShortcut ? "请按下快捷键…" : "开始录制";
-        RecordedShortcutText.Text = _isRecordingShortcut ? "等待键盘输入…" : _editingItem.GestureDisplay;
-        if (_isRecordingShortcut) Keyboard.Focus(RecordShortcutButton);
+        if (_isRecordingShortcut)
+        {
+            StopRecording();
+            RecordedShortcutText.Text = _editingItem.GestureDisplay;
+            return;
+        }
+        if (!_chordRecorder.Start())
+        {
+            StatusText.Text = "无法启动键盘录制，请重试。";
+            return;
+        }
+        _isRecordingShortcut = true;
+        RecordShortcutButton.Content = "请按下组合键…";
+        RecordedShortcutText.Text = "等待按键，全部松开后完成…";
     }
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private void OnChordCaptured(object? sender, KeyboardChordCapturedEventArgs e)
     {
         _ = sender;
-        if (!_isRecordingShortcut) return;
-        e.Handled = true;
-        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (!RecordShortcut(key, Keyboard.Modifiers)) RecordedShortcutText.Text = "请按一个非修饰键";
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => ApplyRecordedChord(e.Keys));
+            return;
+        }
+        ApplyRecordedChord(e.Keys);
     }
 
-    private bool RecordShortcut(Key key, ModifierKeys modifiers)
+    private void OnChordCaptureFailed(object? sender, EventArgs e)
     {
-        if (_editingItem is null || !ShortcutGesture.TryCreate(key, modifiers, out ShortcutGesture gesture)) return false;
-        _editingItem.ActionType = gesture.Modifiers.Count == 0 ? LayoutActionTypes.Key : LayoutActionTypes.Hotkey;
-        _editingItem.Input = gesture.Key;
-        _editingItem.Modifiers = gesture.Modifiers;
-        RecordedShortcutText.Text = gesture.Display;
+        _ = sender;
+        _ = e;
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(ShowChordCaptureFailure);
+            return;
+        }
+        ShowChordCaptureFailure();
+    }
+
+    private void ShowChordCaptureFailure()
+    {
+        StopRecording();
+        RecordedShortcutText.Text = "组合键最多支持 8 个不同按键，请重新录制。";
+    }
+
+    private bool ApplyRecordedChord(IReadOnlyList<WindowsKeyboardKey> keys)
+    {
+        if (!_isRecordingShortcut || _editingItem is null || keys.Count == 0) return false;
+        _editingItem.ActionType = LayoutActionTypes.Chord;
+        _editingItem.Input = string.Empty;
+        _editingItem.Modifiers = keys.Select(static key => key.ToString()).ToArray();
+        RecordedShortcutText.Text = _editingItem.GestureDisplay;
         StopRecording();
         return true;
     }
@@ -199,7 +232,24 @@ public partial class SettingsWindow : Window
     private void StopRecording()
     {
         _isRecordingShortcut = false;
+        _chordRecorder.Stop();
         if (RecordShortcutButton is not null) RecordShortcutButton.Content = "开始录制";
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        Dispose();
+        base.OnClosed(e);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _chordRecorder.Captured -= OnChordCaptured;
+        _chordRecorder.CaptureFailed -= OnChordCaptureFailed;
+        _chordRecorder.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void OnCancelClick(object sender, RoutedEventArgs e)
@@ -238,44 +288,27 @@ internal sealed class CustomKeyEditorItem : INotifyPropertyChanged
     public string ActionType { get; set; }
     public string Input { get; set; }
     public IReadOnlyList<string> Modifiers { get; set; }
-    public string GestureDisplay => ShortcutGesture.Format(Input, Modifiers);
+    public string GestureDisplay => ShortcutGesture.Format(GestureKeys());
+
+    private IEnumerable<string> GestureKeys() => ActionType switch
+    {
+        LayoutActionTypes.Chord => Modifiers,
+        LayoutActionTypes.Hotkey => Modifiers.Select(static modifier => modifier switch
+        {
+            "Windows" => "LeftWindows",
+            _ => modifier,
+        }).Append(Input),
+        LayoutActionTypes.Key => [Input],
+        _ => [],
+    };
 }
 
-internal readonly record struct ShortcutGesture(string Key, IReadOnlyList<string> Modifiers)
+internal static class ShortcutGesture
 {
-    internal string Display => Format(Key, Modifiers);
-
-    internal static bool TryCreate(Key key, ModifierKeys modifiers, out ShortcutGesture gesture)
+    internal static string Format(IEnumerable<string> keys)
     {
-        gesture = default;
-        if (key is System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift or
-            System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl or
-            System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt or
-            System.Windows.Input.Key.LWin or System.Windows.Input.Key.RWin)
-        {
-            return false;
-        }
-        int virtualKey = KeyInterop.VirtualKeyFromKey(key);
-        var parsed = (WindowsKeyboardKey)(ushort)virtualKey;
-        if (virtualKey <= 0 || !Enum.IsDefined(parsed)) return false;
-        var captured = new List<string>(4);
-        if (modifiers.HasFlag(ModifierKeys.Control)) captured.Add("Control");
-        if (modifiers.HasFlag(ModifierKeys.Shift)) captured.Add("Shift");
-        if (modifiers.HasFlag(ModifierKeys.Alt)) captured.Add("Alt");
-        if (modifiers.HasFlag(ModifierKeys.Windows)) captured.Add("Windows");
-        gesture = new(parsed.ToString(), captured.AsReadOnly());
-        return true;
-    }
-
-    internal static string Format(string key, IReadOnlyList<string> modifiers)
-    {
-        if (string.IsNullOrEmpty(key)) return "尚未录制";
-        return string.Join("+", modifiers.Select(static modifier => modifier switch
-        {
-            "Control" => "Ctrl",
-            "Windows" => "Win",
-            _ => modifier,
-        }).Append(FriendlyKey(key)));
+        string[] values = keys.Where(static key => !string.IsNullOrEmpty(key)).Select(FriendlyKey).ToArray();
+        return values.Length == 0 ? "尚未录制" : string.Join("+", values);
     }
 
     private static string FriendlyKey(string key)
@@ -283,6 +316,8 @@ internal readonly record struct ShortcutGesture(string Key, IReadOnlyList<string
         if (key.Length == 2 && key[0] == 'D' && char.IsAsciiDigit(key[1])) return key[1..];
         return key switch
         {
+            "Control" => "Ctrl",
+            "LeftWindows" or "RightWindows" or "Windows" => "Win",
             "OemSemicolon" => ";",
             "OemPlus" => "=",
             "OemComma" => ",",

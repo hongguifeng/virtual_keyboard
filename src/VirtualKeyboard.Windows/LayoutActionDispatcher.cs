@@ -12,6 +12,7 @@ public sealed class LayoutActionDispatcher
     private readonly Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> _sendKey;
     private readonly Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> _sendHotkey;
     private readonly Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult> _sendModifier;
+    private readonly Func<IReadOnlyList<WindowsKeyboardKey>, nint, int, CancellationToken, InputSendResult> _sendChord;
     private readonly Func<string, int, InputSendResult> _sendText;
 
     public LayoutActionDispatcher(
@@ -29,6 +30,7 @@ public sealed class LayoutActionDispatcher
         _sendKey = keySender.Send;
         _sendHotkey = hotkeySender.Send;
         _sendModifier = hotkeySender.SendModifierTransition;
+        _sendChord = hotkeySender.SendChord;
         _sendText = textSender.Send;
     }
 
@@ -38,7 +40,8 @@ public sealed class LayoutActionDispatcher
         Func<WindowsKeyboardKey, nint, KeyInputTransition, int, InputSendResult> sendKey,
         Func<IReadOnlyList<HotkeyModifier>, WindowsKeyboardKey, nint, int, CancellationToken, InputSendResult> sendHotkey,
         Func<string, int, InputSendResult> sendText,
-        Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult>? sendModifier = null)
+        Func<HotkeyModifier, nint, KeyInputTransition, int, InputSendResult>? sendModifier = null,
+        Func<IReadOnlyList<WindowsKeyboardKey>, nint, int, CancellationToken, InputSendResult>? sendChord = null)
     {
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _controller = controller ?? throw new ArgumentNullException(nameof(controller));
@@ -46,6 +49,7 @@ public sealed class LayoutActionDispatcher
         _sendHotkey = sendHotkey ?? throw new ArgumentNullException(nameof(sendHotkey));
         _sendText = sendText ?? throw new ArgumentNullException(nameof(sendText));
         _sendModifier = sendModifier ?? ((_, _, _, _) => new(InputSendStatus.Succeeded, 1, 1, 0));
+        _sendChord = sendChord ?? ((_, _, _, _) => new(InputSendStatus.Succeeded, 2, 2, 0));
     }
 
     public InputSendResult Dispatch(long sessionId, KeyViewModel key, CancellationToken cancellationToken = default)
@@ -88,6 +92,8 @@ public sealed class LayoutActionDispatcher
         {
             return Rejected();
         }
+        WindowsKeyboardKey[]? chordKeys = action.Type == LayoutActionTypes.Chord ? ParseChordKeys(action.Keys) : null;
+        if (action.Type == LayoutActionTypes.Chord && chordKeys is null) return Rejected();
 
         KeyboardActionPreparation preparation;
         try
@@ -119,6 +125,15 @@ public sealed class LayoutActionDispatcher
             return _sendHotkey(
                 declared!.Concat(ModifiersFrom(preparation)).Distinct().ToArray(),
                 parsedKey,
+                session.FocusHwnd,
+                session.ProcessId,
+                cancellationToken);
+        }
+
+        if (action.Type == LayoutActionTypes.Chord)
+        {
+            return _sendChord(
+                ChordKeysFrom(preparation).Concat(chordKeys!).Distinct().ToArray(),
                 session.FocusHwnd,
                 session.ProcessId,
                 cancellationToken);
@@ -233,6 +248,27 @@ public sealed class LayoutActionDispatcher
         if (preparation.UseAlt) modifiers.Add(HotkeyModifier.Alt);
         if (preparation.UseWindows) modifiers.Add(HotkeyModifier.Windows);
         return modifiers.ToArray();
+    }
+
+    private static WindowsKeyboardKey[]? ParseChordKeys(IReadOnlyList<string>? keys)
+    {
+        if (keys is null || keys.Count is < 1 or > LayoutSchemaLimits.MaximumChordKeys) return null;
+        var result = new List<WindowsKeyboardKey>(keys.Count);
+        foreach (string? value in keys)
+        {
+            if (value is null || !Enum.TryParse(value, ignoreCase: true, out WindowsKeyboardKey key) ||
+                !Enum.IsDefined(key) || !LayoutValidator.IsAllowedChordKey(value) || result.Contains(key)) return null;
+            result.Add(key);
+        }
+        return result.ToArray();
+    }
+
+    private static IEnumerable<WindowsKeyboardKey> ChordKeysFrom(KeyboardActionPreparation preparation)
+    {
+        if (preparation.UseControl) yield return WindowsKeyboardKey.Control;
+        if (preparation.UseShift) yield return WindowsKeyboardKey.Shift;
+        if (preparation.UseAlt) yield return WindowsKeyboardKey.Alt;
+        if (preparation.UseWindows) yield return WindowsKeyboardKey.LeftWindows;
     }
 
     private static InputSendResult Rejected() => new(InputSendStatus.InvalidInput, 0, 0, 87);

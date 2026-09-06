@@ -122,6 +122,46 @@ public sealed class LayoutActionDispatcherTests
     }
 
     [Fact]
+    public void ChordDispatchesEveryRecordedKeyInOrder()
+    {
+        using Fixture fixture = Fixture.Create();
+        var action = new LayoutActionDefinition(LayoutActionTypes.Chord, keys: ["LeftWindows", "Tab", "A"]);
+
+        Assert.True(fixture.Dispatch(Key("task-view", action)).IsSuccess);
+
+        Assert.Equal(1, fixture.ChordCalls);
+        Assert.Equal([WindowsKeyboardKey.LeftWindows, WindowsKeyboardKey.Tab, WindowsKeyboardKey.A], fixture.LastChord);
+    }
+
+    [Fact]
+    public void ChordMergesLatchedModifiersWithoutDuplicates()
+    {
+        using Fixture fixture = Fixture.Create();
+        fixture.Dispatch(Key("control", new(LayoutActionTypes.Modifier, modifier: "Control")));
+
+        Assert.True(fixture.Dispatch(Key("combo", new(LayoutActionTypes.Chord, keys: ["Control", "Shift", "A"]))).IsSuccess);
+
+        Assert.Equal([WindowsKeyboardKey.Control, WindowsKeyboardKey.Shift, WindowsKeyboardKey.A], fixture.LastChord);
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidChordActions))]
+    public void InvalidChordDoesNotCallAnySender(LayoutActionDefinition action)
+    {
+        using Fixture fixture = Fixture.Create();
+
+        Assert.Equal(InputSendStatus.InvalidInput, fixture.Dispatch(Key("invalid", action)).Status);
+        Assert.Equal(0, fixture.TotalSendCalls);
+    }
+
+    public static TheoryData<LayoutActionDefinition> InvalidChordActions => new()
+    {
+        new LayoutActionDefinition(LayoutActionTypes.Chord),
+        new LayoutActionDefinition(LayoutActionTypes.Chord, keys: ["A", "A"]),
+        new LayoutActionDefinition(LayoutActionTypes.Chord, keys: ["Power"]),
+    };
+
+    [Fact]
     public void TextUsesDedicatedUnicodePath()
     {
         using Fixture fixture = Fixture.Create();
@@ -170,6 +210,18 @@ public sealed class LayoutActionDispatcherTests
     }
 
     [Fact]
+    public void PasswordTargetRejectsChordEvenWhenLayoutMarksItSafe()
+    {
+        using Fixture fixture = Fixture.Create(isPassword: true);
+
+        InputSendResult result = fixture.Dispatch(Key("task-view",
+            new(LayoutActionTypes.Chord, keys: ["LeftWindows", "Tab"])));
+
+        Assert.Equal(InputSendStatus.InvalidInput, result.Status);
+        Assert.Equal(0, fixture.TotalSendCalls);
+    }
+
+    [Fact]
     public void UnsafeFlagOnlyBlocksPasswordTargets()
     {
         using Fixture normal = Fixture.Create();
@@ -199,13 +251,15 @@ public sealed class LayoutActionDispatcherTests
         private FakeCapsLock CapsLock { get; }
         public int KeyCalls { get; private set; }
         public int HotkeyCalls { get; private set; }
+        public int ChordCalls { get; private set; }
         public int TextCalls { get; private set; }
         public int ModifierCalls { get; private set; }
-        public int TotalSendCalls => KeyCalls + HotkeyCalls + TextCalls + ModifierCalls;
+        public int TotalSendCalls => KeyCalls + HotkeyCalls + ChordCalls + TextCalls + ModifierCalls;
         public List<KeyInputTransition> ModifierTransitions { get; } = [];
         public InputSendResult ModifierResult { get; set; } = new(InputSendStatus.Succeeded, 1, 1, 0);
         public WindowsKeyboardKey LastKey { get; private set; }
         public HotkeyModifier[] LastModifiers { get; private set; } = [];
+        public WindowsKeyboardKey[] LastChord { get; private set; } = [];
         public nint LastFocusHwnd { get; private set; }
         public int LastProcessId { get; private set; }
         public string? LastText { get; private set; }
@@ -236,7 +290,8 @@ public sealed class LayoutActionDispatcherTests
                 holder.SendKey,
                 holder.SendHotkey,
                 holder.SendText,
-                holder.SendModifier);
+                holder.SendModifier,
+                holder.SendChord);
             var fixture = new Fixture(session, controller, dispatcher, capsLock);
             holder.Target = fixture;
             return fixture;
@@ -279,6 +334,17 @@ public sealed class LayoutActionDispatcherTests
                 target.TextCalls++;
                 target.LastText = text;
                 target.LastProcessId = processId;
+                return Success();
+            }
+
+            public InputSendResult SendChord(IReadOnlyList<WindowsKeyboardKey> keys, nint hwnd, int processId, CancellationToken cancellation)
+            {
+                Fixture target = Target!;
+                target.ChordCalls++;
+                target.LastChord = keys.ToArray();
+                target.LastFocusHwnd = hwnd;
+                target.LastProcessId = processId;
+                Assert.False(cancellation.IsCancellationRequested);
                 return Success();
             }
 

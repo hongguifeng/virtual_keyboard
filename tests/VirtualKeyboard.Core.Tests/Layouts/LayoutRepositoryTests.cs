@@ -68,6 +68,28 @@ public sealed class LayoutRepositoryTests
     }
 
     [Fact]
+    public void ReloadPreservesOrderedChordKeys()
+    {
+        using var fixture = new RepositoryFixture();
+        fixture.WriteUser("chord.json", """
+            {
+              "schemaVersion": 1,
+              "id": "user.chord",
+              "name": "Chord",
+              "culture": "en-US",
+              "rows": [[
+                {"id":"task-view","label":"Task View","width":1,"safeForPassword":false,
+                 "action":{"type":"chord","keys":["LeftWindows","Tab","A"]}}
+              ]]
+            }
+            """);
+
+        KeyboardLayoutDefinition layout = Assert.Single(fixture.Repository.Reload().Layouts).Value;
+
+        Assert.Equal(["LeftWindows", "Tab", "A"], layout.Rows![0].Keys![0].Action!.Keys);
+    }
+
+    [Fact]
     public void UserLayoutCannotOverrideBuiltInId()
     {
         using var fixture = new RepositoryFixture();

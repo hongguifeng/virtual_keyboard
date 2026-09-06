@@ -57,6 +57,7 @@ public static class LayoutActionTypes
     public const string Text = "text";
     public const string Key = "key";
     public const string Hotkey = "hotkey";
+    public const string Chord = "chord";
     public const string Modifier = "modifier";
 }
 
@@ -73,7 +74,8 @@ public sealed class LayoutActionDefinition
         int? scanCode = null,
         IEnumerable<string>? modifiers = null,
         string? modifier = null,
-        string? fnVirtualKey = null)
+        string? fnVirtualKey = null,
+        IEnumerable<string>? keys = null)
     {
         Type = type;
         Value = value;
@@ -82,6 +84,7 @@ public sealed class LayoutActionDefinition
         Modifiers = modifiers is null ? null : Array.AsReadOnly(modifiers.ToArray());
         Modifier = modifier;
         FnVirtualKey = fnVirtualKey;
+        Keys = keys is null ? null : Array.AsReadOnly(keys.ToArray());
     }
 
     public string? Type { get; }
@@ -98,4 +101,7 @@ public sealed class LayoutActionDefinition
 
     /// <summary>Optional function-layer virtual key used while the internal Fn toggle is active.</summary>
     public string? FnVirtualKey { get; }
+
+    /// <summary>Ordered keys pressed together and released in reverse order.</summary>
+    public IReadOnlyList<string>? Keys { get; }
 }
