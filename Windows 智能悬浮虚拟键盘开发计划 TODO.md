@@ -228,11 +228,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：Core `TargetStateCoordinator` 串行维护 Disabled、Hidden、Evaluating、VisibleTracking、ManuallySuppressed、SettingsOpen、ShuttingDown；所有转换返回封闭 `TargetCoordinatorAction`，由 UI 边界执行显示、隐藏、清会话、取消或刷新。只接受严格递增的焦点版本，分类结果必须同时匹配 pending/latest 版本。手动关闭保存目标身份，同目标重复通知保持抑制，新 Editable 目标或用户显式显示解除抑制。
   - 验证：Core 58/58、Windows 34/34、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖所有状态入口、Editable/NotEditable/Unknown、乱序结果、重复通知、手动抑制、新目标、暂停/恢复、设置、销毁和退出。
 
-- [ ] **T2.6（P0，0.5 人日）实现焦点防抖和目标失效**
+- [x] **T2.6（P0，0.5 人日）实现焦点防抖和目标失效**
   - 默认 50 ms 稳定窗口。
   - 新事件取消未执行的旧任务。
   - 目标窗口/元素销毁后隐藏并失效会话。
   - 对应：FR-FOC-006。
+  - 实现：`FocusObservationService` 在 UIA MTA 消费循环使用固定 50 ms 稳定窗口；窗口内新信号清空 pending 并重新计时，只在稳定后读取最新 `AutomationElement.FocusedElement`。已开始的迟到评估继续由 T2.5 FocusVersion 门禁拒绝。`TargetStateCoordinator.InvalidateCurrentTarget` 处理 provider 无法再提供已销毁元素身份的路径，统一隐藏、清会话并取消 pending。
+  - 验证：Core 59/59、Windows 35/35、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖 64 事件 burst 合并为一次、固定稳定窗口、停止可中断等待、匹配目标销毁和无身份 provider 失效。
 
 - [ ] **T2.7（P1，0.5 人日）建立 UIA 判定诊断页/导出信息**
   - 显示当前分类、ReasonCode、控件类型、是否使用降级定位。

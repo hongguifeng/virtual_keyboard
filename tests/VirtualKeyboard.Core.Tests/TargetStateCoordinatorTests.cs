@@ -107,6 +107,16 @@ public sealed class TargetStateCoordinatorTests
         Assert.Equal(TargetCoordinatorState.Hidden, coordinator.TargetDestroyed(current).CurrentState);
     }
 
+    [Fact]
+    public void ProviderLossInvalidatesTargetWithoutRequiringDestroyedElementIdentity()
+    {
+        var coordinator = VisibleOn(Snapshot(1, 10));
+        TargetStateTransition result = coordinator.InvalidateCurrentTarget();
+        Assert.Equal(TargetCoordinatorState.Hidden, result.CurrentState);
+        Assert.True(result.Actions.HasFlag(TargetCoordinatorAction.ClearTargetSession));
+        Assert.True(result.Actions.HasFlag(TargetCoordinatorAction.CancelPendingWork));
+    }
+
     private static TargetStateCoordinator VisibleOn(FocusSnapshot snapshot)
     {
         var coordinator = new TargetStateCoordinator();

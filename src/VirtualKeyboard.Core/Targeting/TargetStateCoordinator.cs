@@ -178,6 +178,23 @@ public sealed class TargetStateCoordinator
         }
     }
 
+    /// <summary>Invalidates the current target when the provider can no longer supply element identity.</summary>
+    public TargetStateTransition InvalidateCurrentTarget()
+    {
+        lock (_gate)
+        {
+            TargetCoordinatorState previous = _state;
+            if (_state is TargetCoordinatorState.Disabled or TargetCoordinatorState.Hidden or
+                TargetCoordinatorState.SettingsOpen or TargetCoordinatorState.ShuttingDown)
+                return Rejected(previous);
+            _tracking = null;
+            _pending = null;
+            _suppressedTarget = null;
+            _state = TargetCoordinatorState.Hidden;
+            return Accepted(previous, TargetCoordinatorAction.HideOverlay | TargetCoordinatorAction.ClearTargetSession | TargetCoordinatorAction.CancelPendingWork);
+        }
+    }
+
     public TargetStateTransition Shutdown()
     {
         lock (_gate)

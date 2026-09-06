@@ -133,12 +133,17 @@ public sealed class FocusObservationServiceTests
     }
 
     [Fact]
-    public void BurstWithinCapacityProducesOneNotificationPerSignal()
+    public void BurstIsCoalescedIntoOneNotificationAfterStabilityWindow()
     {
         const int signalCount = 64;
         var source = new FakeFocusAutomationSource();
-        using var observed = new CountdownEvent(signalCount);
-        using var service = new FocusObservationService(source, _ => observed.Signal());
+        using var observed = new ManualResetEventSlim(false);
+        int notificationCount = 0;
+        using var service = new FocusObservationService(source, _ =>
+        {
+            Interlocked.Increment(ref notificationCount);
+            observed.Set();
+        });
         service.Start();
 
         for (int index = 0; index < signalCount; index++)
@@ -147,8 +152,13 @@ public sealed class FocusObservationServiceTests
         }
 
         Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
-        Assert.Equal(0, observed.CurrentCount);
+        Thread.Sleep(FocusObservationService.FocusStabilityMilliseconds * 2);
+        Assert.Equal(1, Volatile.Read(ref notificationCount));
     }
+
+    [Fact]
+    public void StabilityWindowIsFiftyMilliseconds() =>
+        Assert.Equal(50, FocusObservationService.FocusStabilityMilliseconds);
 
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {

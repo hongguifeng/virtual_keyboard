@@ -176,6 +176,8 @@ MVP 使用单进程。进程内包含：
 - UIA 和日志队列必须有上限；队列满时优先保留最新焦点事件和错误事件。
 - 显示/隐藏/移动操作必须比较目标状态，避免相同状态重复调用。
 
+T2.6 在 `FocusObservationService` 的专用 MTA 消费循环内实现稳定窗口，而不是把 UIA 工作转交线程池：收到首个信号后等待 50 ms，期间任一新信号都会清空积压并重新计时，稳定后才读取当前焦点和生成快照。停止信号可立即打断等待。若元素在评估或跟踪期间失效，协调器通过匹配身份的 `TargetDestroyed` 或无可用身份的 `InvalidateCurrentTarget` 进入 Hidden，并发出 HideOverlay、ClearTargetSession、CancelPendingWork。
+
 ## 7. 核心数据模型
 
 ```csharp

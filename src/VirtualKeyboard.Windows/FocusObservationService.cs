@@ -8,6 +8,7 @@ public sealed class FocusObservationService : IDisposable
 {
     private const int LifecycleTimeoutMilliseconds = 5_000;
     private const int PendingFocusCapacity = 256;
+    internal const int FocusStabilityMilliseconds = 50;
 
     private readonly IFocusAutomationSource _source;
     private readonly IFocusSnapshotSource _snapshotSource;
@@ -161,6 +162,31 @@ public sealed class FocusObservationService : IDisposable
                 if (!_focusPending.Wait(0))
                 {
                     continue;
+                }
+
+                bool stop = false;
+                while (true)
+                {
+                    int stableWait = WaitHandle.WaitAny(handles, FocusStabilityMilliseconds);
+                    if (stableWait == 0)
+                    {
+                        stop = true;
+                        break;
+                    }
+
+                    if (stableWait == WaitHandle.WaitTimeout)
+                    {
+                        break;
+                    }
+
+                    while (_focusPending.Wait(0))
+                    {
+                    }
+                }
+
+                if (stop)
+                {
+                    break;
                 }
 
                 try
