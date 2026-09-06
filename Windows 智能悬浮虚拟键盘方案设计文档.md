@@ -682,6 +682,8 @@ Application Install Directory
 - 导出前再次执行敏感字段扫描。
 - MVP 不上传网络。
 
+T2.7 增加独立于通用事件日志的 `FocusDiagnosticReport`：报告字段固定为采集时间、FocusVersion、PID、数字 HWND、ControlType、焦点/启用/离屏/密码状态、Editability、ClassificationReasonCode 和 UsedFallback。`FocusDiagnosticExporter` 只序列化该白名单 DTO；`FocusDiagnosticsView` 是供设置窗口承载的只读视图，显示同一组字段并导出当前报告。报告类型没有 string/object 扩展字段，因此不能承载 AutomationElement Name/Value 或用户输入内容。
+
 ### 15.4 威胁与缓解
 
 | 风险 | 缓解 |

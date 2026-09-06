@@ -236,10 +236,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
   - 实现：`FocusObservationService` 在 UIA MTA 消费循环使用固定 50 ms 稳定窗口；窗口内新信号清空 pending 并重新计时，只在稳定后读取最新 `AutomationElement.FocusedElement`。已开始的迟到评估继续由 T2.5 FocusVersion 门禁拒绝。`TargetStateCoordinator.InvalidateCurrentTarget` 处理 provider 无法再提供已销毁元素身份的路径，统一隐藏、清会话并取消 pending。
   - 验证：Core 59/59、Windows 35/35、Integration 3/3，完整 Release 构建和 win-x64 发布通过；覆盖 64 事件 burst 合并为一次、固定稳定窗口、停止可中断等待、匹配目标销毁和无身份 provider 失效。
 
-- [ ] **T2.7（P1，0.5 人日）建立 UIA 判定诊断页/导出信息**
+- [x] **T2.7（P1，0.5 人日）建立 UIA 判定诊断页/导出信息**
   - 显示当前分类、ReasonCode、控件类型、是否使用降级定位。
   - 不显示或记录目标 Value、输入文本。
   - 对应：FR-DIA-003。
+  - 实现：Core `FocusDiagnosticReport` 仅包含时间、版本、PID、数字 HWND、封闭枚举和布尔状态；`FocusDiagnosticExporter` 以确定性 JSON 写入调用方提供的流且不关闭流。App `FocusDiagnosticsView` 显示当前分类、`ClassificationReasonCode`、控件类型、密码标志和是否降级，可导出当前报告；该视图供后续设置窗口承载，不放入 NoActivate 键盘交互路径。
+  - 验证：Core 63/63、Windows 35/35、Integration 4/4，完整 Release 构建和 win-x64 发布通过；固定 JSON 字段白名单与反射测试证明 DTO 无自由文本属性，界面测试验证展示和导出，不出现 UIA Name/Value/输入文本字段。详细日志仍由现有 sink 开关控制且默认关闭。
 
 ### M2 测试清单
 

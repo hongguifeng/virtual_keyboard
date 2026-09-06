@@ -1,7 +1,9 @@
 using System.Runtime.ExceptionServices;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using VirtualKeyboard.App;
+using VirtualKeyboard.Core.Diagnostics;
 using VirtualKeyboard.Core.Targeting;
 
 namespace VirtualKeyboard.IntegrationTests;
@@ -73,6 +75,31 @@ public sealed class MinimalOverlayWindowTests
 
             Assert.False(window.IsVisible);
             Assert.True(window.IsDisposed);
+        });
+    }
+
+    [Fact]
+    public void DiagnosticsViewDisplaysAllowListedMetadataAndExportsCurrentReport()
+    {
+        RunOnStaThread(() =>
+        {
+            var view = new FocusDiagnosticsView();
+            var report = new FocusDiagnosticReport(
+                DateTimeOffset.UtcNow, 9, 42, 100, FocusControlType.Edit,
+                true, true, false, false, Editability.Editable,
+                ClassificationReasonCode.ValuePattern, true);
+
+            view.Update(report);
+
+            Assert.Equal(report, view.Current);
+            var classification = Assert.IsType<TextBlock>(view.FindName("ClassificationText"));
+            var identity = Assert.IsType<TextBlock>(view.FindName("IdentityText"));
+            Assert.Contains("Editable", classification.Text, StringComparison.Ordinal);
+            Assert.Contains("ValuePattern", classification.Text, StringComparison.Ordinal);
+            Assert.Contains("PID 42", identity.Text, StringComparison.Ordinal);
+            using var exported = new MemoryStream();
+            view.ExportCurrent(exported);
+            Assert.True(exported.Length > 0);
         });
     }
 
