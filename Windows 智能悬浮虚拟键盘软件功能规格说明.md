@@ -132,6 +132,7 @@ MVP 的目标是：
 
 - 元素必须有效、已启用并持有键盘焦点。
 - `ControlType.Edit` 上的 `ValuePattern.IsReadOnly == false` 是正向证据；非编辑控件不得仅凭 ValuePattern 判定为输入目标。
+- 可编辑 ComboBox（如带建议的搜索框）必须同时具有可写 ValuePattern 和 TextPattern 才作为正向证据；只提供选项或单一 Pattern 的下拉框不得因此触发。
 - Edit/Document 上的 `TextEditPattern` 是正向证据之一。
 - 可编辑的 Edit 控件和密码 Edit 控件可作为正向证据。
 - TextPattern 或 TextPattern2 单独存在时不得直接判定为可编辑。

@@ -87,4 +87,32 @@ public sealed class EditabilityClassifierTests
         bool text = false,
         PhysicalPixelRect? caret = null) =>
         EditabilityClassifier.Classify(new(snapshot, value, readOnly, textEdit, text, caret, snapshot.TopLevelHwnd));
+
+    [Theory]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, true, true, false)]
+    [InlineData(false, false, false, false)]
+    public void ComboBoxRequiresWritableValueAndTextEvidence(bool value, bool text, bool readOnly, bool editable)
+    {
+        var result = Classify(Snapshot(FocusControlType.ComboBox), value: value, text: text, readOnly: readOnly);
+        Assert.Equal(editable, result.Value == Editability.Editable);
+        if (editable) Assert.Equal(ClassificationReasonCode.ValuePattern, result.ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void ComboBoxSafetyFlagsOverrideWritableEvidence(bool enabled, bool focused, bool offscreen)
+    {
+        var result = Classify(Snapshot(FocusControlType.ComboBox, enabled: enabled, focused: focused, offscreen: offscreen), value: true, text: true);
+        Assert.Equal(Editability.NotEditable, result.Value);
+        Assert.Equal(ClassificationReasonCode.NoFocusOrDisabled, result.ReasonCode);
+    }
+
+    [Fact]
+    public void OtherControlsAreNotPromotedByCombinedPatterns() =>
+        Assert.NotEqual(Editability.Editable, Classify(Snapshot(FocusControlType.Other), value: true, text: true).Value);
 }

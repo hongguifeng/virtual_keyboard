@@ -52,6 +52,11 @@ public static class EditabilityClassifier
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.PasswordEdit);
         if (snapshot.ControlType == FocusControlType.Edit && evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.ValuePattern);
+        // Search suggestions can expose a ComboBox rather than Edit. Require both
+        // writable value and a text surface; a selection-only dropdown is insufficient.
+        if (snapshot.ControlType == FocusControlType.ComboBox && evidence.IsValuePatternAvailable &&
+            !evidence.IsValueReadOnly && evidence.IsTextPatternAvailable)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.ValuePattern);
         if (snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document && evidence.IsTextEditPatternAvailable)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.TextEditPattern);
         if ((snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document) &&

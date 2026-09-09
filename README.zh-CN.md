@@ -58,6 +58,7 @@ Virtual Keyboard 是一款轻量的 Windows 悬浮虚拟键盘。它会在可编
 
 ## 已知边界
 
+- 带建议的可编辑搜索框（ComboBox）需由应用同时提供可写 ValuePattern 和 TextPattern 才能识别；GitHub 搜索框修复及实测范围见[验证记录](docs/combo-focus-validation.md)。
 - 输入受 Windows 正常权限边界限制。普通权限启动的键盘不能向管理员权限窗口输入。
 - 不支持安全桌面、UAC 提示和厂商专用硬件 Fn 行为。
 - 不同软件暴露可编辑控件的方式不同，兼容性可能存在差异。报告问题时请提供应用名称、Windows 版本和复现步骤，但不要提供密码或敏感输入内容。

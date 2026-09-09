@@ -771,3 +771,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] 本机普通权限现场：VS Code 编辑区/查找框弹出并保持、菜单隐藏；Edge 地址栏弹出、正文空白隐藏；切回 VS Code 恢复。未改被测文件或注入文字。
 - [x] 最终 `scripts/build.ps1 -SkipPackage`：Release 0 警告/错误，Core 236、Windows 237、Integration 59（532）全通过；TestHost --selftest 退出码 0。1.0.8 win-x64 publish、ZIP 与 SHA-256 完成，verify-release.ps1 -Version 1.0.8 通过；不清理 artifacts/release。最终包安装至本机用户版本目录，14:28:56 UTC VS Code 查找框复测 UsedEventTarget=true、ValuePattern、OverlayShown。
 - [ ] 长期稳定性、其余兼容矩阵及独立主审查通过。规格语义不变，不更新 FR；不宣称所有 provider 均已兼容。
+
+### REL-029 ComboBox 搜索框修正（本地 1.0.9 验证构建）
+
+- [x] 两次复现 GitHub 全局搜索：ComboBox 被映射为 Other，可写 ValuePattern 被类型门拒绝，最终 Unknown/TextPatternOnly；同页普通 Edit 正常。
+- [x] 保留 ComboBox 类型，仅以可写 ValuePattern + TextPattern 组合判为 Editable；安全门优先，Other 和单一 Pattern 不提升。日志可区分 ComboBox，不采集用户文本。
+- [x] 新增分类正负例、安全门及 Windows 映射测试；`scripts/build.ps1 -SkipPackage` Release 0 警告/错误，Core 245、Windows 238、Integration 59（542）全通过；TestHost --selftest 退出码 0；本地 1.0.9 win-x64 publish 成功。
+- [x] computer-use 现场：GitHub 全局搜索弹出、Escape 隐藏、普通输入框弹出；只选不输的语言 ComboBox 不弹；切回 VS Code 查找框正常，仍使用事件目标。证据见 docs/combo-focus-validation.md。
+- [x] 同步 FR-FOC-003、设计 8.3 和 README。
+- [ ] 长期稳定性、其他浏览器/provider 矩阵和独立主审查通过；未发布新的远端版本。

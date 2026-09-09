@@ -24,6 +24,7 @@ public enum FocusControlType
     Text,
     Custom,
     Other,
+    ComboBox,
 }
 
 /// <summary>Immutable copy of a UI Automation runtime identifier.</summary>

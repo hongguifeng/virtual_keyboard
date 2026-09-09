@@ -76,8 +76,9 @@ internal sealed class FocusSnapshotFactory
         return topLevel;
     }
 
-    private static FocusControlType MapControlType(ControlType controlType)
+    internal static FocusControlType MapControlType(ControlType controlType)
     {
+        if (controlType == ControlType.ComboBox) return FocusControlType.ComboBox;
         if (controlType == ControlType.Edit) return FocusControlType.Edit;
         if (controlType == ControlType.Document) return FocusControlType.Document;
         if (controlType == ControlType.Button) return FocusControlType.Button;

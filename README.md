@@ -58,6 +58,7 @@ Settings and logs are stored under `%LocalAppData%\VirtualKeyboard\`. Custom key
 
 ## Known boundaries
 
+- Editable search ComboBoxes are recognized when their accessibility provider exposes both writable ValuePattern and TextPattern. See [validation notes](docs/combo-focus-validation.md) for the GitHub search fix and tested boundaries.
 - Keyboard injection follows normal Windows permission boundaries. A normally launched keyboard cannot type into an elevated administrator window.
 - Secure desktop, UAC prompts, and hardware-specific Fn behavior are not supported.
 - Compatibility varies with how an application exposes its editable controls. Please include the application name, Windows version, and reproduction steps in bug reports, but never include passwords or sensitive input.

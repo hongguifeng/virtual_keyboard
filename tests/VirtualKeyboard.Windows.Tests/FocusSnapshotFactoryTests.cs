@@ -10,6 +10,14 @@ namespace VirtualKeyboard.Windows.Tests;
 public sealed class FocusSnapshotFactoryTests
 {
     [Fact]
+    public void ComboBoxMetadataRemainsDistinctFromEditAndOther()
+    {
+        Assert.Equal(FocusControlType.ComboBox, FocusSnapshotFactory.MapControlType(ControlType.ComboBox));
+        Assert.Equal(FocusControlType.Edit, FocusSnapshotFactory.MapControlType(ControlType.Edit));
+        Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
+    }
+
+    [Fact]
     public void FactoryReadsAllowListedMetadataFromRealAutomationElement()
     {
         RunOnStaThread(() =>
