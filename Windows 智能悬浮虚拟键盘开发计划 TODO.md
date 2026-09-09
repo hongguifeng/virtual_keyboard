@@ -741,3 +741,15 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - 自查：无输入重发、无激活目标/提权改动；原有 NoActivate/目标校验/DPI/隐私测试通过；规格定义未变，因此不修改 FR 文本。
 - [ ] VS Code ↔ 其他应用的用户现场复测与主审查通过（不以 TestHost 自检代替）。
 - 限制：追加 4 次、间隔 250 ms；不会中断阻塞中的 COM 调用，不新增 worker 进程；范围内无规格语义变更（FR-FOC-001/004/006、FR-VIS-001/003、FR-DIA-001/002）。
+
+
+### REL-029 后续修正：无焦点容器与 VS Code 间歇性恢复（1.0.7）
+
+- [x] 现场只读探测观察到 VS Code Document（50030）HasKeyboardFocus=false、IsEnabled=true、IsOffscreen=false；另一次同容器后代 MenuBar（50010）持有焦点，未将该菜单当编辑框。此证据确认焦点元素解析不足，不代表所有 VS Code 故障均已解释。
+- [x] 无焦点容器进入 native FocusHwnd 子树焦点查询；同一解析器用于采集和分类；新增稳定焦点不回退、容器替换、无候选不提升三项回归。
+- [x] NoFocusOrDisabled 中启用、未离屏、无焦点分支允许有界重新识别；新增三项策略测试，保持 NotEditable 与安全校验。
+- [x] 分类日志记录真实控件类型、焦点/启用/离屏三个布尔值；更新固定 JSON 白名单和字段值断言。
+- [x] Release 构建零警告/错误；Core 236、Windows 227、Integration 59（522）全部通过；TestHost --selftest 退出码 0。win-x64 publish 成功；脚本打包清理遇到用户运行的旧版目录文件占用，终止后从原 ZIP 补回 2 个缺失文件，改为直接 Compress-Archive 发布输出并生成 SHA-256，verify-release.ps1 -Version 1.0.7 通过。
+- [ ] 新版本跨 VS Code 编辑区、菜单、其他输入应用的用户复测及主审查通过。
+- Review note：build.ps1 会清理整个 artifacts/release，若用户从其子目录运行版本会发生清理冲突；应独立修正构建脚本，不在本焦点修复中扩大范围。
+- 后续研究：用户提出 IME 悬浮窗/输入法状态线索；评估 TSF 输入上下文或输入法信号作为辅助证据的可行性，不能以 IME 开关/窗口可见性单独认定目标可编辑。本次不新增 TSF 集成。

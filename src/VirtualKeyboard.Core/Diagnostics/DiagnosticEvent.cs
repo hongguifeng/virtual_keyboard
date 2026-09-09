@@ -1,3 +1,5 @@
+using VirtualKeyboard.Core.Targeting;
+
 namespace VirtualKeyboard.Core.Diagnostics;
 
 /// <summary>结构化诊断事件类型（设计文档 15.1 事件模型；封闭枚举，不含自由文本）。</summary>
@@ -142,4 +144,8 @@ public sealed record DiagnosticEvent
     public long? FocusVersion { get; init; }
     public int? RetryAttempt { get; init; }
     public bool? UsedFallback { get; init; }
+    public FocusControlType? FocusControlType { get; init; }
+    public bool? HasKeyboardFocus { get; init; }
+    public bool? IsEnabled { get; init; }
+    public bool? IsOffscreen { get; init; }
 }

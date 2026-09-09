@@ -22,7 +22,9 @@ public readonly record struct FocusTargetEvaluation(
     bool UsedFallback = false)
 {
     public bool IsEvaluated => Status == FocusTargetEvaluationStatus.Evaluated;
-    public bool NeedsRetry => !IsEvaluated || Classification.Value == Editability.Unknown ||
+    public bool NeedsRetry =>
+        (Classification.ReasonCode == ClassificationReasonCode.NoFocusOrDisabled &&
+            !Snapshot.HasKeyboardFocus && Snapshot.IsEnabled && !Snapshot.IsOffscreen) || !IsEvaluated || Classification.Value == Editability.Unknown ||
         (Snapshot.ControlType is FocusControlType.Edit or FocusControlType.Document &&
             Classification.ReasonCode == ClassificationReasonCode.NoEditableEvidence);
 }

@@ -297,6 +297,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             errorCode: (int)evaluation.Status,
             focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt,
             usedFallback: evaluation.UsedFallback,
+            focusControlType: snapshot.ControlType, hasKeyboardFocus: snapshot.HasKeyboardFocus,
+            isEnabled: snapshot.IsEnabled, isOffscreen: snapshot.IsOffscreen,
             reason: GetFocusReason(evaluation),
             targetProcessId: snapshot.ProcessId,
             controlKind: evaluation.Classification.Value switch

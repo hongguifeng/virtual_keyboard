@@ -41,7 +41,9 @@ public sealed class DiagnosticLogger : IDisposable
         int requestedCount = 0,
         int completedCount = 0,
         AppVersion? appVersion = null,
-        long? focusVersion = null, int? retryAttempt = null, bool? usedFallback = null)
+        long? focusVersion = null, int? retryAttempt = null, bool? usedFallback = null,
+        Targeting.FocusControlType? focusControlType = null,
+        bool? hasKeyboardFocus = null, bool? isEnabled = null, bool? isOffscreen = null)
     {
         var e = new DiagnosticEvent
         {
@@ -63,6 +65,10 @@ public sealed class DiagnosticLogger : IDisposable
             FocusVersion = focusVersion,
             RetryAttempt = retryAttempt,
             UsedFallback = usedFallback,
+            FocusControlType = focusControlType,
+            HasKeyboardFocus = hasKeyboardFocus,
+            IsEnabled = isEnabled,
+            IsOffscreen = isOffscreen,
         };
 
         _queue.TryAdd(e);

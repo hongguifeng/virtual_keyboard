@@ -33,6 +33,20 @@ public sealed class FocusRecoveryDiagnosticsTests
         Assert.Equal(retry, evaluation.NeedsRetry);
     }
 
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, false, false)]
+    [InlineData(true, true, false)]
+    public void OnlyEnabledOnscreenMissingFocusRequestsRetry(bool enabled, bool offscreen, bool retry)
+    {
+        var evaluation = Evaluation(FocusTargetEvaluationStatus.Evaluated,
+            Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled);
+        evaluation = evaluation with { Snapshot = evaluation.Snapshot with
+            { HasKeyboardFocus = false, IsEnabled = enabled, IsOffscreen = offscreen } };
+        Assert.Equal(retry, evaluation.NeedsRetry);
+        Assert.Equal(Editability.NotEditable, evaluation.Classification.Value);
+    }
+
     private static FocusTargetEvaluation Evaluation(FocusTargetEvaluationStatus status,
         Editability verdict, ClassificationReasonCode reason) => new(status,
         new FocusSnapshot(1, DateTimeOffset.UtcNow, 42, (nint)100, new RuntimeIdentity([1]),

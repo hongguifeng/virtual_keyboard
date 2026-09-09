@@ -83,3 +83,5 @@ Virtual Keyboard works locally and does not send typing data to a server. Layout
 
 
 Version 1.0.6 adds bounded recovery after transient focus evaluation failures and diagnostic reasons, retries, and fallback metadata. Exit the previous version from its tray menu before upgrading. See the [user guide](docs/user-guide.md).
+
+Version 1.0.7 resolves focused descendants when UIA returns an unfocused container and logs the actual focus flags. Extract trial builds outside the build output directories.

@@ -246,6 +246,8 @@ REL-029：观察服务增加 MTA 同步评估反馈（返回 true 请求重试�
 
 采集和评估共用 `FocusedElementResolver`：FocusedElement 返回 null 或已知 UIA 异常时回退到原生焦点 HWND 对应元素；评估仍验证 RuntimeId、PID、顶层 HWND 及可编辑证据，不把回退得到的容器视为可编辑。
 
+REL-029 后续修正（1.0.7）：FocusedElement 返回元素但 HasKeyboardFocus=false 时，也进入原生回退；在当前原生 FocusHwnd 的子树内执行一次 HasKeyboardFocus=true 查询，并验证候选 PID 和即时焦点标志。采集和分类共用此选择过程；找不到焦点子元素时保留原始无焦点证据，不强行提升可编辑性。同步 provider 查询不能硬中断，仍适用上述 COM 阻塞限制。启用且未离屏的 NoFocusOrDisabled 缺焦点场景也可请求最多 4 次重试；禁用/离屏/只读仍不因该策略触发重试或显示。
+
 ### 8.2 分类顺序
 
 ```text
@@ -774,6 +776,8 @@ T6.7（2026-09-06）实现当前用户级开机自启（FR-APP-004）：
 每条事件包含时间、应用版本、事件 ID、模块、耗时、ReasonCode、错误码和必要的数字身份信息。
 
 REL-029：`ClassificationCompleted` 增加具体封闭 Reason、DurationMs、FocusVersion、RetryAttempt、UsedFallback。该事件 ErrorCode 是评估阶段码：0=Evaluated，1=FocusUnavailable，2=IdentityMismatch，3=EvidenceUnavailable，不是 Win32 错误。新增 FocusRetryScheduled / FocusRetryExhausted / FocusRetryRecovered 事件，通过 FocusVersion 与分类日志关联；RetryAttempt=0 是首次，1–4 是追加尝试。Recovered 表示分类已确定（仍需看 Verdict/Reason，可能为明确不可编辑），不保证 Overlay 已显示。无自由文本，不记录 UIA Name/Value/输入/密码/窗口标题。其他事件不填上述可空字段。
+
+1.0.7 分类日志补充 FocusControlType（真实控件类型，区别于最终分类 ControlKind）、HasKeyboardFocus、IsEnabled、IsOffscreen 四个可空值类型字段，默认日志即可区分 NoFocusOrDisabled 的三个条件。记录的是参与判定的 FocusSnapshot 状态，不包含 UIA Name/Value。
 
 ### 15.2 敏感数据规则
 
