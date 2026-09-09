@@ -53,7 +53,7 @@ internal sealed class FocusSnapshotFactory
         }
     }
 
-    private static nint ResolveTopLevelWindow(AutomationElement element, int processId)
+    internal static nint ResolveTopLevelWindow(AutomationElement element, int processId)
     {
         nint topLevel = nint.Zero;
         AutomationElement? current = element;

@@ -279,11 +279,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
     private bool OnFocusChanged(FocusChangedNotification notification)
     {
-        if (_disposed) return false;
+        if (_disposed || !notification.IsCurrent) return false;
         FocusSnapshot? snapshot = notification.Snapshot;
         if (snapshot is null)
         {
-            Dispatcher.BeginInvoke(ClearAutomaticTarget);
+            Dispatcher.BeginInvoke(() => { if (notification.IsCurrent) ClearAutomaticTarget(); });
             return false;
         }
         _latestFocusSnapshots.Publish(snapshot);
@@ -291,12 +291,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         TargetStateTransition observed = _coordinator.Observe(snapshot);
         if (!observed.Accepted) return false;
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        FocusTargetEvaluation evaluation = _focusEvaluator.Evaluate(snapshot);
+        FocusTargetEvaluation evaluation = _focusEvaluator.Evaluate(notification);
         _diagnostics.Log(DiagnosticType.ClassificationCompleted, DiagnosticModule.Classification,
             durationMs: (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
             errorCode: (int)evaluation.Status,
             focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt,
-            usedFallback: evaluation.UsedFallback,
+            usedFallback: evaluation.UsedFallback, usedEventTarget: notification.UsedEventTarget,
             focusControlType: snapshot.ControlType, hasKeyboardFocus: snapshot.HasKeyboardFocus,
             isEnabled: snapshot.IsEnabled, isOffscreen: snapshot.IsOffscreen,
             reason: GetFocusReason(evaluation),
@@ -315,8 +315,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
                 Editability.NotEditable => Verdict.NotEditable,
                 _ => Verdict.Unknown,
             });
+        if (!notification.IsCurrent) return false;
         TargetStateTransition classified = _coordinator.ApplyClassification(snapshot, evaluation.Classification);
-        Dispatcher.BeginInvoke(() => ApplyAutomaticFocus(evaluation, classified));
+        Dispatcher.BeginInvoke(() => { if (notification.IsCurrent) ApplyAutomaticFocus(evaluation, classified); });
         if (evaluation.NeedsRetry || notification.RetryAttempt > 0)
             _diagnostics.Log(evaluation.NeedsRetry
                 ? notification.RetryAttempt < FocusObservationService.MaxEvaluationRetries

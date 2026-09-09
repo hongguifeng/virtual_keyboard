@@ -1,3 +1,4 @@
+using System.Windows.Automation;
 using VirtualKeyboard.Core.Targeting;
 using VirtualKeyboard.Windows;
 
@@ -261,6 +262,31 @@ public sealed class FocusObservationServiceTests
         snapshots.Current = Snapshot(2, 20);
         Assert.True(recovered.Wait(TimeSpan.FromSeconds(2)));
     }
+    [Fact]
+    public void NewEventInvalidatesPreviousNotificationBeforeNextEvaluation()
+    {
+        var source = new FakeFocusAutomationSource();
+        using var observed = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        FocusChangedNotification previous = default;
+        using var service = new FocusObservationService(source, value =>
+        {
+            previous = value;
+            observed.Set();
+            release.Wait(TimeSpan.FromSeconds(2));
+        });
+        service.Start();
+        source.Raise();
+        Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(previous.IsCurrent);
+        source.Raise();
+        Assert.False(previous.IsCurrent);
+        release.Set();
+        Assert.True(service.Stop());
+        service.Dispose();
+        Assert.False(previous.IsCurrent);
+    }
+
     private static FocusSnapshot Snapshot(long version, int runtimeId) => new(
         version,
         DateTimeOffset.UtcNow,
@@ -275,7 +301,7 @@ public sealed class FocusObservationServiceTests
 
     private sealed class FakeFocusAutomationSource : IFocusAutomationSource
     {
-        private Action? _notification;
+        private Action<AutomationElement?>? _notification;
 
         public Exception? RegistrationError { get; init; }
         public bool KeepNotificationAfterUnregister { get; init; }
@@ -285,7 +311,7 @@ public sealed class FocusObservationServiceTests
         public int UnregisterThreadId { get; private set; }
         public ApartmentState RegisterApartment { get; private set; }
 
-        public void Register(Action notification)
+        public void Register(Action<AutomationElement?> notification)
         {
             RegisterCount++;
             RegisterThreadId = Environment.CurrentManagedThreadId;
@@ -298,7 +324,7 @@ public sealed class FocusObservationServiceTests
             _notification = notification;
         }
 
-        public void Unregister(Action notification)
+        public void Unregister(Action<AutomationElement?> notification)
         {
             Assert.Equal(_notification, notification);
             UnregisterCount++;
@@ -311,8 +337,8 @@ public sealed class FocusObservationServiceTests
 
         public void Raise()
         {
-            Action notification = Assert.IsType<Action>(_notification);
-            notification();
+            Action<AutomationElement?> notification = Assert.IsType<Action<AutomationElement?>>(_notification);
+            notification(null);
         }
     }
 
@@ -322,7 +348,7 @@ public sealed class FocusObservationServiceTests
         public int CaptureThreadId { get; private set; }
         public ApartmentState CaptureApartment { get; private set; }
 
-        public FocusSnapshot Capture()
+        public FocusSnapshot Capture(AutomationElement? eventTarget = null)
         {
             CaptureThreadId = Environment.CurrentManagedThreadId;
             CaptureApartment = Thread.CurrentThread.GetApartmentState();

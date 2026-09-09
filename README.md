@@ -87,3 +87,5 @@ Version 1.0.6 adds bounded recovery after transient focus evaluation failures an
 Version 1.0.7 resolves focused descendants when UIA returns an unfocused container and logs the actual focus flags. Extract trial builds outside the build output directories.
 
 For diagnostics, the independent [focus comparison probe](docs/focus-probe.md) compares UIA event targets with subsequent focus queries without showing a keyboard or sending input.
+
+Version 1.0.8 retains and revalidates UIA event targets when the global focus query returns an unfocused container. Classification logs include `UsedEventTarget`. Local VS Code editor/find-box and Edge address-bar checks are recorded in [REL-029 validation](docs/focus-event-validation.md); this is not a claim of universal provider compatibility.

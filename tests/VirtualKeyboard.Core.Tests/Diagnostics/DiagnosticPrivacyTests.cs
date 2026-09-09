@@ -22,7 +22,7 @@ public class DiagnosticPrivacyTests
         "OccurredAtUtc", "AppVersion", "EventId", "Type", "Module", "Level",
         "TargetProcessId", "ControlKind", "Verdict", "Reason", "ErrorCode",
         "DurationMs", "RequestedCount", "CompletedCount", "Sequence",
-        "FocusVersion", "RetryAttempt", "UsedFallback",
+        "FocusVersion", "RetryAttempt", "UsedFallback", "UsedEventTarget",
         "FocusControlType", "HasKeyboardFocus", "IsEnabled", "IsOffscreen",
     };
 
@@ -90,7 +90,7 @@ public class DiagnosticPrivacyTests
             RequestedCount = 2,
             CompletedCount = 1,
             Sequence = 9,
-            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true,
+            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true, UsedEventTarget = true,
             FocusControlType = Core.Targeting.FocusControlType.Document,
             HasKeyboardFocus = false, IsEnabled = true, IsOffscreen = false,
         };
@@ -116,6 +116,7 @@ public class DiagnosticPrivacyTests
         Assert.Equal(12, doc.RootElement.GetProperty("FocusVersion").GetInt64());
         Assert.Equal(2, doc.RootElement.GetProperty("RetryAttempt").GetInt32());
         Assert.True(doc.RootElement.GetProperty("UsedFallback").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("UsedEventTarget").GetBoolean());
         var av = doc.RootElement.GetProperty("AppVersion");
         Assert.Equal(JsonValueKind.Object, av.ValueKind);
 
@@ -177,7 +178,7 @@ public class DiagnosticPrivacyTests
             Verdict = Verdict.Password,
             ControlKind = ControlKind.Password,
             Sequence = 9,
-            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true,
+            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true, UsedEventTarget = true,
             FocusControlType = Core.Targeting.FocusControlType.Document,
             HasKeyboardFocus = false, IsEnabled = true, IsOffscreen = false,
         };

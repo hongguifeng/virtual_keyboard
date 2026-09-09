@@ -762,3 +762,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] `scripts/build.ps1 -SkipPackage` 通过：Release 零警告/错误，Core 236、Windows 232、Integration 59（527）全通过；TestHost --selftest 退出码 0；缺参数 --focus-probe 退出码 2 且不显示窗口。未生成或替换产品包。
 - [ ] VS Code 失败现场对照、浏览器正负样本标注和主审查通过。
 - 产品 1.0.7 自动检测/发送实现未修改；本阶段不发新产品版本。范围：FR-FOC-001/006、FR-DIA-001/002、NFR-PRI，规格产品语义不变。
+
+### REL-029 事件目标修正（1.0.8）
+
+- [x] computer-use 自行复现：VS Code 事件提供可编辑 Edit，但随后全局查询返回无焦点只读 Document；两组现场配对证据，见 docs/focus-event-validation.md。
+- [x] 单槽保存最新事件目标；MTA 即时焦点/原生窗口验证；分类复用所采集元素；事件和生命周期版本作废旧结果。
+- [x] 新增正确事件替换错误查询、轮询保持、失效/销毁候选回退、新查询覆盖旧事件、通知过期测试；诊断 UsedEventTarget 纳入隐私白名单。
+- [x] 本机普通权限现场：VS Code 编辑区/查找框弹出并保持、菜单隐藏；Edge 地址栏弹出、正文空白隐藏；切回 VS Code 恢复。未改被测文件或注入文字。
+- [x] 最终 `scripts/build.ps1 -SkipPackage`：Release 0 警告/错误，Core 236、Windows 237、Integration 59（532）全通过；TestHost --selftest 退出码 0。1.0.8 win-x64 publish、ZIP 与 SHA-256 完成，verify-release.ps1 -Version 1.0.8 通过；不清理 artifacts/release。最终包安装至本机用户版本目录，14:28:56 UTC VS Code 查找框复测 UsedEventTarget=true、ValuePattern、OverlayShown。
+- [ ] 长期稳定性、其余兼容矩阵及独立主审查通过。规格语义不变，不更新 FR；不宣称所有 provider 均已兼容。

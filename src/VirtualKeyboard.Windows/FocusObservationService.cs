@@ -25,6 +25,9 @@ public sealed class FocusObservationService : IDisposable
     private Thread? _thread;
     private Exception? _startupError;
     private bool _disposed;
+    private FocusEventTarget? _eventTarget;
+    private long _eventVersion;
+    private sealed record FocusEventTarget(AutomationElement? Element);
 
     /// <param name="observer">Optional notification consumer on the MTA thread.</param>
     /// <param name="errorObserver">Receives numeric boundary failures.</param>
@@ -78,6 +81,8 @@ public sealed class FocusObservationService : IDisposable
             }
 
             _startupError = null;
+            Interlocked.Increment(ref _eventVersion);
+            Interlocked.Exchange(ref _eventTarget, null);
             _started.Reset();
             _stopRequested.Reset();
             while (_focusPending.Wait(0))
@@ -129,6 +134,7 @@ public sealed class FocusObservationService : IDisposable
                 return true;
             }
 
+            Interlocked.Increment(ref _eventVersion);
             _stopRequested.Set();
         }
 
@@ -226,10 +232,12 @@ public sealed class FocusObservationService : IDisposable
                     }
                 }
 
+                long eventVersion = Volatile.Read(ref _eventVersion);
+                FocusEventTarget? eventTarget = Volatile.Read(ref _eventTarget);
                 FocusSnapshot? snapshot;
                 try
                 {
-                    snapshot = _snapshotSource.Capture();
+                    snapshot = _snapshotSource.Capture(eventTarget?.Element);
                 }
                 catch (Exception exception)
                 {
@@ -237,6 +245,10 @@ public sealed class FocusObservationService : IDisposable
                     catch { }
                     continue;
                 }
+
+                if (eventVersion != Volatile.Read(ref _eventVersion)) continue;
+                if (!_snapshotSource.UsedEventTarget)
+                    Interlocked.CompareExchange(ref _eventTarget, null, eventTarget);
 
                 bool sameFocus = SameFocus(snapshot, lastPolledSnapshot);
                 if (!triggeredByEvent && sameFocus && !retryPending)
@@ -251,7 +263,10 @@ public sealed class FocusObservationService : IDisposable
                 try
                 {
                     var notification = new FocusChangedNotification(
-                        DateTimeOffset.UtcNow, Environment.CurrentManagedThreadId, snapshot, retryAttempt);
+                        DateTimeOffset.UtcNow, Environment.CurrentManagedThreadId, snapshot, retryAttempt)
+                    { CapturedElement = _snapshotSource.CapturedElement, UsedEventTarget = _snapshotSource.UsedEventTarget,
+                        UsedFallback = _snapshotSource.UsedFallback,
+                        IsCurrentCheck = () => eventVersion == Volatile.Read(ref _eventVersion) };
                     _observer?.Invoke(notification);
                     bool needsRetry = _evaluate?.Invoke(notification) == true;
                     retryPending = needsRetry && retryAttempt < MaxEvaluationRetries;
@@ -279,6 +294,8 @@ public sealed class FocusObservationService : IDisposable
                 }
             }
 
+            Interlocked.Increment(ref _eventVersion);
+            Interlocked.Exchange(ref _eventTarget, null);
             lock (_gate)
             {
                 _thread = null;
@@ -286,8 +303,10 @@ public sealed class FocusObservationService : IDisposable
         }
     }
 
-    private void OnSourceFocusChanged()
+    private void OnSourceFocusChanged(AutomationElement? element)
     {
+        Interlocked.Exchange(ref _eventTarget, new FocusEventTarget(element));
+        Interlocked.Increment(ref _eventVersion);
         try
         {
             _focusPending.Release();
@@ -324,27 +343,34 @@ public readonly record struct FocusChangedNotification(
     DateTimeOffset OccurredAtUtc,
     int ObserverThreadId,
     FocusSnapshot? Snapshot,
-    int RetryAttempt = 0);
+    int RetryAttempt = 0)
+{
+    internal AutomationElement? CapturedElement { get; init; }
+    internal Func<bool>? IsCurrentCheck { get; init; }
+    public bool IsCurrent => IsCurrentCheck?.Invoke() ?? true;
+    public bool UsedEventTarget { get; init; }
+    public bool UsedFallback { get; init; }
+}
 
 internal interface IFocusAutomationSource
 {
-    void Register(Action notification);
+    void Register(Action<AutomationElement?> notification);
 
-    void Unregister(Action notification);
+    void Unregister(Action<AutomationElement?> notification);
 }
 
 internal sealed class SystemFocusAutomationSource : IFocusAutomationSource
 {
     private AutomationFocusChangedEventHandler? _handler;
 
-    public void Register(Action notification)
+    public void Register(Action<AutomationElement?> notification)
     {
         ArgumentNullException.ThrowIfNull(notification);
-        _handler = (_, _) => notification();
+        _handler = (sender, _) => notification(sender as AutomationElement);
         Automation.AddAutomationFocusChangedEventHandler(_handler);
     }
 
-    public void Unregister(Action notification)
+    public void Unregister(Action<AutomationElement?> notification)
     {
         _ = notification;
         if (_handler is not null)
@@ -357,14 +383,24 @@ internal sealed class SystemFocusAutomationSource : IFocusAutomationSource
 
 internal interface IFocusSnapshotSource
 {
-    FocusSnapshot? Capture();
+    FocusSnapshot? Capture(AutomationElement? eventTarget = null);
+    AutomationElement? CapturedElement => null;
+    bool UsedEventTarget => false;
+    bool UsedFallback => false;
 }
 
 internal sealed class SystemFocusSnapshotSource(FocusSnapshotFactory factory) : IFocusSnapshotSource
 {
-    public FocusSnapshot? Capture()
+    public AutomationElement? CapturedElement { get; private set; }
+    public bool UsedEventTarget { get; private set; }
+    public bool UsedFallback { get; private set; }
+
+    public FocusSnapshot? Capture(AutomationElement? eventTarget = null)
     {
-        AutomationElement? element = FocusedElementResolver.Capture();
+        AutomationElement? element = FocusedElementResolver.Capture(eventTarget, out bool fallback, out bool fromEvent);
+        CapturedElement = element;
+        UsedEventTarget = fromEvent;
+        UsedFallback = fallback;
         return element is not null && factory.TryCreate(element, out FocusSnapshot? snapshot) ? snapshot : null;
     }
 }
@@ -373,5 +409,5 @@ internal sealed class NullFocusSnapshotSource : IFocusSnapshotSource
 {
     public static NullFocusSnapshotSource Instance { get; } = new();
 
-    public FocusSnapshot? Capture() => null;
+    public FocusSnapshot? Capture(AutomationElement? eventTarget = null) => null;
 }

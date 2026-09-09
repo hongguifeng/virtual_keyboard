@@ -250,6 +250,8 @@ REL-029 后续修正（1.0.7）：FocusedElement 返回元素但 HasKeyboardFocu
 
 ### 8.2 分类顺序
 
+REL-029 事件目标修正（1.0.8）：UIA 回调保存最新 sender（单槽引用）并推进事件版本，不在回调访问元素属性。全局查询无有效焦点时，MTA 尝试该事件目标；须通过即时 HasKeyboardFocus/IsEnabled/IsOffscreen、前台 PID 和顶层 HWND 校验，再考虑原有 native 回退。轮询重复验证有效事件目标，采集与分类使用同一元素；新事件立即作废旧通知，采集后、分类后和 Dispatcher 应用前检查版本。停止/重启也使通知失效；不放宽分类或发送前目标校验。日志新增布尔 UsedEventTarget。现场步骤、证据和适用限制见 docs/focus-event-validation.md。
+
 ```text
 Validate element lifetime
         │ invalid/destroyed

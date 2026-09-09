@@ -65,5 +65,44 @@ public sealed class FocusedElementResolverTests
         Assert.True(fallback);
     }
 
+    [Fact]
+    public void EventTargetReplacesUnfocusedQueryAndSurvivesPolling()
+    {
+        var editor = new Node(true);
+        for (int i = 0; i < 3; i++)
+        {
+            var result = FocusedElementResolver.ResolveEventFocus(() => new Node(false),
+                editor, node => node.Focused, () => throw new InvalidOperationException("unexpected fallback"),
+                node => node.Focused, out bool fallback, out bool fromEvent);
+            Assert.Same(editor, result);
+            Assert.True(fromEvent);
+            Assert.False(fallback);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InvalidOrDestroyedEventTargetFallsBack(bool destroyed)
+    {
+        var fallbackNode = new Node(true);
+        var result = FocusedElementResolver.ResolveEventFocus(() => new Node(false), new Node(true),
+            _ => destroyed ? throw new InvalidOperationException("destroyed") : false,
+            () => fallbackNode, node => node.Focused, out bool fallback, out bool fromEvent);
+        Assert.Same(fallbackNode, result);
+        Assert.False(fromEvent);
+        Assert.True(fallback);
+    }
+
+    [Fact]
+    public void NewFocusedQueryOverridesRetainedEventWithoutAnotherEvent()
+    {
+        var newer = new Node(true);
+        var result = FocusedElementResolver.ResolveEventFocus(() => newer, new Node(true),
+            _ => true, () => null, node => node.Focused, out _, out bool fromEvent);
+        Assert.Same(newer, result);
+        Assert.False(fromEvent);
+    }
+
     private sealed record Node(bool Focused);
 }

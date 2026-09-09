@@ -144,6 +144,7 @@ public sealed record DiagnosticEvent
     public long? FocusVersion { get; init; }
     public int? RetryAttempt { get; init; }
     public bool? UsedFallback { get; init; }
+    public bool? UsedEventTarget { get; init; }
     public FocusControlType? FocusControlType { get; init; }
     public bool? HasKeyboardFocus { get; init; }
     public bool? IsEnabled { get; init; }

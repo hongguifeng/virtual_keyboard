@@ -35,13 +35,20 @@ public sealed class FocusTargetEvaluator
     private readonly NativeFocusAdapter _nativeFocus = new();
     private readonly EditabilityEvidenceFactory _evidence = new();
 
-    public FocusTargetEvaluation Evaluate(FocusSnapshot snapshot)
+    public FocusTargetEvaluation Evaluate(FocusChangedNotification notification) =>
+        Evaluate(notification.Snapshot ?? throw new ArgumentException("Missing focus snapshot.", nameof(notification)),
+            notification.CapturedElement, notification.UsedFallback);
+
+    public FocusTargetEvaluation Evaluate(FocusSnapshot snapshot) => Evaluate(snapshot, null, false);
+
+    private FocusTargetEvaluation Evaluate(FocusSnapshot snapshot, AutomationElement? capturedElement, bool usedFallback)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        bool usedFallback = false;
         try
         {
-            AutomationElement? element = FocusedElementResolver.Capture(out usedFallback);
+            AutomationElement? element = capturedElement ?? FocusedElementResolver.Capture(out usedFallback);
+            if (capturedElement is not null && !FocusedElementResolver.IsCurrentEventTarget(capturedElement))
+                return Failure(snapshot, FocusTargetEvaluationStatus.IdentityMismatch, usedFallback);
             if (element is null) return Failure(snapshot, FocusTargetEvaluationStatus.FocusUnavailable, usedFallback);
             var current = element.Current;
             int[]? runtimeId = element.GetRuntimeId();
