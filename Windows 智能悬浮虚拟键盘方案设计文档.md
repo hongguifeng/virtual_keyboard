@@ -779,6 +779,8 @@ REL-029：`ClassificationCompleted` 增加具体封闭 Reason、DurationMs、Foc
 
 1.0.7 分类日志补充 FocusControlType（真实控件类型，区别于最终分类 ControlKind）、HasKeyboardFocus、IsEnabled、IsOffscreen 四个可空值类型字段，默认日志即可区分 NoFocusOrDisabled 的三个条件。记录的是参与判定的 FocusSnapshot 状态，不包含 UIA Name/Value。
 
+REL-029 观测阶段：TestHost 新增独立 `--focus-probe <new-file> <seconds>` 模式，窗口不显示、无输入发送、不改变产品运行逻辑。专用 MTA 线程注册 UIA 事件，回调仅把 sender 与单调时间戳加入容量 64 的队列；工作线程读取 sender 与随后 FocusedElement 的允许字段，对比内存 RuntimeId，记录布尔比较值而不写 RuntimeId。原生焦点由 Windows NativeFocusAdapter 采集；每次 250 ms 等待超时补充一次 Poll。最长 600 秒、4096 行、只新建文件；截止后等待退出 1 秒，provider 未返回则 TestHost 以退出码 3 结束（后台线程随独立进程结束）。写失败关闭写入口并返回数字错误。该诊断模式不是生产进程隔离方案，也不包含 WinEvent/MSAA、TextPattern2 caret 通道。使用步骤与证据见 docs/focus-probe.md。
+
 ### 15.2 敏感数据规则
 
 以下数据不得传入日志 API：

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType><!-- 需控制台输出（selftest 自动证据）；原模板 WinExe 无控制台 -->
@@ -7,4 +7,7 @@
     <UseWindowsForms>true</UseWindowsForms><!-- T0.5b1：WinForms 控件测试页与 WPF 页共存（测试专用进程） -->
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../src/VirtualKeyboard.Windows/VirtualKeyboard.Windows.csproj" />
+  </ItemGroup>
 </Project>

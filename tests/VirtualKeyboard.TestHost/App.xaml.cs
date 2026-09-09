@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 
 // WPF/WinForms 共存（T0.5b1）：别名压制 WinForms 隐式全局 using，消除与 WPF 类型的二义。
 using Application = System.Windows.Application;
@@ -16,6 +16,28 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if (e.Args.Length > 0 && e.Args[0] == "--focus-probe")
+        {
+            if (e.Args.Length != 3 || !int.TryParse(e.Args[2], out int seconds) || seconds is < 1 or > 600)
+            {
+                Console.WriteLine("Expected --focus-probe <new-output.jsonl> <seconds:1..600>");
+                Shutdown(2);
+                return;
+            }
+            try
+            {
+                var result = VirtualKeyboard.Windows.FocusComparisonProbe.Run(e.Args[1], TimeSpan.FromSeconds(seconds));
+                Console.WriteLine($"Rows={result.Rows}; DroppedEvents={result.DroppedEvents}; WorkerStopped={result.WorkerStopped}; WriteError={result.WriteError}");
+                Shutdown(result.WriteError != 0 ? 2 : result.WorkerStopped ? 0 : 3);
+            }
+            catch (Exception error)
+            {
+                Console.WriteLine($"ProbeError={error.HResult}");
+                Shutdown(2);
+            }
+            return;
+        }
 
         var window = new MainWindow();
         window.Show();
