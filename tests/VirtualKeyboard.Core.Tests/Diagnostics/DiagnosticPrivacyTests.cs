@@ -22,6 +22,7 @@ public class DiagnosticPrivacyTests
         "OccurredAtUtc", "AppVersion", "EventId", "Type", "Module", "Level",
         "TargetProcessId", "ControlKind", "Verdict", "Reason", "ErrorCode",
         "DurationMs", "RequestedCount", "CompletedCount", "Sequence",
+        "FocusVersion", "RetryAttempt", "UsedFallback",
     };
 
     /// <summary>AppVersion 子对象只允许三个数字键。</summary>
@@ -88,6 +89,7 @@ public class DiagnosticPrivacyTests
             RequestedCount = 2,
             CompletedCount = 1,
             Sequence = 9,
+            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true,
         };
 
         var json = DiagnosticSerializer.ToJsonLine(e);
@@ -104,6 +106,9 @@ public class DiagnosticPrivacyTests
             $"顶层键集合与固定白名单不一致：actual=[{string.Join(",", actual.OrderBy(k => k))}]");
 
         // AppVersion 子对象只允许 Major/Minor/Revision 三个数字键（无自由字符串）。
+        Assert.Equal(12, doc.RootElement.GetProperty("FocusVersion").GetInt64());
+        Assert.Equal(2, doc.RootElement.GetProperty("RetryAttempt").GetInt32());
+        Assert.True(doc.RootElement.GetProperty("UsedFallback").GetBoolean());
         var av = doc.RootElement.GetProperty("AppVersion");
         Assert.Equal(JsonValueKind.Object, av.ValueKind);
 
@@ -165,6 +170,7 @@ public class DiagnosticPrivacyTests
             Verdict = Verdict.Password,
             ControlKind = ControlKind.Password,
             Sequence = 9,
+            FocusVersion = 12, RetryAttempt = 2, UsedFallback = true,
         };
 
         var json = DiagnosticSerializer.ToJsonLine(e);

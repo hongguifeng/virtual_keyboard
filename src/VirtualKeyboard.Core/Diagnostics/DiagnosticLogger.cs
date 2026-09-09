@@ -40,7 +40,8 @@ public sealed class DiagnosticLogger : IDisposable
         long durationMs = 0,
         int requestedCount = 0,
         int completedCount = 0,
-        AppVersion? appVersion = null)
+        AppVersion? appVersion = null,
+        long? focusVersion = null, int? retryAttempt = null, bool? usedFallback = null)
     {
         var e = new DiagnosticEvent
         {
@@ -59,6 +60,9 @@ public sealed class DiagnosticLogger : IDisposable
             CompletedCount = completedCount,
             Sequence = Interlocked.Increment(ref _sequence),
             AppVersion = appVersion,
+            FocusVersion = focusVersion,
+            RetryAttempt = retryAttempt,
+            UsedFallback = usedFallback,
         };
 
         _queue.TryAdd(e);

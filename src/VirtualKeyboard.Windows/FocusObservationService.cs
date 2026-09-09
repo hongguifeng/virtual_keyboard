@@ -10,11 +10,14 @@ public sealed class FocusObservationService : IDisposable
     private const int PendingFocusCapacity = 256;
     internal const int FocusStabilityMilliseconds = 50;
     internal const int FocusPollingMilliseconds = 250;
+    /// <summary>Additional evaluations per focus/event, spaced by the polling interval.</summary>
+    public const int MaxEvaluationRetries = 4;
 
     private readonly IFocusAutomationSource _source;
     private readonly IFocusSnapshotSource _snapshotSource;
     private readonly Action<FocusChangedNotification>? _observer;
     private readonly Action<int>? _errorObserver;
+    private readonly Func<FocusChangedNotification, bool>? _evaluate;
     private readonly object _gate = new();
     private readonly ManualResetEvent _started = new(false);
     private readonly ManualResetEvent _stopRequested = new(false);
@@ -23,12 +26,15 @@ public sealed class FocusObservationService : IDisposable
     private Exception? _startupError;
     private bool _disposed;
 
-    public FocusObservationService(Action<FocusChangedNotification>? observer = null, Action<int>? errorObserver = null)
+    /// <param name="observer">Optional notification consumer on the MTA thread.</param>
+    /// <param name="errorObserver">Receives numeric boundary failures.</param>
+    /// <param name="evaluate">Return true to request a bounded retry; never injects input.</param>
+    public FocusObservationService(Action<FocusChangedNotification>? observer = null, Action<int>? errorObserver = null, Func<FocusChangedNotification, bool>? evaluate = null)
         : this(
             new SystemFocusAutomationSource(),
             new SystemFocusSnapshotSource(new FocusSnapshotFactory(Environment.ProcessId)),
             observer,
-            errorObserver)
+            errorObserver, evaluate)
     {
     }
 
@@ -41,12 +47,13 @@ public sealed class FocusObservationService : IDisposable
         IFocusAutomationSource source,
         IFocusSnapshotSource snapshotSource,
         Action<FocusChangedNotification>? observer = null,
-        Action<int>? errorObserver = null)
+        Action<int>? errorObserver = null, Func<FocusChangedNotification, bool>? evaluate = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _snapshotSource = snapshotSource ?? throw new ArgumentNullException(nameof(snapshotSource));
         _observer = observer;
         _errorObserver = errorObserver;
+        _evaluate = evaluate;
     }
 
     public bool IsRunning
@@ -174,6 +181,8 @@ public sealed class FocusObservationService : IDisposable
             }
 
             FocusSnapshot? lastPolledSnapshot = null;
+            bool retryPending = false;
+            int retryAttempt = 0;
             WaitHandle[] handles = [_stopRequested, _focusPending.AvailableWaitHandle];
             while (true)
             {
@@ -229,21 +238,27 @@ public sealed class FocusObservationService : IDisposable
                     continue;
                 }
 
-                if (!triggeredByEvent && SameFocus(snapshot, lastPolledSnapshot))
+                bool sameFocus = SameFocus(snapshot, lastPolledSnapshot);
+                if (!triggeredByEvent && sameFocus && !retryPending)
                 {
                     continue;
                 }
 
+                if (triggeredByEvent || !sameFocus) retryAttempt = 0;
+                else if (retryPending) retryAttempt++;
                 lastPolledSnapshot = snapshot;
+                retryPending = false;
                 try
                 {
-                    _observer?.Invoke(new FocusChangedNotification(
-                        DateTimeOffset.UtcNow,
-                        Environment.CurrentManagedThreadId,
-                        snapshot));
+                    var notification = new FocusChangedNotification(
+                        DateTimeOffset.UtcNow, Environment.CurrentManagedThreadId, snapshot, retryAttempt);
+                    _observer?.Invoke(notification);
+                    bool needsRetry = _evaluate?.Invoke(notification) == true;
+                    retryPending = needsRetry && retryAttempt < MaxEvaluationRetries;
                 }
                 catch (Exception exception)
                 {
+                    retryPending = retryAttempt < MaxEvaluationRetries;
                     // Numeric ranges distinguish consumer failures without recording exception text.
                     try { _errorObserver?.Invoke(100_000 + (exception.HResult & 0xFFFF)); }
                     catch { }
@@ -308,7 +323,8 @@ public sealed class FocusObservationService : IDisposable
 public readonly record struct FocusChangedNotification(
     DateTimeOffset OccurredAtUtc,
     int ObserverThreadId,
-    FocusSnapshot? Snapshot);
+    FocusSnapshot? Snapshot,
+    int RetryAttempt = 0);
 
 internal interface IFocusAutomationSource
 {
@@ -346,36 +362,9 @@ internal interface IFocusSnapshotSource
 
 internal sealed class SystemFocusSnapshotSource(FocusSnapshotFactory factory) : IFocusSnapshotSource
 {
-    private readonly NativeFocusAdapter _nativeFocus = new();
-
     public FocusSnapshot? Capture()
     {
-        AutomationElement? element = null;
-        try
-        {
-            element = AutomationElement.FocusedElement;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or System.Runtime.InteropServices.COMException)
-        {
-            // Some providers return E_POINTER for FocusedElement while a global focus handler is registered.
-        }
-
-        if (element is null)
-        {
-            try
-            {
-                NativeFocusResult native = _nativeFocus.Capture();
-                if (native.IsCaptured && native.Snapshot!.FocusHwnd != nint.Zero)
-                {
-                    element = AutomationElement.FromHandle(native.Snapshot.FocusHwnd);
-                }
-            }
-            catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException)
-            {
-                return null;
-            }
-        }
-
+        AutomationElement? element = FocusedElementResolver.Capture();
         return element is not null && factory.TryCreate(element, out FocusSnapshot? snapshot) ? snapshot : null;
     }
 }

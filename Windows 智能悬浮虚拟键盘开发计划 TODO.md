@@ -731,3 +731,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [ ] 确认首发包是否需要 MSI，以及是否已有签名证书。
 - [ ] 建立源码仓库、主分支规则和缺陷跟踪位置。
 - [ ] 从 T0.1 开始执行；M1 风险门禁通过前不投入非核心视觉开发。
+
+
+### REL-029：跨软件焦点识别恢复与诊断（1.0.6）
+
+- [x] 同目标暂时失败的有界重试；成功停止、次数耗尽、新目标恢复自动测试；共用 UIA/native resolver，保持身份和可编辑证据校验。
+- [x] 增加分类阶段/原因/耗时、FocusVersion、RetryAttempt、UsedFallback 与重试安排/耗尽/恢复事件；扩展固定 JSON 字段白名单验证，不放宽值类型隐私限制。
+- [x] 最终 `scripts/build.ps1 -Version 1.0.6` 通过：Release 0 warning/0 error，Core 236/236、Windows 224/224、Integration 56/56（516），win-x64 发布和 ZIP 完成；`scripts/verify-release.ps1 -Version 1.0.6` 通过；TestHost `--selftest` 退出码 0。首次直接 solution 并行测试的 OverlayFocusBehaviorTests 前台焦点断言失败，随后使用官方脚本串行运行项目全部通过，未删除/跳过/弱化测试。
+- 自查：无输入重发、无激活目标/提权改动；原有 NoActivate/目标校验/DPI/隐私测试通过；规格定义未变，因此不修改 FR 文本。
+- [ ] VS Code ↔ 其他应用的用户现场复测与主审查通过（不以 TestHost 自检代替）。
+- 限制：追加 4 次、间隔 250 ms；不会中断阻塞中的 COM 调用，不新增 worker 进程；范围内无规格语义变更（FR-FOC-001/004/006、FR-VIS-001/003、FR-DIA-001/002）。

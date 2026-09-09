@@ -80,3 +80,6 @@ Architecture and contributor details are in the [functional specification](Windo
 ## Privacy and security
 
 Virtual Keyboard works locally and does not send typing data to a server. Layout and configuration inputs are validated against closed action schemas; arbitrary shell commands and scripts are not supported.
+
+
+Version 1.0.6 adds bounded recovery after transient focus evaluation failures and diagnostic reasons, retries, and fallback metadata. Exit the previous version from its tray menu before upgrading. See the [user guide](docs/user-guide.md).

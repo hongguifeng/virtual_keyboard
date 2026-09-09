@@ -4,6 +4,9 @@ namespace VirtualKeyboard.Core.Diagnostics;
 public enum DiagnosticType
 {
     FocusObserved,
+    FocusRetryScheduled,
+    FocusRetryExhausted,
+    FocusRetryRecovered,
     ClassificationCompleted,
     TargetSessionCreated,
     TargetSessionInvalidated,
@@ -69,6 +72,17 @@ public enum ReasonCode
 {
     None,
     ElementInvalid,
+    FocusUnavailable,
+    IdentityMismatch,
+    EvidenceUnavailable,
+    NoFocusOrDisabled,
+    ReadOnly,
+    PasswordEdit,
+    ValuePattern,
+    TextEditPattern,
+    CaretEvidence,
+    TextPatternOnly,
+    NoEditableEvidence,
     PatternMissing,
     StaleVersion,
     Timeout,
@@ -123,4 +137,9 @@ public sealed record DiagnosticEvent
 
     /// <summary>单调递增序号（评估版本/批次等，仅数字）。</summary>
     public long Sequence { get; init; }
+
+    /// <summary>Focus snapshot version, for correlating evaluation and retry events.</summary>
+    public long? FocusVersion { get; init; }
+    public int? RetryAttempt { get; init; }
+    public bool? UsedFallback { get; init; }
 }

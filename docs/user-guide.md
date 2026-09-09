@@ -97,3 +97,10 @@ Compress-Archive -Path (Join-Path $logSource '*.jsonl') -DestinationPath .\Virtu
 - 回滚：退出后恢复上一版本完整程序目录。不要混用不同版本文件。1.0.0 使用 schema v1；未来版本如改变 schema，须先查阅迁移说明。
 
 若退出后仍看到托盘图标，可把鼠标移过该位置触发通知区域刷新；若进程仍存在，请记录情况并提交缺陷，不要直接删除正在使用的程序目录。
+
+
+### 1.0.6 焦点恢复排查
+
+切换软件后偶发不弹出时，程序会对暂时失败的同一输入目标最多追加 4 次识别（间隔 250 ms；provider 调用耗时另计）。超过预算后需新的焦点事件或切换目标再触发；这不能解除长期阻塞的 UIA provider。复测时先从托盘退出旧版本，再运行 1.0.6，分别切换 VS Code 编辑区、普通文本框和只读区域。预期可编辑框显示、只读区域隐藏、点击虚拟键盘不抢焦点。实际跨软件稳定性仍待用户复测。
+
+日志在 `%LocalAppData%\VirtualKeyboard\logs`，默认即包含分类原因、耗时、FocusVersion、RetryAttempt、UsedFallback 和重试安排/恢复/耗尽事件。报告问题时提供发生时间和软件类别即可，不需要输入内容。`ClassificationCompleted.ErrorCode`：0=完成评估、1=焦点不可用、2=身份不匹配、3=证据不可用；`Reason` 区分只读、无焦点、缺少模式等。`FocusRetryRecovered` 只代表得到了确定分类，是否显示需结合 Verdict 和 OverlayShown。

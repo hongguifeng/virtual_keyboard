@@ -242,6 +242,10 @@ DTO 中不得包含 AutomationElement 的 Value 或用户输入内容。Automati
 - `GetWindowThreadProcessId` 和 `GetGUIThreadInfo`：确定目标线程、焦点 HWND 和 caret。
 - 窗口销毁/前台切换事件可通过 WinEvent 补充，但不得将普通标题或进程名作为编辑判定依据。
 
+REL-029：观察服务增加 MTA 同步评估反馈（返回 true 请求重试）。首次识别失败、Unknown 或 Edit/Document 缺少可编辑证据时，同一焦点仍以 250 ms 间隔追加最多 4 次评估，每次重新采集并生成单调版本；成功/明确不可编辑后恢复去重，新焦点或新的事件重置本轮预算。重试仅重新识别，绝不重发输入。暂停、设置、手动抑制和旧版本拒绝仍由协调器处理。UIA 同步调用本身仍可能被 provider 阻塞，此变更不提供 COM 硬超时或进程隔离。
+
+采集和评估共用 `FocusedElementResolver`：FocusedElement 返回 null 或已知 UIA 异常时回退到原生焦点 HWND 对应元素；评估仍验证 RuntimeId、PID、顶层 HWND 及可编辑证据，不把回退得到的容器视为可编辑。
+
 ### 8.2 分类顺序
 
 ```text
@@ -768,6 +772,8 @@ T6.7（2026-09-06）实现当前用户级开机自启（FR-APP-004）：
 - `UnhandledBoundaryException`
 
 每条事件包含时间、应用版本、事件 ID、模块、耗时、ReasonCode、错误码和必要的数字身份信息。
+
+REL-029：`ClassificationCompleted` 增加具体封闭 Reason、DurationMs、FocusVersion、RetryAttempt、UsedFallback。该事件 ErrorCode 是评估阶段码：0=Evaluated，1=FocusUnavailable，2=IdentityMismatch，3=EvidenceUnavailable，不是 Win32 错误。新增 FocusRetryScheduled / FocusRetryExhausted / FocusRetryRecovered 事件，通过 FocusVersion 与分类日志关联；RetryAttempt=0 是首次，1–4 是追加尝试。Recovered 表示分类已确定（仍需看 Verdict/Reason，可能为明确不可编辑），不保证 Overlay 已显示。无自由文本，不记录 UIA Name/Value/输入/密码/窗口标题。其他事件不填上述可空字段。
 
 ### 15.2 敏感数据规则
 

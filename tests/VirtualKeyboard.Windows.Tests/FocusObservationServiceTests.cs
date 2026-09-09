@@ -216,6 +216,51 @@ public sealed class FocusObservationServiceTests
         Assert.True(observed.Wait(TimeSpan.FromSeconds(2)));
     }
 
+    [Fact]
+    public void FailedEvaluationRetriesSameFocusThenStopsAfterRecovery()
+    {
+        var source = new FakeFocusAutomationSource();
+        var snapshots = new StubFocusSnapshotSource(Snapshot(1, 10));
+        using var recovered = new ManualResetEventSlim(false);
+        int calls = 0;
+        using var service = new FocusObservationService(source, snapshots, evaluate: notification =>
+        {
+            if (Interlocked.Increment(ref calls) == 1) return true;
+            recovered.Set();
+            return false;
+        });
+        service.Start();
+        Assert.True(recovered.Wait(TimeSpan.FromSeconds(3)));
+        Thread.Sleep(FocusObservationService.FocusPollingMilliseconds * 2);
+        Assert.Equal(2, Volatile.Read(ref calls));
+    }
+
+    [Fact]
+    public void PersistentFailureHasBoundedRetriesAndNewFocusCanRecover()
+    {
+        var source = new FakeFocusAutomationSource();
+        var snapshots = new StubFocusSnapshotSource(Snapshot(1, 10));
+        using var exhausted = new ManualResetEventSlim(false);
+        using var recovered = new ManualResetEventSlim(false);
+        int calls = 0;
+        using var service = new FocusObservationService(source, snapshots, evaluate: notification =>
+        {
+            if (notification.Snapshot!.RuntimeId!.Equals(new RuntimeIdentity([20])))
+            {
+                recovered.Set();
+                return false;
+            }
+            if (Interlocked.Increment(ref calls) == FocusObservationService.MaxEvaluationRetries + 1)
+                exhausted.Set();
+            return true;
+        });
+        service.Start();
+        Assert.True(exhausted.Wait(TimeSpan.FromSeconds(4)));
+        Thread.Sleep(FocusObservationService.FocusPollingMilliseconds * 2);
+        Assert.Equal(FocusObservationService.MaxEvaluationRetries + 1, Volatile.Read(ref calls));
+        snapshots.Current = Snapshot(2, 20);
+        Assert.True(recovered.Wait(TimeSpan.FromSeconds(2)));
+    }
     private static FocusSnapshot Snapshot(long version, int runtimeId) => new(
         version,
         DateTimeOffset.UtcNow,

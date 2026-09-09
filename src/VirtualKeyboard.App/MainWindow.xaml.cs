@@ -268,31 +268,36 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_focusObservation is not null) return;
         _focusObservation = new FocusObservationService(
-            OnFocusChanged,
-            errorCode => _diagnostics.Log(
+            errorObserver: errorCode => _diagnostics.Log(
                 DiagnosticType.UnhandledBoundaryException,
                 DiagnosticModule.Focus,
                 reason: ReasonCode.Unknown,
-                errorCode: errorCode));
+                errorCode: errorCode), evaluate: OnFocusChanged);
         _focusObservation.Start();
         _focusObservation.Refresh();
     }
 
-    private void OnFocusChanged(FocusChangedNotification notification)
+    private bool OnFocusChanged(FocusChangedNotification notification)
     {
-        if (_disposed) return;
+        if (_disposed) return false;
         FocusSnapshot? snapshot = notification.Snapshot;
         if (snapshot is null)
         {
             Dispatcher.BeginInvoke(ClearAutomaticTarget);
-            return;
+            return false;
         }
         _latestFocusSnapshots.Publish(snapshot);
         _diagnostics.Log(DiagnosticType.FocusObserved, DiagnosticModule.Focus, DiagnosticLevel.Detailed, targetProcessId: snapshot.ProcessId);
         TargetStateTransition observed = _coordinator.Observe(snapshot);
-        if (!observed.Accepted) return;
+        if (!observed.Accepted) return false;
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         FocusTargetEvaluation evaluation = _focusEvaluator.Evaluate(snapshot);
         _diagnostics.Log(DiagnosticType.ClassificationCompleted, DiagnosticModule.Classification,
+            durationMs: (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            errorCode: (int)evaluation.Status,
+            focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt,
+            usedFallback: evaluation.UsedFallback,
+            reason: GetFocusReason(evaluation),
             targetProcessId: snapshot.ProcessId,
             controlKind: evaluation.Classification.Value switch
             {
@@ -310,7 +315,34 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             });
         TargetStateTransition classified = _coordinator.ApplyClassification(snapshot, evaluation.Classification);
         Dispatcher.BeginInvoke(() => ApplyAutomaticFocus(evaluation, classified));
+        if (evaluation.NeedsRetry || notification.RetryAttempt > 0)
+            _diagnostics.Log(evaluation.NeedsRetry
+                ? notification.RetryAttempt < FocusObservationService.MaxEvaluationRetries
+                    ? DiagnosticType.FocusRetryScheduled : DiagnosticType.FocusRetryExhausted
+                : DiagnosticType.FocusRetryRecovered, DiagnosticModule.Focus,
+                targetProcessId: snapshot.ProcessId, reason: GetFocusReason(evaluation),
+                focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt, errorCode: (int)evaluation.Status);
+        return evaluation.NeedsRetry;
     }
+
+    internal static ReasonCode GetFocusReason(FocusTargetEvaluation evaluation) => evaluation.Status switch
+    {
+        FocusTargetEvaluationStatus.FocusUnavailable => ReasonCode.FocusUnavailable,
+        FocusTargetEvaluationStatus.IdentityMismatch => ReasonCode.IdentityMismatch,
+        FocusTargetEvaluationStatus.EvidenceUnavailable => ReasonCode.EvidenceUnavailable,
+        _ => evaluation.Classification.ReasonCode switch
+        {
+            ClassificationReasonCode.NoFocusOrDisabled => ReasonCode.NoFocusOrDisabled,
+            ClassificationReasonCode.ReadOnly => ReasonCode.ReadOnly,
+            ClassificationReasonCode.PasswordEdit => ReasonCode.PasswordEdit,
+            ClassificationReasonCode.ValuePattern => ReasonCode.ValuePattern,
+            ClassificationReasonCode.TextEditPattern => ReasonCode.TextEditPattern,
+            ClassificationReasonCode.CaretEvidence => ReasonCode.CaretEvidence,
+            ClassificationReasonCode.TextPatternOnly => ReasonCode.TextPatternOnly,
+            ClassificationReasonCode.NoEditableEvidence => ReasonCode.NoEditableEvidence,
+            _ => ReasonCode.ElementInvalid,
+        },
+    };
 
     internal void ApplyAutomaticFocus(FocusTargetEvaluation evaluation, TargetStateTransition transition)
     {
