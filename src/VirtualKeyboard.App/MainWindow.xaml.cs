@@ -121,6 +121,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     void ITrayCommands.ShowCurrentKeyboard() => ShowCurrentKeyboard();
     void ITrayCommands.OpenSettings() => OpenSettingsWindow();
     void ITrayCommands.ReloadLayouts() => LoadBuiltInLayout();
+    bool ITrayCommands.IsFocusDetectionStopped => _focusObservation?.IsStopped == true;
+    bool ITrayCommands.CanRestartFocusDetection => _focusObservation?.CanRestart == true;
+    void ITrayCommands.RestartFocusDetection() => _focusObservation?.Start();
     void ITrayCommands.Exit() => Application.Current.Shutdown();
 
     internal nint OverlayHandle => _overlay.Handle;
@@ -286,6 +289,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
                 FocusWorkerStatus.Restarting => DiagnosticType.FocusWorkerRestarting,
                 FocusWorkerStatus.Recovered => DiagnosticType.FocusWorkerRecovered,
                 FocusWorkerStatus.Exhausted => DiagnosticType.FocusWorkerExhausted,
+                FocusWorkerStatus.Rearmed => DiagnosticType.FocusWorkerRearmed,
                 _ => DiagnosticType.FocusWorkerExited,
             }, DiagnosticModule.Focus, targetProcessId: pid, errorCode: code));
         _focusObservation.Start();

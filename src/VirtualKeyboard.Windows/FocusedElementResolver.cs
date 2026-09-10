@@ -60,14 +60,20 @@ internal static class FocusedElementResolver
     private static AutomationElement? CaptureNativeFocusedElement()
     {
         var native = new NativeFocusAdapter().Capture();
-        if (!native.IsCaptured || native.Snapshot!.FocusHwnd == nint.Zero) return null;
-        AutomationElement root = AutomationElement.FromHandle(native.Snapshot.FocusHwnd);
-        if (root.Current.ProcessId != native.Snapshot.ProcessId) return null;
-        // One provider query confined to the native focus HWND, never a desktop-wide tree scan.
-        AutomationElement? focused = root.FindFirst(TreeScope.Subtree,
-            new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true));
-        return focused is not null && focused.Current.ProcessId == native.Snapshot.ProcessId &&
-            focused.Current.HasKeyboardFocus ? focused : null;
+        if (!native.IsCaptured) return null;
+        // A subtree search can enter unbounded MSAA sibling traversal even under one HWND.
+        // Only inspect the native focus root. HWND-less editors use UIA focus or the validated event target.
+        return ResolveNativeFocus(native.Snapshot!.FocusHwnd, native.Snapshot.ProcessId,
+            AutomationElement.FromHandle, element => element.Current.ProcessId,
+            element => element.Current.HasKeyboardFocus);
+    }
+
+    internal static T? ResolveNativeFocus<T>(nint hwnd, int expectedProcessId, Func<nint, T> fromHandle,
+        Func<T, int> processId, Func<T, bool> hasFocus) where T : class
+    {
+        if (hwnd == nint.Zero) return null;
+        T root = fromHandle(hwnd);
+        return processId(root) == expectedProcessId && hasFocus(root) ? root : null;
     }
 
     internal static AutomationElement? Resolve(Func<AutomationElement?> primary,

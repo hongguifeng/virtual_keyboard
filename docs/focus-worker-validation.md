@@ -48,3 +48,24 @@
 - 14:24:27.637：当前输入框 Edit / Editable / ValuePattern，随后 TargetSessionCreated、OverlayShown；14:24:48.776 再次健康心跳。
 
 这是受控子进程退出与模拟阻塞恢复证据，不宣称已复现原 provider 内部的同一 COM 故障。未注入用户文字、未修改被测文档。长期稳定性、独立主审查及全部软件/显示器矩阵仍待验证。
+
+## REL-031：回退遍历卡滞与耗尽后恢复（2026-09-10）
+
+1.0.10 在 22:52:09（北京时间）连续采样超时后记录 FocusWorkerExhausted=4，主进程存活但工作进程已退出。额外启动的只读工作进程在采样 34 后停滞超过 10 秒，栈显示 CaptureNativeFocusedElement / FindFirst(Subtree) / MSAA GetNextSibling / Accessible.GetLocation。不能据此断言特定应用或永久死锁。
+
+修复删除整棵子控件树回退搜索，只检查原生焦点 HWND 对应根元素的进程及焦点；保留全局 UIA 焦点和经过验证的事件目标。缺乏可信焦点时维持不触发。UIA 属性本身仍可能阻塞，独立进程超时保护继续有效。
+
+检测停止后，托盘气泡提示一次、tooltip 持续显示停止状态，菜单提供“恢复自动检测”。仅旧监督任务完成且子进程终止成功时允许手动重新启动有限恢复周期；重复点击不会创建第二个活跃工作进程；代际和焦点版本不重置。终止边界失败仍需要重启应用。
+
+日志新增 FocusWorkerRearmed（用户主动恢复，ErrorCode=0）；FocusWorkerStalled 现在携带被阻塞工作进程 PID，阶段含义不变。不记录用户内容。
+
+验证：
+- FocusedElementResolverTests 15 项通过，包含原生根的焦点、进程和空 HWND 边界。
+- IsolatedFocusObservationTests / TrayIconControllerTests 定向 11 项通过；包含耗尽后主动恢复、跨周期单调版本、旧结果失效、重复启动及菜单启用约束。
+- 最终 scripts/build.ps1 -SkipPackage：Release 零警告/错误，Core 245、Windows 251、Integration 66，共 562 项通过（23:12:46–55 TRX）。首次全量运行已有 WPF Settings 测试遇到资源集合并发异常；未修改、删除或弱化测试，完整重跑通过。这个测试基础设施问题仍需独立排查。
+- TestHost --selftest 退出码 0；本地 win-x64 1.0.11 publish 成功。
+- 修复版只读真实 UIA 工作进程连续采样 45.05 秒，进度 1→164，最长采样间隔约 1 秒，没有复现此前的 >10 秒冻结。证据在 artifacts/focus-exhausted-investigation/repaired-probe-progress.json（未提交）。这不是长期或全部应用兼容性验收。
+
+待审查：独立主审查；完整浏览器/VS Code 与多屏交互矩阵；单个 UIA 属性阻塞的长期观测。若某控件只通过已删除的子树搜索暴露焦点，则可能不再识别，需要真实兼容性验证，不应恢复无界遍历。
+
+REL-031 实机交互补充：23:17:16 用 computer-use 点击 TestHost WPF 普通 TextBox，观察到键盘窗口实际出现，日志记录 Edit/Editable/ValuePattern → TargetSessionCreated → OverlayShown。随后点击只读 TextBox，23:17:55 记录 ReadOnly/NotEditable，截图确认键盘隐藏。未输入文字。测试窗口已关闭；本地修复主进程 PID 62076、工作进程 PID 44624 持续运行。

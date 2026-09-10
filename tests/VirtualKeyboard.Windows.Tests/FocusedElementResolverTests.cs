@@ -104,5 +104,21 @@ public sealed class FocusedElementResolverTests
         Assert.False(fromEvent);
     }
 
+    [Theory]
+    [InlineData(0, 42, true, false)]
+    [InlineData(123, 43, true, false)]
+    [InlineData(123, 42, false, false)]
+    [InlineData(123, 42, true, true)]
+    public void NativeFallbackOnlyAcceptsFocusedRootInExpectedProcess(int hwnd, int processId, bool focused, bool accepted)
+    {
+        int lookups = 0;
+        var root = new Node(focused);
+        var result = FocusedElementResolver.ResolveNativeFocus((nint)hwnd, 42,
+            handle => { Assert.Equal((nint)123, handle); lookups++; return root; },
+            _ => processId, node => node.Focused);
+        Assert.Equal(accepted, result is not null);
+        Assert.Equal(hwnd == 0 ? 0 : 1, lookups);
+    }
+
     private sealed record Node(bool Focused);
 }

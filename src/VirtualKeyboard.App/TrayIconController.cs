@@ -13,6 +13,9 @@ internal interface ITrayCommands
     void ShowCurrentKeyboard();
     void OpenSettings();
     void ReloadLayouts();
+    bool IsFocusDetectionStopped { get; }
+    bool CanRestartFocusDetection { get; }
+    void RestartFocusDetection();
     void Exit();
 }
 
@@ -25,6 +28,9 @@ internal sealed class TrayIconController : IDisposable
     private readonly Forms.ToolStripMenuItem _settingsItem;
     private readonly Forms.ToolStripMenuItem _reloadItem;
     private readonly Forms.ToolStripMenuItem _exitItem;
+    private readonly Forms.ToolStripMenuItem _restartItem;
+    private readonly Forms.Timer _statusTimer;
+    private bool _wasStopped;
     private bool _disposed;
 
     public TrayIconController(ITrayCommands commands, bool visible = true)
@@ -34,12 +40,14 @@ internal sealed class TrayIconController : IDisposable
         _showItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.ShowCurrentKeyboard());
         _settingsItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => { _commands.OpenSettings(); RefreshState(); });
         _reloadItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.ReloadLayouts());
+        _restartItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => { _commands.RestartFocusDetection(); RefreshState(); });
         _exitItem = new Forms.ToolStripMenuItem(string.Empty, null, (_, _) => _commands.Exit());
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(_enabledItem);
         menu.Items.Add(_showItem);
         menu.Items.Add(_settingsItem);
         menu.Items.Add(_reloadItem);
+        menu.Items.Add(_restartItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(_exitItem);
         _notifyIcon = new Forms.NotifyIcon
@@ -50,6 +58,9 @@ internal sealed class TrayIconController : IDisposable
             Visible = visible,
         };
         _notifyIcon.DoubleClick += OnShowKeyboard;
+        _statusTimer = new Forms.Timer { Interval = 1000 };
+        _statusTimer.Tick += OnStatusTick;
+        _statusTimer.Start();
         RefreshState();
     }
 
@@ -88,8 +99,17 @@ internal sealed class TrayIconController : IDisposable
         _showItem.Text = strings.ShowKeyboard;
         _settingsItem.Text = strings.Settings;
         _reloadItem.Text = strings.ReloadLayouts;
+        _restartItem.Text = strings.RestartFocusDetection;
+        _restartItem.Enabled = _commands.CanRestartFocusDetection;
+        bool stopped = _commands.IsFocusDetectionStopped;
+        _notifyIcon.Text = stopped ? strings.FocusDetectionStopped : "Virtual Keyboard";
+        if (stopped && !_wasStopped && _notifyIcon.Visible)
+            _notifyIcon.ShowBalloonTip(5000, strings.FocusDetectionStopped, strings.FocusDetectionStoppedHint, Forms.ToolTipIcon.Warning);
+        _wasStopped = stopped;
         _exitItem.Text = strings.Exit;
     }
+
+    private void OnStatusTick(object? sender, EventArgs e) => RefreshState();
 
     private void OnToggleEnabled(object? sender, EventArgs e)
     {
@@ -103,6 +123,9 @@ internal sealed class TrayIconController : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
+        _statusTimer.Stop();
+        _statusTimer.Tick -= OnStatusTick;
+        _statusTimer.Dispose();
         _notifyIcon.DoubleClick -= OnShowKeyboard;
         _notifyIcon.Visible = false;
         _notifyIcon.ContextMenuStrip?.Dispose();

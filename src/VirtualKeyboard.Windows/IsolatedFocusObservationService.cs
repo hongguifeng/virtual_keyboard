@@ -4,7 +4,7 @@ using System.Text;
 
 namespace VirtualKeyboard.Windows;
 
-public enum FocusWorkerStatus { Started, Heartbeat, Stalled, Exited, Restarting, Recovered, Exhausted, BoundaryError }
+public enum FocusWorkerStatus { Started, Heartbeat, Stalled, Exited, Restarting, Recovered, Exhausted, BoundaryError, Rearmed }
 
 public readonly record struct RemoteFocusNotification(FocusTargetEvaluation? Evaluation, int RetryAttempt,
     bool UsedEventTarget, long DurationMs, Func<bool> IsCurrent);
@@ -39,13 +39,24 @@ public sealed class IsolatedFocusObservationService : IDisposable
     }
 
     public bool IsRunning => _task is { IsCompleted: false };
+    public bool IsStopped => !_disposed && _task is { IsCompleted: true };
+    public bool CanRestart => IsStopped && !_terminationFailed;
     public bool IsHealthy => IsRunning && Volatile.Read(ref _lastProgressTimestamp) is long timestamp && timestamp != 0 &&
         Stopwatch.GetElapsedTime(timestamp) < TimeSpan.FromSeconds(1);
 
     public void Start()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _task ??= Task.Run(RunAsync);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            // Explicit user rearm only after the previous supervisor and owned child have stopped.
+            // Keep version/stamp counters so no old notification can become authoritative again.
+            if (_task is null || CanRestart)
+            {
+                if (_task is not null) _diagnostic(FocusWorkerStatus.Rearmed, 0, 0);
+                _task = Task.Run(RunAsync);
+            }
+        }
     }
 
     private async Task RunAsync()
@@ -54,6 +65,7 @@ public sealed class IsolatedFocusObservationService : IDisposable
         while (!_stop.IsCancellationRequested)
         {
             int stage = 0;
+            int workerId = 0;
             var elapsed = Stopwatch.StartNew();
             try
             {
@@ -74,6 +86,7 @@ public sealed class IsolatedFocusObservationService : IDisposable
                     _child = child;
                 }
                 _diagnostic(FocusWorkerStatus.Started, child.Id, failures);
+                workerId = child.Id;
                 var health = new FocusWorkerHealth(StallTimeout);
                 long lastResult = -1;
                 long lastEvent = -1;
@@ -130,7 +143,7 @@ public sealed class IsolatedFocusObservationService : IDisposable
                 }
             }
             catch (OperationCanceledException) when (_stop.IsCancellationRequested) { return; }
-            catch (TimeoutException) { _diagnostic(FocusWorkerStatus.Stalled, 0, stage); }
+            catch (TimeoutException) { _diagnostic(FocusWorkerStatus.Stalled, workerId, stage); }
             catch (Exception exception) when (exception is IOException or System.Text.Json.JsonException or
                 System.ComponentModel.Win32Exception or InvalidOperationException)
             { _diagnostic(FocusWorkerStatus.Exited, 0, exception.HResult & 0xffff); }

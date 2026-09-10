@@ -57,6 +57,9 @@ internal sealed class AppStrings
     internal string EnableKeyboard => Chinese ? "启用键盘" : "Enable keyboard";
     internal string ShowKeyboard => Chinese ? "显示当前键盘" : "Show keyboard";
     internal string ReloadLayouts => Chinese ? "重新加载布局" : "Reload layouts";
+    internal string RestartFocusDetection => Chinese ? "恢复自动检测" : "Resume automatic detection";
+    internal string FocusDetectionStopped => Chinese ? "自动检测已停止" : "Automatic detection stopped";
+    internal string FocusDetectionStoppedHint => Chinese ? "请在托盘菜单选择“恢复自动检测”；若该项不可用，请重新启动应用。" : "Choose Resume automatic detection in the tray menu. If unavailable, restart the application.";
     internal string Exit => Chinese ? "退出" : "Exit";
     internal string PasswordUnavailable => Chinese ? "密码输入中此按键不可用" : "This key is unavailable for password input";
     internal string SelectEditable => Chinese ? "请先点击可编辑输入框" : "Select an editable input field first";

@@ -34,6 +34,7 @@ public enum DiagnosticType
     FocusWorkerRestarting,
     FocusWorkerRecovered,
     FocusWorkerExhausted,
+    FocusWorkerRearmed,
 }
 
 /// <summary>事件来源模块（封闭枚举，避免以模块名夹带任意文本）。</summary>

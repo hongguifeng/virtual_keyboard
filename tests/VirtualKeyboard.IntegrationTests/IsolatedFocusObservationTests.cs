@@ -114,6 +114,33 @@ public sealed class IsolatedFocusObservationTests
         Assert.False(supervisor.IsHealthy);
     }
 
+    [Fact]
+    public async Task ExplicitRearmAfterExhaustionPreservesVersionsAndDoesNotDuplicateRunningWorker()
+    {
+        int attempts = 0;
+        var notifications = new ConcurrentQueue<RemoteFocusNotification>();
+        using var supervisor = new IsolatedFocusObservationService("unused", notifications.Enqueue, _ => { }, (_, _, _) => { })
+        {
+            StartInfoFactory = () => Fixture(Interlocked.Increment(ref attempts) <= 4 ? "stall" : "healthy"),
+            StallTimeout = TimeSpan.FromMilliseconds(400), RestartDelay = TimeSpan.FromMilliseconds(20),
+        };
+        supervisor.Start();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        while (!supervisor.CanRestart) await Task.Delay(20, deadline.Token);
+        Assert.True(supervisor.IsStopped);
+        Assert.Equal(4, attempts);
+        Assert.All(notifications, notification => Assert.False(notification.IsCurrent()));
+        long oldVersion = notifications.Last(n => n.Evaluation is not null).Evaluation!.Value.Snapshot.Version;
+        supervisor.Start();
+        supervisor.Start();
+        while (!supervisor.IsHealthy || !notifications.Any(n => n.Evaluation?.Snapshot.Version > oldVersion))
+            await Task.Delay(20, deadline.Token);
+        Assert.Equal(5, attempts);
+        Assert.False(supervisor.IsStopped);
+        Assert.False(supervisor.CanRestart);
+        Assert.True(notifications.Last().IsCurrent());
+    }
+
     private static ProcessStartInfo Fixture(string mode)
     {
         string root = FindRoot();
