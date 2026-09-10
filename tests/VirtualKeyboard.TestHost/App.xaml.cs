@@ -17,6 +17,20 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (e.Args.Length == 2 && e.Args[0] == "--compatibility-case")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var page = new CompatibilityTestPage(e.Args[1]);
+            page.FormClosed += (_, _) => Shutdown();
+            page.Show();
+            _ = Task.Run(async () =>
+            {
+                for (int i = 0; i < 9 && await Console.In.ReadLineAsync() is { } scenario; i++)
+                    await Dispatcher.InvokeAsync(() => { page.SetScenario(scenario); Console.WriteLine("ready"); });
+            });
+            return;
+        }
+
         if (e.Args.Length == 2 && e.Args[0] == "--focus-worker-fixture")
         {
             Environment.Exit(FocusWorkerFixture.Run(e.Args[1]));

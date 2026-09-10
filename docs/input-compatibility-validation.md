@@ -18,3 +18,25 @@
 - 真实 VS Code 1.137.0：北京时间 04:15:48.672 单击标题栏搜索入口后，修复版生产 worker 返回 ListItem / Editable / SearchInputRelationship，HasKeyboardFocus=true；未进行双击。这是生产识别证据，实际按钮与输入将在整合验证补充。
 - 完整 `scripts/build.ps1 -SkipPackage`：Release 0 警告/错误，Core 296、Windows 280、Integration 100，共 676 项通过，0 跳过。
 - UIA 未暴露这种关系的其他组合控件仍保持保守拒绝；未证明所有 Chromium/ARIA 组合控件都使用同一关系。独立主审查待完成。
+
+## 补充原生输入矩阵
+
+`InputCompatibilityTests` 在一个 TestHost 窗口中顺序切换 9 个合成控件，每个场景使用新生产 worker，验证真实 HWND/UIA 和前台焦点。只输出类型、判定、原因码，不读写用户内容。
+
+| 场景 | 真实 UIA 类型 | 判定 / 证据 |
+|---|---|---|
+| NumericUpDown | Edit 子项 | Editable / ValuePattern |
+| 只读 NumericUpDown | Edit 子项 | NotEditable / ReadOnly |
+| MaskedTextBox | Edit | Editable / ValuePattern |
+| 可编辑 ComboBox | Edit 子项 | Editable / ValuePattern |
+| 仅选项 ComboBox | ComboBox | NotEditable / NoEditableEvidence |
+| RichTextBox | Document | Editable / CaretEvidence |
+| 只读 RichTextBox | Document | NotEditable / ReadOnly |
+| TrackBar | Other | NotEditable / NoEditableEvidence |
+| ListBox 项 | ListItem | NotEditable / NoEditableEvidence |
+
+- 初版逐个启动测试窗口时，完整门禁有 7 项因未取得前台焦点超时；附加诊断确认实际采到窗口管理器的 Pane，而非预期 TestHost。改为复用窗口、stdin/ready 握手，在测试夹具中建立前台前提后，九场景均通过；没有删除场景或放宽可编辑断言。
+- 本次补充证明原生复合控件的真实 Edit 子项与富文本 caret 路径已覆盖；没有仅凭控件名称扩大规则。现代数值 Spinner 和搜索代理关系分别由前述两项修复补齐。
+- 同时补齐 SearchInputRelationship 的应用诊断映射，新增回归先确认旧映射错误返回 ElementInvalid，再修复。
+- 最终完整 `scripts/build.ps1 -SkipPackage`：Release 0 警告/错误，Core 296、Windows 280、Integration 102，共 678 个测试通过，0 跳过。其中一个集成测试完整验证上述九个场景。TestHost `--selftest`：WPF 31、WinForms 36，均退出 0。
+- 矩阵运行命令见 README。尚未覆盖的提供程序包括自绘画布、游戏/终端、远程桌面、特定 Office 单元格原位编辑，以及不暴露可写值/caret/关系的网页编辑器；不根据窗口标题或应用名直接放行。

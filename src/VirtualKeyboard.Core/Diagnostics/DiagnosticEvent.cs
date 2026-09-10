@@ -101,6 +101,7 @@ public enum ReasonCode
     IoError,
     Cancelled,
     Unknown,
+    SearchInputRelationship,
 }
 
 /// <summary>

@@ -21,6 +21,7 @@ public sealed class FocusRecoveryDiagnosticsTests
 
     [Theory]
     [InlineData(Editability.Editable, ClassificationReasonCode.ValuePattern, ReasonCode.ValuePattern, false)]
+    [InlineData(Editability.Editable, ClassificationReasonCode.SearchInputRelationship, ReasonCode.SearchInputRelationship, false)]
     [InlineData(Editability.NotEditable, ClassificationReasonCode.ReadOnly, ReasonCode.ReadOnly, false)]
     [InlineData(Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled, ReasonCode.NoFocusOrDisabled, false)]
     [InlineData(Editability.Unknown, ClassificationReasonCode.TextPatternOnly, ReasonCode.TextPatternOnly, true)]

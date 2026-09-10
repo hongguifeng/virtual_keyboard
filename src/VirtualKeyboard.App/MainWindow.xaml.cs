@@ -416,6 +416,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             ClassificationReasonCode.ReadOnly => ReasonCode.ReadOnly,
             ClassificationReasonCode.PasswordEdit => ReasonCode.PasswordEdit,
             ClassificationReasonCode.ValuePattern => ReasonCode.ValuePattern,
+            ClassificationReasonCode.SearchInputRelationship => ReasonCode.SearchInputRelationship,
             ClassificationReasonCode.TextEditPattern => ReasonCode.TextEditPattern,
             ClassificationReasonCode.CaretEvidence => ReasonCode.CaretEvidence,
             ClassificationReasonCode.TextPatternOnly => ReasonCode.TextPatternOnly,
