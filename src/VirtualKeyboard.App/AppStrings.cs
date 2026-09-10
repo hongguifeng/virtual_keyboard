@@ -24,6 +24,9 @@ internal sealed class AppStrings
     internal string Transparency => Chinese ? "透明程度" : "Transparency";
     internal string LayoutId => Chinese ? "布局 ID" : "Layout ID";
     internal string CustomKeys => Chinese ? "自定义按键（最多 12 个）" : "Custom keys (up to 12)";
+    internal string CustomKeyLocation => Chinese ? "显示位置" : "Location";
+    internal string KeyboardLocation => Chinese ? "键盘内" : "In keyboard";
+    internal string LauncherLocation => Chinese ? "悬浮按钮" : "Floating buttons";
     internal string Add => Chinese ? "添加" : "Add";
     internal string Delete => Chinese ? "删除" : "Delete";
     internal string KeyName => Chinese ? "按键名称" : "Key label";

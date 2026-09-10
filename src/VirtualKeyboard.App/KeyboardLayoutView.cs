@@ -382,7 +382,7 @@ internal sealed class NonFocusableKeyButton : Button
         return invoke;
     }
 
-    private void CancelGesture()
+    internal void CancelGesture()
     {
         _repeatTimer?.Stop();
         _repeat?.Cancel();

@@ -440,9 +440,11 @@ T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` �
 - 拖动手柄和按键区域使用不同命中区。
 - 关闭、设置等系统按键不进入 InputInjectionService。
 
-REL-032 的 `KeyboardLauncherWindow` 是单独的 40×40 DIP 无边框窗口，只有一个不可聚焦按钮；复用 `OverlayWindowAdapter` 的 `WS_EX_NOACTIVATE`、`WS_EX_TOOLWINDOW`、`MA_NOACTIVATE` 和 `SWP_NOACTIVATE`，不可拖动或缩放。MainWindow 统一管理两窗口的互斥显示、目标绑定和销毁。点击只请求展开，不发送输入；先通过 `TargetSessionValidator` 校验工作进程健康、前台、焦点和 RuntimeId，再核对按钮绑定的 SessionId、最新快照版本及协调器版本。失败清会话并隐藏按钮；发送键盘输入时仍执行原有独立校验。
+REL-032 的 `KeyboardLauncherWindow` 是独立的无边框窗口，REL-033 将它扩展为水平按钮行：左侧展开按钮、右侧最多 12 个 `NonFocusableKeyButton` 自定义按钮，共用 40×40 DIP 样式和 4 DIP 间距，`Viewbox` 在小工作区内将整行等比缩小。文字标签截断时通过 ToolTip 显示完整标签，不显示动作中的输入文本。复用 `OverlayWindowAdapter` 的 `WS_EX_NOACTIVATE`、`WS_EX_TOOLWINDOW`、`MA_NOACTIVATE` 和 `SWP_NOACTIVATE`，不可拖动或手动缩放。MainWindow 统一管理两窗口的互斥显示、目标绑定和销毁。
 
-按钮复用现有 caret/selection/控件边界锚点和四方向工作区定位，使用用户 margin，不预留完整键盘的 96 DIP IME 间距，也不沿用手动键盘位置。`WM_DPICHANGED` 按新 DPI 重算 40 DIP 尺寸并 Clamp 到工作区，保持键盘配置宽高不变。目标失效时按钮始终隐藏，键盘仍按 `autoHide` 处理。设置期间隐藏两窗口，退出时释放按钮 HWND 和 Overlay hook。
+展开按钮只请求展开。自定义按钮事件携带显示时的 SessionId、不可变 KeyViewModel 和重复标记，按压与 Backspace 重复沿用原有控件行为。MainWindow 共用 `GetLauncherSession` 校验工作进程健康、前台、焦点、RuntimeId、绑定会话、最新快照版本及协调器状态；自定义动作再交给原有有界 `InputInjectionService` 和 `LayoutActionDispatcher`，在实际发送前重新校验。不会将旧事件绑定到新会话，不改变 `LauncherTracking` 状态；密码目标隐藏全部自定义按钮且分发再次拒绝。每次重新加载或隐藏时递增呈现代际、取消手势及重复定时器、释放鼠标/触摸捕获，旧按钮回调因代际不匹配失效。失败通过非聚焦 ToolTip 显示固定的本地化结果，4 秒后清除；成功、切换目标、隐藏和销毁时同步关闭，不回显动作文本。
+
+按钮复用现有 caret/selection/控件边界锚点和四方向工作区定位，使用用户 margin，不预留完整键盘的 96 DIP IME 间距，也不沿用手动键盘位置。`WM_DPICHANGED` 按新 DPI 和可见自定义按钮数量重算整行物理像素尺寸，工作区不足时统一等比约束至工作区的 95%，再 Clamp 位置，保持键盘配置宽高不变。目标失效时按钮始终隐藏，键盘仍按 `autoHide` 处理。设置期间隐藏两窗口，退出时释放按钮 HWND、定时器和 Overlay hook。
 
 ## 11. 定位与 DPI 设计
 
@@ -717,6 +719,7 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
   "autoShow": true,
   "autoHide": true,
   "showLauncherButton": false,
+  "launcherCustomKeys": [],
   "opacity": 0.9,
   "keyboardWidthDip": 800,
   "keyboardHeightDip": 300,
@@ -731,6 +734,8 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
 ### 14.3 读写策略
 
 REL-032 增加 schema v1 可选布尔字段 `showLauncherButton`，缺失默认 false；非布尔值（含显式 null）按无效配置恢复。设置窗口在自动显示项下提供中英双语开关，关闭自动显示后禁用控件但保留选择。配置原子保存、设置重开、启停、尺寸保存和自启镜像同步/回滚均保留该字段，保存后下次焦点评估使用新值。
+
+REL-033 增加 schema v1 可选列表 `launcherCustomKeys` / `KeyboardConfiguration.LauncherCustomKeys`，缺失或 null 按空列表加载；空元素、缺必需字段、类型错误及非法动作按无效配置恢复。与 `customKeys` 分别保存不可变快照、分别最多 12 项，共用 `CustomKeyConfiguration` 的 32/256 长度限制和 text/key/hotkey/chord 白名单，错误路径区分两组且不回显内容。所有配置复制路径保留两组，包括设置保存、自启镜像同步/回滚、启停和键盘尺寸保存。设置使用“显示位置”选择器切换同一个编辑器的两组 ObservableCollection，切换前提交编辑并停止录制；两组独立增删，切换语言保留位置选择。录制按钮宽度随本地化文字自动调整。
 
 1. 启动时读取并按 schemaVersion 迁移。
 2. 对字段执行范围校验，未知字段按前向兼容策略保留或忽略。

@@ -5,6 +5,39 @@ namespace VirtualKeyboard.Core.Tests.Configuration;
 
 public sealed class ConfigurationValidatorTests
 {
+    [Theory]
+    [InlineData("command", "run")]
+    [InlineData("script", "run")]
+    [InlineData("modifier", "Control")]
+    [InlineData("key", "UnlistedKey")]
+    [InlineData("text", "")]
+    public void LauncherCustomKeysUseExistingActionWhitelist(string type, string input)
+    {
+        var configuration = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "layout", ManualPositionMode.UntilTargetChanges, false, launcherCustomKeys: [new("Button", type, input)]);
+        var result = ConfigurationValidator.Validate(configuration);
+        Assert.False(result.IsValid);
+        Assert.All(result.Errors, error => Assert.StartsWith("$.launcherCustomKeys[0]", error.Path, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void LauncherCustomKeysHaveIndependentCountAndLengthLimits()
+    {
+        CustomKeyConfiguration[] keyboardKeys = Enumerable.Range(0, 12).Select(_ => new CustomKeyConfiguration("Key", "key", "Enter")).ToArray();
+        var valid = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "layout", ManualPositionMode.UntilTargetChanges, false, keyboardKeys, launcherCustomKeys: keyboardKeys);
+        Assert.True(ConfigurationValidator.Validate(valid).IsValid);
+        var tooMany = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "layout", ManualPositionMode.UntilTargetChanges, false, launcherCustomKeys: keyboardKeys.Append(keyboardKeys[0]));
+        Assert.Contains(ConfigurationValidator.Validate(tooMany).Errors, error => error.Path == "$.launcherCustomKeys");
+        var tooLong = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "layout", ManualPositionMode.UntilTargetChanges, false, launcherCustomKeys: [new(new('L', 33), "text", new('T', 257))]);
+        var result = ConfigurationValidator.Validate(tooLong);
+        Assert.Contains(result.Errors, error => error.Path == "$.launcherCustomKeys[0].label");
+        Assert.Contains(result.Errors, error => error.Path == "$.launcherCustomKeys[0].input");
+        Assert.DoesNotContain(result.Errors, error => error.Message.Contains(new string('T', 257), StringComparison.Ordinal));
+    }
+
     private static readonly string[] EmptyChord = [];
     private static readonly string[] DuplicateChord = ["LeftWindows", "Tab", "tab"];
     private static readonly string[] UnknownChord = ["LeftWindows", "Power"];

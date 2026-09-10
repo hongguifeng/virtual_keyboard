@@ -57,7 +57,8 @@ public sealed class KeyboardConfiguration
         IEnumerable<CustomKeyConfiguration>? customKeys = null,
         UiLanguage uiLanguage = UiLanguage.English,
         bool autoStart = false,
-        bool showLauncherButton = false)
+        bool showLauncherButton = false,
+        IEnumerable<CustomKeyConfiguration>? launcherCustomKeys = null)
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -74,6 +75,7 @@ public sealed class KeyboardConfiguration
         UiLanguage = uiLanguage;
         AutoStart = autoStart;
         ShowLauncherButton = showLauncherButton;
+        LauncherCustomKeys = Array.AsReadOnly((launcherCustomKeys ?? []).ToArray());
     }
 
     public int SchemaVersion { get; }
@@ -90,6 +92,7 @@ public sealed class KeyboardConfiguration
     public ManualPositionMode ManualPositionMode { get; }
     public bool DetailedDiagnostics { get; }
     public IReadOnlyList<CustomKeyConfiguration> CustomKeys { get; }
+    public IReadOnlyList<CustomKeyConfiguration> LauncherCustomKeys { get; }
     public UiLanguage UiLanguage { get; }
 
     /// <summary>当前用户开机自启（FR-APP-004；默认 false，首启绝不自动启用）。镜像 Windows 当前用户 Run 键的真实状态。</summary>
@@ -156,21 +159,26 @@ public static class ConfigurationValidator
         {
             Add(errors, "$.uiLanguage", "config.uiLanguage", "The UI language is not supported.");
         }
-        if (configuration.CustomKeys.Count > ConfigurationSchemaLimits.MaximumCustomKeys)
-        {
-            Add(errors, "$.customKeys", "config.customKeysCount", $"Custom keys cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeys} items.");
-        }
-        for (int index = 0; index < Math.Min(configuration.CustomKeys.Count, ConfigurationSchemaLimits.MaximumCustomKeys); index++)
-        {
-            ValidateCustomKey(configuration.CustomKeys[index], index, errors);
-        }
+        ValidateCustomKeys(configuration.CustomKeys, "$.customKeys", errors);
+        ValidateCustomKeys(configuration.LauncherCustomKeys, "$.launcherCustomKeys", errors);
 
         return new(errors);
     }
 
-    private static void ValidateCustomKey(CustomKeyConfiguration key, int index, List<ConfigurationValidationError> errors)
+    private static void ValidateCustomKeys(IReadOnlyList<CustomKeyConfiguration> keys, string path, List<ConfigurationValidationError> errors)
     {
-        string path = $"$.customKeys[{index}]";
+        if (keys.Count > ConfigurationSchemaLimits.MaximumCustomKeys)
+        {
+            Add(errors, path, "config.customKeysCount", $"Custom keys cannot exceed {ConfigurationSchemaLimits.MaximumCustomKeys} items.");
+        }
+        for (int index = 0; index < Math.Min(keys.Count, ConfigurationSchemaLimits.MaximumCustomKeys); index++)
+        {
+            ValidateCustomKey(keys[index], $"{path}[{index}]", errors);
+        }
+    }
+
+    private static void ValidateCustomKey(CustomKeyConfiguration key, string path, List<ConfigurationValidationError> errors)
+    {
         if (string.IsNullOrWhiteSpace(key.Label) || key.Label.Length > ConfigurationSchemaLimits.MaximumCustomKeyLabelLength)
         {
             Add(errors, $"{path}.label", "config.customKeyLabel", $"Custom key label must contain between 1 and {ConfigurationSchemaLimits.MaximumCustomKeyLabelLength} characters.");

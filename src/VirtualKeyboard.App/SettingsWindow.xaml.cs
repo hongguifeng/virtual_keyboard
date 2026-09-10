@@ -16,6 +16,7 @@ public partial class SettingsWindow : Window, IDisposable
     private readonly ConfigurationRepository _repository;
     private readonly IAutoStartManager? _autoStart;
     private readonly ObservableCollection<CustomKeyEditorItem> _customKeys = [];
+    private readonly ObservableCollection<CustomKeyEditorItem> _launcherCustomKeys = [];
     private readonly KeyboardChordRecorder _chordRecorder = new();
     private CustomKeyEditorItem? _editingItem;
     private bool _loadingEditor;
@@ -48,7 +49,9 @@ public partial class SettingsWindow : Window, IDisposable
                 key.Label, key.ActionType, key.Input, key.Modifiers)),
             SelectedLanguage(),
             AutoStartCheckBox.IsChecked == true,
-            ShowLauncherButtonCheckBox.IsChecked == true);
+            ShowLauncherButtonCheckBox.IsChecked == true,
+            _launcherCustomKeys.Select(static key => new CustomKeyConfiguration(
+                key.Label, key.ActionType, key.Input, key.Modifiers)));
     }
 
     internal bool ApplyRecordedChordForTest(params WindowsKeyboardKey[] keys) =>
@@ -74,6 +77,11 @@ public partial class SettingsWindow : Window, IDisposable
         foreach (CustomKeyConfiguration key in configuration.CustomKeys)
         {
             _customKeys.Add(new(key.Label, key.ActionType, key.Input, key.Modifiers));
+        }
+        _launcherCustomKeys.Clear();
+        foreach (CustomKeyConfiguration key in configuration.LauncherCustomKeys)
+        {
+            _launcherCustomKeys.Add(new(key.Label, key.ActionType, key.Input, key.Modifiers));
         }
         CustomKeysList.SelectedIndex = _customKeys.Count > 0 ? 0 : -1;
         LoadEditor(CustomKeysList.SelectedItem as CustomKeyEditorItem);
@@ -127,7 +135,7 @@ public partial class SettingsWindow : Window, IDisposable
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
             current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
-            autoStart: !wanted, showLauncherButton: current.ShowLauncherButton));
+            autoStart: !wanted, showLauncherButton: current.ShowLauncherButton, launcherCustomKeys: current.LauncherCustomKeys));
         AutoStartCheckBox.IsChecked = !wanted;
     }
 
@@ -136,9 +144,9 @@ public partial class SettingsWindow : Window, IDisposable
         _ = sender;
         _ = e;
         CommitEditor();
-        if (_customKeys.Count >= ConfigurationSchemaLimits.MaximumCustomKeys) return;
+        if (SelectedCustomKeys.Count >= ConfigurationSchemaLimits.MaximumCustomKeys) return;
         var item = new CustomKeyEditorItem(_strings.NewCustomKey, LayoutActionTypes.Text, string.Empty, []);
-        _customKeys.Add(item);
+        SelectedCustomKeys.Add(item);
         CustomKeysList.SelectedItem = item;
         CustomKeysList.ScrollIntoView(item);
     }
@@ -148,10 +156,22 @@ public partial class SettingsWindow : Window, IDisposable
         _ = sender;
         _ = e;
         if (CustomKeysList.SelectedItem is not CustomKeyEditorItem item) return;
-        int index = _customKeys.IndexOf(item);
+        int index = SelectedCustomKeys.IndexOf(item);
         _editingItem = null;
-        _customKeys.Remove(item);
-        CustomKeysList.SelectedIndex = _customKeys.Count == 0 ? -1 : Math.Min(index, _customKeys.Count - 1);
+        SelectedCustomKeys.Remove(item);
+        CustomKeysList.SelectedIndex = SelectedCustomKeys.Count == 0 ? -1 : Math.Min(index, SelectedCustomKeys.Count - 1);
+    }
+
+    private ObservableCollection<CustomKeyEditorItem> SelectedCustomKeys =>
+        CustomKeyLocationComboBox.SelectedIndex == 1 ? _launcherCustomKeys : _customKeys;
+
+    private void OnCustomKeyLocationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomKeysList is null) return;
+        CommitEditor();
+        LoadEditor(null);
+        CustomKeysList.ItemsSource = SelectedCustomKeys;
+        CustomKeysList.SelectedIndex = SelectedCustomKeys.Count > 0 ? 0 : -1;
     }
 
     private void OnCustomKeySelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -313,6 +333,9 @@ public partial class SettingsWindow : Window, IDisposable
         TransparencyLabel.Content = _strings.Transparency;
         LayoutIdLabel.Content = _strings.LayoutId;
         CustomKeysGroup.Header = _strings.CustomKeys;
+        CustomKeyLocationLabel.Content = _strings.CustomKeyLocation;
+        KeyboardLocationItem.Content = _strings.KeyboardLocation;
+        LauncherLocationItem.Content = _strings.LauncherLocation;
         AddCustomKeyButton.Content = _strings.Add;
         DeleteCustomKeyButton.Content = _strings.Delete;
         KeyNameLabel.Content = _strings.KeyName;

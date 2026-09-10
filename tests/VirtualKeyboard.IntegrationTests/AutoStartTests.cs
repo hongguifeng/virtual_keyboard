@@ -84,11 +84,15 @@ public sealed class AutoStartTests
 
             checkBox.IsChecked = true;
             Find<CheckBox>(window, "ShowLauncherButtonCheckBox").IsChecked = true;
+            Find<ComboBox>(window, "CustomKeyLocationComboBox").SelectedIndex = 1;
+            Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Find<TextBox>(window, "CustomTextTextBox").Text = "launcher-only";
             Find<Button>(window, "SaveButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             // 注册表写入失败：回滚配置镜像 + 取消勾选 + 显示受控警告（保持 镜像=注册表 不变量）
             Assert.False(fixture.Repository.Current.AutoStart);
             Assert.True(fixture.Repository.Current.ShowLauncherButton);
+            Assert.Equal("launcher-only", Assert.Single(fixture.Repository.Current.LauncherCustomKeys).Input);
             Assert.False(checkBox.IsChecked);
             Assert.Equal("Could not apply the auto-start setting", Find<TextBlock>(window, "StatusText").Text);
         });
@@ -102,12 +106,14 @@ public sealed class AutoStartTests
             using var fixture = new Fixture();
             var fake = new FakeAutoStartManager { RegistryEnabled = true };
             Assert.True(fixture.Repository.Save(new(1, true, true, true, 0.9, 800, 300, 8,
-                "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false, showLauncherButton: true)).IsSaved);
+                "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false, showLauncherButton: true,
+                launcherCustomKeys: [new("Enter", "key", "Enter")])).IsSaved);
             using var window = new MainWindow(new UnusedCapture(), new TargetSessionStore(), fixture.Repository, fake);
 
             // 配置默认关闭，注册表已启用（外部启用）→ 启动时把镜像更新为注册表事实
             Assert.True(fixture.Repository.Current.AutoStart);
             Assert.True(fixture.Repository.Current.ShowLauncherButton);
+            Assert.Equal("Enter", Assert.Single(fixture.Repository.Current.LauncherCustomKeys).Input);
             using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
             Assert.True(json.RootElement.GetProperty("autoStart").GetBoolean());
         });

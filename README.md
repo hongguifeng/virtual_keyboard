@@ -16,6 +16,7 @@ Virtual Keyboard is a lightweight floating keyboard for Windows. It appears next
 - Leaves room for IME candidate windows, including third-party Chinese input methods.
 - Can be moved and resized from its edges and corners.
 - Supports up to 12 custom text or recorded shortcut keys in columns to the right of the keyboard.
+- Supports a separate set of up to 12 floating custom buttons beside the equally sized keyboard launcher; actions run without opening the keyboard.
 - Offers an English or Simplified Chinese interface; English is the default.
 - Runs in the notification area and stores settings per Windows user.
 
@@ -54,6 +55,7 @@ The tray menu lets you pause or enable automatic behavior, show the keyboard, op
 - **Keep dragged position** can retain the position only for the current input field or across input fields.
 - **Start with Windows** launches the virtual keyboard at sign-in (current-user startup entry, no administrator required); off by default on first launch.
 - **Custom keys** can enter Unicode text or replay a recorded key combination such as `Win+Tab` or `Ctrl+Shift+S`. Press every key in the combination, then release all keys to finish recording.
+- Under **Custom keys → Location**, choose **Floating buttons**, then **Add**, set the label and action, and save. With automatic display and floating button mode enabled, these buttons appear to the right of the launcher. Each location has its own list of up to 12 keys. The row scales uniformly on small working areas; custom actions leave the keyboard collapsed.
 - **Detailed diagnostics** adds non-sensitive focus metadata to local logs. Input text, passwords, clipboard contents, UI Automation names, and values are never logged.
 
 Settings and logs are stored under `%LocalAppData%\VirtualKeyboard\`. Custom keys are hidden for password fields.

@@ -16,6 +16,63 @@ namespace VirtualKeyboard.IntegrationTests;
 public sealed class SettingsWindowTests
 {
     [Fact]
+    public void CustomKeyLocationsCommitEditsIndependentlyAndPersistBothLists()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            using var window = new SettingsWindow(fixture.Repository);
+            var location = Find<ComboBox>(window, "CustomKeyLocationComboBox");
+            var list = Find<ListBox>(window, "CustomKeysList");
+            Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Find<TextBox>(window, "CustomKeyLabelTextBox").Text = "Keyboard";
+            Find<TextBox>(window, "CustomTextTextBox").Text = "keyboard-only";
+            location.SelectedIndex = 1;
+            Assert.Empty(list.Items);
+            Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Find<TextBox>(window, "CustomKeyLabelTextBox").Text = "Floating";
+            Find<TextBox>(window, "CustomTextTextBox").Text = "floating-only";
+            location.SelectedIndex = 0;
+            Assert.Equal("Keyboard", Find<TextBox>(window, "CustomKeyLabelTextBox").Text);
+            location.SelectedIndex = 1;
+            Assert.Equal("floating-only", Find<TextBox>(window, "CustomTextTextBox").Text);
+            Find<ComboBox>(window, "LanguageComboBox").SelectedIndex = 1;
+            Assert.Equal("悬浮按钮", Find<ComboBoxItem>(window, "LauncherLocationItem").Content);
+            Assert.Equal(1, location.SelectedIndex);
+            Assert.True(fixture.Repository.Save(window.ReadConfiguration()).IsSaved);
+            using var reopened = new SettingsWindow(fixture.Repository);
+            Find<ComboBox>(reopened, "CustomKeyLocationComboBox").SelectedIndex = 1;
+            Assert.Equal("Floating", Find<TextBox>(reopened, "CustomKeyLabelTextBox").Text);
+            Find<Button>(reopened, "DeleteCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            KeyboardConfiguration remaining = reopened.ReadConfiguration();
+            Assert.Empty(remaining.LauncherCustomKeys);
+            Assert.Equal("keyboard-only", Assert.Single(remaining.CustomKeys).Input);
+        });
+    }
+
+    [Fact]
+    public void LauncherShortcutsCanBeRecordedAndSwitchingLocationCancelsRecording()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            using var window = new SettingsWindow(fixture.Repository);
+            var location = Find<ComboBox>(window, "CustomKeyLocationComboBox");
+            location.SelectedIndex = 1;
+            Find<Button>(window, "AddCustomKeyButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Find<ComboBox>(window, "CustomActionModeComboBox").SelectedIndex = 1;
+            Find<Button>(window, "RecordShortcutButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(window.ApplyRecordedChordForTest(WindowsKeyboardKey.Control, WindowsKeyboardKey.S));
+            Assert.Equal(["Control", "S"], Assert.Single(window.ReadConfiguration().LauncherCustomKeys).Modifiers);
+            Find<Button>(window, "RecordShortcutButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            location.SelectedIndex = 0;
+            Assert.False(window.ApplyRecordedChordForTest(WindowsKeyboardKey.Enter));
+            Assert.Empty(window.ReadConfiguration().CustomKeys);
+            Assert.Equal(["Control", "S"], Assert.Single(window.ReadConfiguration().LauncherCustomKeys).Modifiers);
+        });
+    }
+
+    [Fact]
     public void LauncherSettingLoadsSavesAndSwitchesLanguageWithoutLosingChoice()
     {
         RunOnStaThread(() =>
@@ -385,6 +442,7 @@ public sealed class SettingsWindowTests
             Find<ComboBox>(window, "LanguageComboBox"), Find<CheckBox>(window, "EnabledCheckBox"),
             Find<CheckBox>(window, "AutoShowCheckBox"), Find<CheckBox>(window, "AutoHideCheckBox"),
             Find<CheckBox>(window, "ShowLauncherButtonCheckBox"),
+            Find<ComboBox>(window, "CustomKeyLocationComboBox"),
             Find<TextBox>(window, "WidthTextBox"), Find<TextBox>(window, "HeightTextBox"),
             Find<TextBox>(window, "MarginTextBox"), Find<Slider>(window, "OpacitySlider"),
             Find<TextBox>(window, "LayoutIdTextBox"), Find<ListBox>(window, "CustomKeysList"),

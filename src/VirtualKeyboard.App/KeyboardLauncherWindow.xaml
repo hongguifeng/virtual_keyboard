@@ -4,10 +4,18 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowActivated="False" ShowInTaskbar="False" Topmost="True"
         ResizeMode="NoResize" Width="40" Height="40">
-    <Button x:Name="ExpandButton" Focusable="False" IsTabStop="False" Cursor="Hand"
-            Background="#2878F0" Foreground="White" BorderBrush="#75AEFF" BorderThickness="1"
-            Click="OnExpandClick">
-        <Button.Template>
+    <Window.Resources>
+      <Style x:Key="LauncherButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="#2878F0"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="#75AEFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="Button">
                 <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="11"
                         BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
@@ -22,7 +30,12 @@
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
-        </Button.Template>
+        </Setter.Value></Setter>
+      </Style>
+    </Window.Resources>
+    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+      <StackPanel x:Name="ButtonRow" Orientation="Horizontal">
+       <Button x:Name="ExpandButton" Style="{StaticResource LauncherButtonStyle}" Click="OnExpandClick">
         <Viewbox Width="24" Height="18" IsHitTestVisible="False">
             <Grid Width="24" Height="18">
                 <Rectangle RadiusX="3" RadiusY="3" Stroke="White" StrokeThickness="1.5"/>
@@ -31,5 +44,7 @@
                             M 5,9 L 6,9 M 9,9 L 10,9 M 13,9 L 14,9 M 17,9 L 19,9 M 7,13 L 17,13"/>
             </Grid>
         </Viewbox>
-    </Button>
+       </Button>
+      </StackPanel>
+    </Viewbox>
 </Window>

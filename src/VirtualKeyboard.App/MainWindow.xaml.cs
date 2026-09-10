@@ -53,8 +53,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
     }
 
-    internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository)
-        : this(targetCapture, targetSessions, configurationRepository, autoStart: null, createFileDiagnostics: false)
+    internal MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository,
+        Func<TargetSessionValidator, KeyboardController, LayoutActionDispatcher>? dispatcherFactory = null)
+        : this(targetCapture, targetSessions, configurationRepository, autoStart: null, createFileDiagnostics: false, dispatcherFactory)
     {
     }
 
@@ -63,7 +64,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
     }
 
-    private MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository, IAutoStartManager? autoStart, bool createFileDiagnostics)
+    private MainWindow(IForegroundTargetCapture targetCapture, TargetSessionStore targetSessions, ConfigurationRepository configurationRepository,
+        IAutoStartManager? autoStart, bool createFileDiagnostics,
+        Func<TargetSessionValidator, KeyboardController, LayoutActionDispatcher>? dispatcherFactory = null)
     {
         InitializeComponent();
         _overlay = new OverlayWindowAdapter(this);
@@ -97,7 +100,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         _keyboardController = new KeyboardController(capsLock);
         _hotkeySender = new HotkeyInputSender(_diagnostics);
         _inputQueue = new InputInjectionService();
-        _actionDispatcher = new LayoutActionDispatcher(
+        _actionDispatcher = dispatcherFactory?.Invoke(_targetValidator, _keyboardController) ?? new LayoutActionDispatcher(
             _targetValidator,
             _keyboardController,
             keySender,
@@ -251,7 +254,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             current.SchemaVersion, enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
             current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
-            current.AutoStart, current.ShowLauncherButton));
+            current.AutoStart, current.ShowLauncherButton, current.LauncherCustomKeys));
         if (!saved.IsSaved) _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
         _coordinator.SetEnabled(enabled);
         if (!enabled)
@@ -287,8 +290,23 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
 
     internal bool ExpandLauncher()
     {
+        TargetSession? session = GetLauncherSession(_launcherSessionId);
+        if (session is null || !_coordinator.UserShow(session.FocusVersion).Accepted) return false;
+        return ShowTargetOverlay(session, showLauncher: false);
+    }
+
+    private async void OnLauncherCustomKeyInvoked(object? sender, LauncherKeyInvokedEventArgs e)
+    {
+        TargetSession? session = GetLauncherSession(e.SessionId);
+        if (session is null || session.IsPassword) return;
+        await DispatchKeyAsync(session, e.Invocation, fromLauncher: true);
+    }
+
+    private TargetSession? GetLauncherSession(long expectedSessionId)
+    {
         if (_disposed || _launcher?.IsVisible != true || !_configurationRepository.Current.Enabled ||
-            _coordinator.State != TargetCoordinatorState.LauncherTracking) return false;
+            _coordinator.State != TargetCoordinatorState.LauncherTracking ||
+            expectedSessionId == 0 || expectedSessionId != _launcherSessionId) return null;
         TargetSession? session = _targetSessions.Current;
         if (session is null || session.SessionId != _launcherSessionId ||
             session.FocusVersion != _coordinator.LatestFocusVersion ||
@@ -296,15 +314,15 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             !_targetValidator.Validate(session.SessionId).IsValid)
         {
             ClearAutomaticTarget();
-            return false;
+            return null;
         }
-        if (!_coordinator.UserShow(session.FocusVersion).Accepted) return false;
-        return ShowTargetOverlay(session, showLauncher: false);
+        return session;
     }
 
     private void HideLauncher()
     {
         _launcherSessionId = 0;
+        _launcher?.ClearPresentation();
         _launcher?.Overlay.Hide();
     }
 
@@ -452,10 +470,10 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         KeyboardConfiguration configuration = _configurationRepository.Current;
         MonitorMetricsResult monitor = _monitorDpi.Capture(anchor, session.TopLevelHwnd);
         if (!monitor.IsCaptured) { ClearAutomaticTarget(); return false; }
-        DipSize size = showLauncher
-            ? new(KeyboardLauncherWindow.ButtonSizeDip, KeyboardLauncherWindow.ButtonSizeDip)
-            : new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip);
-        PhysicalPixelSize desired = monitor.Metrics!.DpiScale.ToPhysicalPixels(size);
+        int customKeyCount = session.IsPassword ? 0 : configuration.LauncherCustomKeys.Count;
+        PhysicalPixelSize desired = showLauncher
+            ? KeyboardLauncherWindow.GetPhysicalSize(customKeyCount, monitor.Metrics!.DpiScale, monitor.Metrics.WorkArea)
+            : monitor.Metrics!.DpiScale.ToPhysicalPixels(new(configuration.KeyboardWidthDip, configuration.KeyboardHeightDip));
         PlacementResult placement = PlacementService.Place(anchor, monitor.Metrics.WorkArea, desired,
             configuration.MarginDip * monitor.Metrics.DpiScale.ScaleX,
             showLauncher ? 0 : ImeCandidateClearanceDip * monitor.Metrics.DpiScale.ScaleY);
@@ -472,10 +490,12 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             {
                 _launcher = new KeyboardLauncherWindow();
                 _launcher.ExpandRequested += OnLauncherExpandRequested;
+                _launcher.CustomKeyInvoked += OnLauncherCustomKeyInvoked;
             }
             _launcherSessionId = session.SessionId;
             _launcher.Opacity = configuration.Opacity;
             _launcher.SetLanguage(configuration.UiLanguage);
+            _launcher.LoadKeys(configuration.LauncherCustomKeys, session.IsPassword, session.SessionId);
             overlay = _launcher.Overlay;
         }
         else
@@ -531,7 +551,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
             current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
-            autoStart: actual, showLauncherButton: current.ShowLauncherButton));
+            autoStart: actual, showLauncherButton: current.ShowLauncherButton, launcherCustomKeys: current.LauncherCustomKeys));
         if (saved.IsSaved && actual)
         {
             _diagnostics.Log(DiagnosticType.AutoStartSync, DiagnosticModule.Configuration);
@@ -552,6 +572,11 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
         _ = sender;
         TargetSession? session = _targetSessions.Current;
+        await DispatchKeyAsync(session, e, fromLauncher: false);
+    }
+
+    private async Task DispatchKeyAsync(TargetSession? session, KeyInvokedEventArgs e, bool fromLauncher)
+    {
         if (session?.IsPassword == true &&
             (!e.Key.SafeForPassword || !PasswordActionPolicy.Check(e.Key.Action).IsAllowed))
         {
@@ -585,6 +610,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             if (queued.Status == InputQueueStatus.Completed && queued.SendResult is { IsSuccess: true })
             {
                 TitleStatusText.Text = string.Empty;
+                if (fromLauncher && _launcherSessionId == session.SessionId) _launcher?.ShowFeedback(string.Empty);
                 return;
             }
 
@@ -597,6 +623,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             {
                 TitleStatusText.Text = AppStrings.For(_configurationRepository.Current.UiLanguage).QueueStopped;
             }
+            if (fromLauncher && _launcherSessionId == session.SessionId) _launcher?.ShowFeedback(TitleStatusText.Text);
         }
         finally
         {
@@ -678,7 +705,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             width, height, current.MarginDip, current.LayoutId, current.ManualPositionMode,
             current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
-            current.AutoStart, current.ShowLauncherButton));
+            current.AutoStart, current.ShowLauncherButton, current.LauncherCustomKeys));
         if (!saved.IsSaved)
         {
             _diagnostics.Log(DiagnosticType.ConfigSaveFailed, DiagnosticModule.Configuration, reason: ReasonCode.IoError);
@@ -714,6 +741,7 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
         if (_launcher is not null)
         {
             _launcher.ExpandRequested -= OnLauncherExpandRequested;
+            _launcher.CustomKeyInvoked -= OnLauncherCustomKeyInvoked;
             _launcher.Dispose();
         }
         _overlay.DpiChanged -= OnOverlayDpiChanged;

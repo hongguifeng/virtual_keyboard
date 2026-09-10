@@ -17,6 +17,7 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(ConfigurationLoadStatus.DefaultMissing, result.Status);
         Assert.Equal("builtin.qwerty.en-US", result.Configuration.LayoutId);
         Assert.False(result.Configuration.ShowLauncherButton);
+        Assert.Empty(result.Configuration.LauncherCustomKeys);
         Assert.Empty(result.Issues);
     }
 
@@ -72,6 +73,49 @@ public sealed class ConfigurationRepositoryTests
         Assert.Empty(loaded.Configuration.CustomKeys);
         Assert.Equal(UiLanguage.English, loaded.Configuration.UiLanguage);
         Assert.False(loaded.Configuration.ShowLauncherButton);
+        Assert.Empty(loaded.Configuration.LauncherCustomKeys);
+    }
+
+    [Fact]
+    public void LauncherCustomKeysRoundTripSeparatelyFromKeyboardKeys()
+    {
+        using var fixture = new Fixture();
+        var keys = new List<CustomKeyConfiguration>
+        {
+            new("Phrase", "text", "Hello 世界"), new("Enter", "key", "Enter"),
+            new("Save", "hotkey", "S", ["Control"]), new("Switch", "chord", "", ["Control", "Tab"]),
+        };
+        var configuration = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false,
+            customKeys: [new("Keyboard", "text", "keyboard-only")], launcherCustomKeys: keys);
+        keys.Clear();
+        Assert.Equal(4, configuration.LauncherCustomKeys.Count);
+        Assert.True(fixture.Repository.Save(configuration).IsSaved);
+        ConfigurationLoadResult loaded = fixture.Repository.Load();
+        Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
+        Assert.Equal("keyboard-only", Assert.Single(loaded.Configuration.CustomKeys).Input);
+        Assert.Equal(["text", "key", "hotkey", "chord"], loaded.Configuration.LauncherCustomKeys.Select(key => key.ActionType));
+        Assert.Equal("Hello 世界", loaded.Configuration.LauncherCustomKeys[0].Input);
+        Assert.Equal(["Control", "Tab"], loaded.Configuration.LauncherCustomKeys[3].Modifiers);
+        using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
+        Assert.Equal(4, json.RootElement.GetProperty("launcherCustomKeys").GetArrayLength());
+    }
+
+    [Theory]
+    [InlineData("[null]")]
+    [InlineData("[{}]")]
+    [InlineData("false")]
+    [InlineData("[{\"label\":\"Run\",\"actionType\":\"command\",\"input\":\"blocked\"}]")]
+    public void MalformedLauncherCustomKeysRecoverWithoutEchoingContent(string value)
+    {
+        using var fixture = new Fixture();
+        Assert.True(fixture.Repository.Save(ConfigurationDefaults.Create()).IsSaved);
+        string json = File.ReadAllText(fixture.ConfigurationFile);
+        File.WriteAllText(fixture.ConfigurationFile, json.Replace("\"launcherCustomKeys\": []", $"\"launcherCustomKeys\": {value}", StringComparison.Ordinal));
+        ConfigurationLoadResult result = fixture.Repository.Load();
+        Assert.Equal(ConfigurationLoadStatus.RecoveredInvalid, result.Status);
+        Assert.Empty(result.Configuration.LauncherCustomKeys);
+        Assert.DoesNotContain(result.Issues, issue => issue.Message.Contains("blocked", StringComparison.Ordinal));
     }
 
     [Theory]

@@ -275,6 +275,7 @@ public sealed class ConfigurationRepository
         public string? CustomKeyLabel { get; set; }
         public string? CustomKeyText { get; set; }
         public List<RawCustomKey?>? CustomKeys { get; set; }
+        public List<RawCustomKey?>? LauncherCustomKeys { get; set; }
         public UiLanguage? UiLanguage { get; set; }
         public bool? AutoStart { get; set; }
         public bool ShowLauncherButton { get; set; }
@@ -283,7 +284,8 @@ public sealed class ConfigurationRepository
         public bool HasAllRequiredValues => SchemaVersion.HasValue && Enabled.HasValue && AutoShow.HasValue && AutoHide.HasValue &&
             Opacity.HasValue && KeyboardWidthDip.HasValue && KeyboardHeightDip.HasValue && MarginDip.HasValue &&
             LayoutId is not null && ManualPositionMode.HasValue && DetailedDiagnostics.HasValue &&
-            (CustomKeys is null || CustomKeys.All(static key => key?.HasAllRequiredValues == true));
+            (CustomKeys is null || CustomKeys.All(static key => key?.HasAllRequiredValues == true)) &&
+            (LauncherCustomKeys is null || LauncherCustomKeys.All(static key => key?.HasAllRequiredValues == true));
 
         public KeyboardConfiguration ToConfiguration()
         {
@@ -297,7 +299,8 @@ public sealed class ConfigurationRepository
                 KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
                 ManualPositionMode!.Value, DetailedDiagnostics!.Value, customKeys,
                 UiLanguage ?? global::VirtualKeyboard.Core.Configuration.UiLanguage.English,
-                AutoStart ?? false, ShowLauncherButton);
+                AutoStart ?? false, ShowLauncherButton,
+                LauncherCustomKeys?.Select(static key => key!.ToConfiguration()));
         }
     }
 
