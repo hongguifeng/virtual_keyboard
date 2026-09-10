@@ -821,3 +821,13 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] 同步 FR-VIS-009、FR-CFG-001、AC-017、窗口/配置设计、双语 README 和使用指南。
 - [ ] 退出检查：独立主审查；完整浏览器、跨物理显示器、实体鼠标和实体触摸兼容矩阵。本次系统合成鼠标证据不替代物理设备门禁。
 - Review note：英文设置中原有“Keep dragged position”标签与选择框间距偏紧，留待单独布局修正；本任务未修改该行。
+
+### REL-029 补充调查：VS Code Quick Input 与 Spinner（2026-09-11）
+
+- [x] 按“打开搜索 → 单击输入区 → 双击同一输入区”独立复现 VS Code 1.137.0：单击期间持续 ListItem（50007），双击后 Edit（50004）/可写 ValuePattern 并显示悬浮按钮；333 行对照探针正常停止、无丢事件和读写错误。安装包 Quick Input 源码存在 aria-activedescendant 列表焦点代理，provider 内部双击机制尚未证实。
+- [x] 确认 WorkEnglish Coach 请求超时 InputNumber 的焦点类型为 Spinner（50016），可写 ValuePattern、无 TextPattern；产品已采用有效事件目标，但映射为 Other 后被 NoEditableEvidence 拒绝。补充 50 秒探针 183 行、正常停止、无丢事件和写入错误。
+- [x] 完整 `scripts/build.ps1 -SkipPackage` Release 构建 0 警告/错误，Core 277 + Windows 251 + Integration 100 = 628 项通过、0 跳过；TestHost 自检退出码 0。仅核对现有基线，未修改识别规则。
+- [x] 记录复现步骤、证据、首轮探针未正常停止的限制与建议修复边界，见 `docs/search-spinner-investigation.md`；同步双语 README 已知限制。
+- [ ] 单独实现 Spinner 类型与可写值证据支持，补齐安全门、协议与负例测试，并复验真实数值框。
+- [ ] 先以有界探针调查活动列表项与真实输入宿主的关联，再审查复合控件焦点语义和发送前校验；不得直接放行 ListItem/Other 或恢复子树遍历。
+- [ ] 退出检查：上述修复与现场验收完成、独立主审查通过。本轮为研究记录，两个产品缺陷仍未关闭。
