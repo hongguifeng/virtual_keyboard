@@ -322,6 +322,10 @@ REL-029 Spinner 修正：保留独立的 Spinner 类型，并通过工作进程�
 
 ### 8.4 目标会话建立
 
+REL-029 搜索代理焦点修正：`NativeSearchAutomation` 使用 Windows SDK 定义的只读 COM 接口前缀读取现代 UIA ControllerFor（30104）和 ARIA 列表弹出语义（30102），无第三方依赖。仅对有效 ListItem 进入 `SearchInputResolver`；最多 4 层 ControlView 祖先、每层 16 个直接子项、8 个关系，不执行 Descendants/FindAll。只接受唯一可写且有 TextPattern 的 Edit/ComboBox，要求同 PID、启用/可见/可聚焦/非密码、haspopup=listbox，以及 ControllerFor 与当前焦点的可见 List 祖先 RuntimeId 匹配。截断、歧义、异常和焦点变化返回无证据。查询运行在原有可终止 worker 的 MTA 内，COM 引用按本次采样释放；不记录 ARIA 字符串、Name、Value 或文本。
+
+快照与 TargetSession 新增可选 InputOwnerRuntimeId，真实焦点 RuntimeId/HasKeyboardFocus 不变。每次采集重新验证关系，等价快照比较含宿主身份；分类再次采集并核对宿主，Core 仅在 ListItem 和完整双身份及验证标记同时存在时返回 SearchInputRelationship。IPC 保留有界双身份；发送校验拒绝宿主丢失/替换，手动抑制与展开状态的目标身份也包含宿主。关系丢失使轮询产生新快照，旧会话不能继续发送。定位使用宿主物理像素边界；不主动设置焦点或模拟双击。
+
 T2.4 的 `NativeFocusAdapter` 是前台/GUI 线程原生信息的统一只读边界：一次捕获返回前台 HWND、进程/线程 ID、焦点 HWND、目标线程 HKL 和可选 caret 屏幕矩形。`GUITHREADINFO.rcCaret` 仅在 caret HWND 有效时通过 `ClientToScreen` 转换；无效矩形降级为空，API 或坐标转换失败返回 `NativeFocusStatus`，不会向协调器抛出原生加载异常，也不会调用任何激活 API。
 
 分类成功后：

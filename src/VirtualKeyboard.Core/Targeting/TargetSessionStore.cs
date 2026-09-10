@@ -50,7 +50,7 @@ public sealed class TargetSessionStore
                 focusHwnd,
                 snapshot.RuntimeId,
                 snapshot.IsPassword,
-                anchor);
+                anchor) { InputOwnerRuntimeId = snapshot.InputOwnerRuntimeId };
             Volatile.Write(ref _current, session);
             return session;
         }

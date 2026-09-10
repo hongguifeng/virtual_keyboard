@@ -65,6 +65,7 @@ public sealed class TargetSessionValidator
                 return TargetValidationResult.Invalid(TargetValidationStatus.FocusIdentityStale);
             if (identity.ProcessId != session.ProcessId || identity.TopLevelHwnd != session.TopLevelHwnd ||
                 identity.RuntimeId is null || !identity.RuntimeId.Equals(session.RuntimeId) ||
+                !Equals(identity.InputOwnerRuntimeId, session.InputOwnerRuntimeId) ||
                 !identity.HasKeyboardFocus || !identity.IsEnabled || identity.IsOffscreen)
                 return TargetValidationResult.Invalid(TargetValidationStatus.IdentityChangedRequiresReclassification);
         }

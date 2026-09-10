@@ -133,6 +133,7 @@ MVP 的目标是：
 - 元素必须有效、已启用并持有键盘焦点。
 - `ControlType.Edit` 或 Spinner 数值输入框上的 `ValuePattern.IsReadOnly == false` 是正向证据；其他非编辑控件不得仅凭 ValuePattern 判定为输入目标。
 - 可编辑 ComboBox（如带建议的搜索框）必须同时具有可写 ValuePattern 和 TextPattern 才作为正向证据；只提供选项或单一 Pattern 的下拉框不得因此触发。
+- 搜索组合控件把焦点代理给 ListItem 时，可在有界局部结构内识别唯一文本宿主：宿主必须可聚焦、启用、可见、非密码、具有可写 ValuePattern 和 TextPattern、声明列表弹出语义，并通过 UIA ControllerFor 指向焦点所属的可见列表。保留真实 ListItem 焦点身份，同时绑定宿主身份并在轮询、评估和发送校验中验证；仅相邻的编辑框不构成证据。
 - Spinner 数值输入框可使用可写 ValuePattern 作为正向证据，不要求 TextPattern；只有 RangeValuePattern 的数值调节控件不构成文本输入目标，不能因此提升 Slider 或其他类型。
 - Edit/Document 上的 `TextEditPattern` 是正向证据之一。
 - 可编辑的 Edit 控件和密码 Edit 控件可作为正向证据。

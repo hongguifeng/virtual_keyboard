@@ -6,6 +6,25 @@ namespace VirtualKeyboard.Windows.Tests;
 
 public sealed class TargetSessionValidatorTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SearchOwnerReplacementOrLossCancelsInputEvenIfListFocusIsUnchanged(bool replace)
+    {
+        var sessions = new TargetSessionStore();
+        var identities = new LatestFocusSnapshotStore();
+        var original = Focus(5, [1]) with { ControlType = FocusControlType.ListItem, InputOwnerRuntimeId = new([2]) };
+        var session = sessions.Replace(original, 101, null);
+        Assert.Equal(original.InputOwnerRuntimeId, session.InputOwnerRuntimeId);
+        identities.Publish(original with { Version = 6, InputOwnerRuntimeId = replace ? new([3]) : null });
+        var validator = new TargetSessionValidator(sessions, new StubCapture(Snapshot(42, 100, 101)), identities);
+        int sends = 0;
+        var sender = new ValidatedSingleKeyInputSender(validator,
+            _ => { sends++; return new(InputSendStatus.Succeeded, 2, 2, 0); });
+        Assert.Equal(InputSendStatus.TargetInvalid, sender.SendA(session.SessionId).Status);
+        Assert.Equal(0, sends);
+    }
+
     [Fact]
     public void UnhealthyObserverRejectsPreviouslyValidTargetWithoutSending()
     {

@@ -232,8 +232,8 @@ public sealed class TargetStateCoordinator
     private TargetStateTransition Rejected(TargetCoordinatorState previous) =>
         new(previous, _state, _latestFocusVersion, TargetCoordinatorAction.None, false);
 
-    private sealed record FocusTargetIdentity(int ProcessId, nint TopLevelHwnd, RuntimeIdentity? RuntimeId)
+    private sealed record FocusTargetIdentity(int ProcessId, nint TopLevelHwnd, RuntimeIdentity? RuntimeId, RuntimeIdentity? InputOwnerRuntimeId)
     {
-        public static FocusTargetIdentity From(FocusSnapshot snapshot) => new(snapshot.ProcessId, snapshot.TopLevelHwnd, snapshot.RuntimeId);
+        public static FocusTargetIdentity From(FocusSnapshot snapshot) => new(snapshot.ProcessId, snapshot.TopLevelHwnd, snapshot.RuntimeId, snapshot.InputOwnerRuntimeId);
     }
 }

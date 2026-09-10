@@ -343,6 +343,7 @@ public sealed class FocusObservationService : IDisposable
         return left.ProcessId == right.ProcessId &&
             left.TopLevelHwnd == right.TopLevelHwnd &&
             Equals(left.RuntimeId, right.RuntimeId) &&
+            Equals(left.InputOwnerRuntimeId, right.InputOwnerRuntimeId) &&
             left.ControlType == right.ControlType &&
             left.HasKeyboardFocus == right.HasKeyboardFocus &&
             left.IsEnabled == right.IsEnabled &&
@@ -413,7 +414,9 @@ internal sealed class SystemFocusSnapshotSource(FocusSnapshotFactory factory) : 
         CapturedElement = element;
         UsedEventTarget = fromEvent;
         UsedFallback = fallback;
-        return element is not null && factory.TryCreate(element, out FocusSnapshot? snapshot) ? snapshot : null;
+        if (element is null || !factory.TryCreate(element, out FocusSnapshot? snapshot)) return null;
+        var owner = SearchInputResolver.Capture(snapshot!);
+        return snapshot! with { InputOwnerRuntimeId = owner?.Identity };
     }
 }
 

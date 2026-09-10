@@ -20,6 +20,7 @@ public enum ClassificationReasonCode
     CaretEvidence,
     TextPatternOnly,
     NoEditableEvidence,
+    SearchInputRelationship,
 }
 
 public readonly record struct EditabilityEvidence(
@@ -29,7 +30,8 @@ public readonly record struct EditabilityEvidence(
     bool IsTextEditPatternAvailable,
     bool IsTextPatternAvailable,
     PhysicalPixelRect? CaretRectangle,
-    nint CaretOwnerHwnd);
+    nint CaretOwnerHwnd,
+    bool HasVerifiedSearchInput = false);
 
 public readonly record struct ClassificationResult(
     long Version,
@@ -48,6 +50,10 @@ public static class EditabilityClassifier
             return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled);
         if (evidence.IsValuePatternAvailable && evidence.IsValueReadOnly)
             return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.ReadOnly);
+        if (snapshot.ControlType == FocusControlType.ListItem && !snapshot.IsPassword &&
+            snapshot.RuntimeId is { Count: > 0 and <= 64 } && snapshot.InputOwnerRuntimeId is { Count: > 0 and <= 64 } &&
+            evidence.HasVerifiedSearchInput)
+            return Result(snapshot, Editability.Editable, ClassificationReasonCode.SearchInputRelationship);
         if (snapshot.IsPassword && snapshot.ControlType == FocusControlType.Edit)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.PasswordEdit);
         // A Spinner may expose writable text through ValuePattern without TextPattern.

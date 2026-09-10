@@ -14,7 +14,7 @@ public sealed class FocusSnapshotFactoryTests
     {
         Assert.Equal(FocusControlType.ComboBox, FocusSnapshotFactory.MapControlType(ControlType.ComboBox));
         Assert.Equal(FocusControlType.Edit, FocusSnapshotFactory.MapControlType(ControlType.Edit));
-        Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
+        Assert.Equal(FocusControlType.ListItem, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public sealed class FocusSnapshotFactoryTests
     {
         Assert.Equal(FocusControlType.Spinner, FocusSnapshotFactory.MapControlType(ControlType.Spinner));
         Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.Slider));
-        Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
+        Assert.Equal(FocusControlType.ListItem, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
     }
 
     [Fact]

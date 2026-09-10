@@ -65,8 +65,18 @@ public sealed class FocusTargetEvaluator
             if (!_evidence.TryCreate(element, snapshot, caret, native.Snapshot.TopLevelHwnd, out EditabilityEvidence evidence))
                 return Failure(snapshot, FocusTargetEvaluationStatus.EvidenceUnavailable, usedFallback);
 
+            SearchInputOwner? owner = null;
+            if (snapshot.InputOwnerRuntimeId is not null)
+            {
+                owner = SearchInputResolver.Capture(snapshot);
+                if (owner is null || !owner.Identity.Equals(snapshot.InputOwnerRuntimeId) ||
+                    !FocusedElementResolver.IsCurrentEventTarget(element))
+                    return Failure(snapshot, FocusTargetEvaluationStatus.IdentityMismatch, usedFallback);
+                evidence = evidence with { HasVerifiedSearchInput = true };
+            }
+
             ClassificationResult classification = EditabilityClassifier.Classify(evidence);
-            PhysicalPixelRect? bounds = ToPhysicalRect(current.BoundingRectangle);
+            PhysicalPixelRect? bounds = owner?.Bounds ?? ToPhysicalRect(current.BoundingRectangle);
             PhysicalPixelRect? anchor = caret is { IsValid: true } ? caret : bounds;
             return new(FocusTargetEvaluationStatus.Evaluated, snapshot, classification, native.Snapshot.FocusHwnd, anchor, usedFallback);
         }

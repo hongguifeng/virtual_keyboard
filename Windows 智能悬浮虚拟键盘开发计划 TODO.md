@@ -838,3 +838,11 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] 新增分类正负例、映射与工作进程协议测试；先确认旧分类失败，再完成修复。完整 Release 构建 0 警告/错误，285 + 253 + 100 = 638 项自动测试通过。
 - [x] 修复版生产检测进程在 WorkEnglish Coach 真实数值框得到 Spinner / Editable / ValuePattern；同步 FR-FOC-003、设计 8.2/8.3、双语 README 和 `docs/input-compatibility-validation.md`。
 - [ ] 退出检查：整合版实际悬浮显示与输入复验；独立主审查。
+
+### REL-029 搜索代理焦点修复（2026-09-11）
+
+- [x] 原生 UIA 确认 VS Code 输入宿主 ControllerFor 与焦点列表祖先关系及 haspopup=listbox；使用有界局部解析，保留真实列表焦点和独立宿主身份，不伪造 HasKeyboardFocus。
+- [x] 每次轮询、分类重新验证关系；IPC 保留双身份，发送校验拒绝宿主丢失/替换，展开与手动抑制身份包含宿主。无关联、歧义、截断、只读/禁用/离屏/密码和焦点变化均拒绝。
+- [x] 测试先失败后通过；完整 Release 构建 0 警告/错误，296 + 280 + 100 = 676 项通过，0 跳过。真实 VS Code 单击搜索入口后生产 worker 返回 ListItem / Editable / SearchInputRelationship。
+- [x] 同步 FR-FOC-003、设计 8.4、双语 README 和兼容性验证记录。
+- [ ] 退出检查：整合版实际显示/输入、补充常见输入控件矩阵；独立主审查。

@@ -11,7 +11,11 @@ public sealed record FocusSnapshot(
     bool HasKeyboardFocus,
     bool IsEnabled,
     bool IsOffscreen,
-    bool IsPassword);
+    bool IsPassword)
+{
+    /// <summary>Verified text owner of a focused search suggestion; never replaces the real focus identity.</summary>
+    public RuntimeIdentity? InputOwnerRuntimeId { get; init; }
+}
 
 public enum FocusControlType
 {
@@ -26,6 +30,7 @@ public enum FocusControlType
     Other,
     ComboBox,
     Spinner,
+    ListItem,
 }
 
 /// <summary>Immutable copy of a UI Automation runtime identifier.</summary>

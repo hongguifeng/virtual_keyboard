@@ -11,4 +11,7 @@ public sealed record TargetSession(
     nint FocusHwnd,
     RuntimeIdentity? RuntimeId,
     bool IsPassword,
-    PhysicalPixelRect? Anchor);
+    PhysicalPixelRect? Anchor)
+{
+    public RuntimeIdentity? InputOwnerRuntimeId { get; init; }
+}

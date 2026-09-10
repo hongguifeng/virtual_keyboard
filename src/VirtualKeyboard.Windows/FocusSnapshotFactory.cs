@@ -80,6 +80,7 @@ internal sealed class FocusSnapshotFactory
     {
         if (controlType == ControlType.ComboBox) return FocusControlType.ComboBox;
         if (controlType == ControlType.Spinner) return FocusControlType.Spinner;
+        if (controlType == ControlType.ListItem) return FocusControlType.ListItem;
         if (controlType == ControlType.Edit) return FocusControlType.Edit;
         if (controlType == ControlType.Document) return FocusControlType.Document;
         if (controlType == ControlType.Button) return FocusControlType.Button;

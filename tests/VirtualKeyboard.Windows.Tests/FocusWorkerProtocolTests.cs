@@ -9,6 +9,24 @@ namespace VirtualKeyboard.Windows.Tests;
 
 public sealed class FocusWorkerProtocolTests
 {
+    [Fact]
+    public void SearchCompositeRoundTripPreservesBothIdentities()
+    {
+        var snapshot = new FocusSnapshot(1, DateTimeOffset.UtcNow, 42, 100, new([1]),
+            FocusControlType.ListItem, true, true, false, false) { InputOwnerRuntimeId = new([2]) };
+        var result = FocusWorkerResult.From(new(DateTimeOffset.UtcNow, 1, snapshot),
+            new(FocusTargetEvaluationStatus.Evaluated, snapshot,
+                new(1, Editability.Editable, ClassificationReasonCode.SearchInputRelationship, false), 101, null), 1, 0);
+        var parsed = FocusWorkerPacket.Parse(JsonSerializer.Serialize(new FocusWorkerPacket(1, 1, 1, 1, result, 0)));
+        var restored = parsed.Result!.ToEvaluation(2).Snapshot;
+        Assert.Equal(snapshot.RuntimeId, restored.RuntimeId);
+        Assert.Equal(snapshot.InputOwnerRuntimeId, restored.InputOwnerRuntimeId);
+        Assert.False((result with { InputOwnerRuntimeId = new int[65] }).IsValid);
+        Assert.False((result with { InputOwnerRuntimeId = [] }).IsValid);
+        Assert.False((result with { ControlType = FocusControlType.Other }).IsValid);
+        Assert.False((result with { IsPassword = true }).IsValid);
+    }
+
     [Theory]
     [InlineData(FocusControlType.ComboBox)]
     [InlineData(FocusControlType.Spinner)]
