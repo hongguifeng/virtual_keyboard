@@ -17,6 +17,12 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        if (e.Args.Length == 2 && e.Args[0] == "--focus-worker-fixture")
+        {
+            Environment.Exit(FocusWorkerFixture.Run(e.Args[1]));
+            return;
+        }
+
         if (e.Args.Length > 0 && e.Args[0] == "--focus-probe")
         {
             if (e.Args.Length != 3 || !int.TryParse(e.Args[2], out int seconds) || seconds is < 1 or > 600)

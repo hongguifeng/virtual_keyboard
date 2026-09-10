@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\VirtualKeyboard.App\VirtualKeyboard.App.csproj" />
     <ProjectReference Include="..\..\src\VirtualKeyboard.Windows\VirtualKeyboard.Windows.csproj" />
+    <ProjectReference Include="..\VirtualKeyboard.TestHost\VirtualKeyboard.TestHost.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

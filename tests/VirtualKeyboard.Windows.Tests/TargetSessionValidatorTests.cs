@@ -7,6 +7,15 @@ namespace VirtualKeyboard.Windows.Tests;
 public sealed class TargetSessionValidatorTests
 {
     [Fact]
+    public void UnhealthyObserverRejectsPreviouslyValidTargetWithoutSending()
+    {
+        var store = new TargetSessionStore();
+        var capture = new StubCapture(Snapshot(42, 100, 101));
+        var session = store.Replace(capture.Snapshot);
+        var validator = new TargetSessionValidator(store, capture, observationHealthy: () => false);
+        Assert.Equal(TargetValidationStatus.FocusIdentityStale, validator.Validate(session.SessionId).Status);
+    }
+    [Fact]
     public void MatchingSessionAllowsInput()
     {
         var store = new TargetSessionStore();

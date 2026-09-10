@@ -27,6 +27,13 @@ public sealed class FocusObservationService : IDisposable
     private bool _disposed;
     private FocusEventTarget? _eventTarget;
     private long _eventVersion;
+    private long _completedCycles;
+    private long _progressTimestamp;
+    private int _stage;
+    public long EventVersion => Volatile.Read(ref _eventVersion);
+    public long CompletedCycles => Volatile.Read(ref _completedCycles);
+    public long ProgressTimestamp => Volatile.Read(ref _progressTimestamp);
+    public int Stage => Volatile.Read(ref _stage);
     private sealed record FocusEventTarget(AutomationElement? Element);
 
     /// <param name="observer">Optional notification consumer on the MTA thread.</param>
@@ -192,6 +199,9 @@ public sealed class FocusObservationService : IDisposable
             WaitHandle[] handles = [_stopRequested, _focusPending.AvailableWaitHandle];
             while (true)
             {
+                Volatile.Write(ref _progressTimestamp, System.Diagnostics.Stopwatch.GetTimestamp());
+                Interlocked.Increment(ref _completedCycles);
+                Volatile.Write(ref _stage, 1);
                 int waitResult = WaitHandle.WaitAny(handles, FocusPollingMilliseconds);
                 if (waitResult == 0)
                 {
@@ -237,6 +247,7 @@ public sealed class FocusObservationService : IDisposable
                 FocusSnapshot? snapshot;
                 try
                 {
+                    Volatile.Write(ref _stage, 2);
                     snapshot = _snapshotSource.Capture(eventTarget?.Element);
                 }
                 catch (Exception exception)
@@ -268,6 +279,7 @@ public sealed class FocusObservationService : IDisposable
                         UsedFallback = _snapshotSource.UsedFallback,
                         IsCurrentCheck = () => eventVersion == Volatile.Read(ref _eventVersion) };
                     _observer?.Invoke(notification);
+                    Volatile.Write(ref _stage, 3);
                     bool needsRetry = _evaluate?.Invoke(notification) == true;
                     retryPending = needsRetry && retryAttempt < MaxEvaluationRetries;
                 }

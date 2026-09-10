@@ -58,6 +58,7 @@ Virtual Keyboard 是一款轻量的 Windows 悬浮虚拟键盘。它会在可编
 
 ## 已知边界
 
+- 焦点检测由独立后台进程执行，辅助功能查询卡住时可自动恢复，因此看到两个应用进程属于正常情况。连续恢复失败达到上限后，请重新启动应用并保留诊断日志；见[恢复验证](docs/focus-worker-validation.md)。
 - 带建议的可编辑搜索框（ComboBox）需由应用同时提供可写 ValuePattern 和 TextPattern 才能识别；GitHub 搜索框修复及实测范围见[验证记录](docs/combo-focus-validation.md)。
 - 输入受 Windows 正常权限边界限制。普通权限启动的键盘不能向管理员权限窗口输入。
 - 不支持安全桌面、UAC 提示和厂商专用硬件 Fn 行为。

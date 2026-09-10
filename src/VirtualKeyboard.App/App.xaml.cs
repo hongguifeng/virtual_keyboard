@@ -16,6 +16,14 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Length == 2 && e.Args[0] == "--focus-worker" && int.TryParse(e.Args[1], out int parentId) && parentId > 0)
+        {
+            int exitCode;
+            try { exitCode = VirtualKeyboard.Windows.FocusWorkerHost.Run(parentId); }
+            catch (Exception) { exitCode = 3; } // Headless boundary: never display a worker error dialog.
+            Environment.Exit(exitCode);
+            return;
+        }
         base.OnStartup(e);
         _singleInstance = SingleInstanceCoordinator.CreateDefault(() =>
             Dispatcher.BeginInvoke(() => { if (MainWindow is MainWindow window) window.OpenSettingsWindow(); }));

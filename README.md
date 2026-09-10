@@ -58,6 +58,7 @@ Settings and logs are stored under `%LocalAppData%\VirtualKeyboard\`. Custom key
 
 ## Known boundaries
 
+- Focus detection now runs in a separate background worker and can recover automatically from blocked accessibility calls. Two application processes are expected. After repeated recovery failures, restart the application and retain its diagnostic logs; see [recovery validation](docs/focus-worker-validation.md).
 - Editable search ComboBoxes are recognized when their accessibility provider exposes both writable ValuePattern and TextPattern. See [validation notes](docs/combo-focus-validation.md) for the GitHub search fix and tested boundaries.
 - Keyboard injection follows normal Windows permission boundaries. A normally launched keyboard cannot type into an elevated administrator window.
 - Secure desktop, UAC prompts, and hardware-specific Fn behavior are not supported.

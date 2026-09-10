@@ -34,9 +34,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     private readonly ConfigurationRepository _configurationRepository;
     private readonly LayoutRepository _layoutRepository;
     private readonly IAutoStartManager? _autoStart;
-    private readonly FocusTargetEvaluator _focusEvaluator = new();
     private readonly MonitorDpiAdapter _monitorDpi = new();
-    private FocusObservationService? _focusObservation;
+    private IsolatedFocusObservationService? _focusObservation;
     private PhysicalPixelRect? _persistentManualPosition;
     private PhysicalPixelRect? _lastDpiMoveRequest;
     private bool _disposed;
@@ -86,7 +85,8 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
             DiagnosticModule.Configuration,
             errorCode: configurationLoad.Issues.Count);
         SyncAutoStartWithRegistry();
-        var validator = new TargetSessionValidator(_targetSessions, _targetCapture, _latestFocusSnapshots);
+        var validator = new TargetSessionValidator(_targetSessions, _targetCapture, _latestFocusSnapshots,
+            () => _focusObservation?.IsHealthy ?? true);
         _failureFeedback = new InputFailureFeedbackFactory(new ProcessIntegrityInspector(), _diagnostics);
         var keySender = new KeyInputSender(_diagnostics);
         var validatedKeySender = new ValidatedKeyInputSender(validator, keySender, _diagnostics);
@@ -267,33 +267,46 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_focusObservation is not null) return;
-        _focusObservation = new FocusObservationService(
-            errorObserver: errorCode => _diagnostics.Log(
-                DiagnosticType.UnhandledBoundaryException,
-                DiagnosticModule.Focus,
-                reason: ReasonCode.Unknown,
-                errorCode: errorCode), evaluate: OnFocusChanged);
+        _focusObservation = new IsolatedFocusObservationService(
+            Path.Combine(AppContext.BaseDirectory, "VirtualKeyboard.App.exe"), OnFocusChanged,
+            fault =>
+            {
+                _latestFocusSnapshots.Clear();
+                if (fault)
+                {
+                    _targetSessions.Clear();
+                    Dispatcher.BeginInvoke(() => { if (!_disposed) ClearAutomaticTarget(); });
+                }
+            },
+            (status, pid, code) => _diagnostics.Log(status switch
+            {
+                FocusWorkerStatus.Started => DiagnosticType.FocusWorkerStarted,
+                FocusWorkerStatus.Heartbeat => DiagnosticType.FocusWorkerHeartbeat,
+                FocusWorkerStatus.Stalled => DiagnosticType.FocusWorkerStalled,
+                FocusWorkerStatus.Restarting => DiagnosticType.FocusWorkerRestarting,
+                FocusWorkerStatus.Recovered => DiagnosticType.FocusWorkerRecovered,
+                FocusWorkerStatus.Exhausted => DiagnosticType.FocusWorkerExhausted,
+                _ => DiagnosticType.FocusWorkerExited,
+            }, DiagnosticModule.Focus, targetProcessId: pid, errorCode: code));
         _focusObservation.Start();
-        _focusObservation.Refresh();
     }
 
-    private bool OnFocusChanged(FocusChangedNotification notification)
+    private void OnFocusChanged(RemoteFocusNotification notification)
     {
-        if (_disposed || !notification.IsCurrent) return false;
-        FocusSnapshot? snapshot = notification.Snapshot;
-        if (snapshot is null)
+        if (_disposed || !notification.IsCurrent()) return;
+        if (notification.Evaluation is not FocusTargetEvaluation evaluation)
         {
-            Dispatcher.BeginInvoke(() => { if (notification.IsCurrent) ClearAutomaticTarget(); });
-            return false;
+            _latestFocusSnapshots.Clear();
+            Dispatcher.BeginInvoke(() => { if (notification.IsCurrent()) ClearAutomaticTarget(); });
+            return;
         }
+        FocusSnapshot snapshot = evaluation.Snapshot;
         _latestFocusSnapshots.Publish(snapshot);
         _diagnostics.Log(DiagnosticType.FocusObserved, DiagnosticModule.Focus, DiagnosticLevel.Detailed, targetProcessId: snapshot.ProcessId);
         TargetStateTransition observed = _coordinator.Observe(snapshot);
-        if (!observed.Accepted) return false;
-        long started = System.Diagnostics.Stopwatch.GetTimestamp();
-        FocusTargetEvaluation evaluation = _focusEvaluator.Evaluate(notification);
+        if (!observed.Accepted) return;
         _diagnostics.Log(DiagnosticType.ClassificationCompleted, DiagnosticModule.Classification,
-            durationMs: (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            durationMs: notification.DurationMs,
             errorCode: (int)evaluation.Status,
             focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt,
             usedFallback: evaluation.UsedFallback, usedEventTarget: notification.UsedEventTarget,
@@ -315,9 +328,9 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
                 Editability.NotEditable => Verdict.NotEditable,
                 _ => Verdict.Unknown,
             });
-        if (!notification.IsCurrent) return false;
+        if (!notification.IsCurrent()) return;
         TargetStateTransition classified = _coordinator.ApplyClassification(snapshot, evaluation.Classification);
-        Dispatcher.BeginInvoke(() => { if (notification.IsCurrent) ApplyAutomaticFocus(evaluation, classified); });
+        Dispatcher.BeginInvoke(() => { if (notification.IsCurrent()) ApplyAutomaticFocus(evaluation, classified); });
         if (evaluation.NeedsRetry || notification.RetryAttempt > 0)
             _diagnostics.Log(evaluation.NeedsRetry
                 ? notification.RetryAttempt < FocusObservationService.MaxEvaluationRetries
@@ -325,7 +338,6 @@ public partial class MainWindow : Window, IDisposable, ITrayCommands
                 : DiagnosticType.FocusRetryRecovered, DiagnosticModule.Focus,
                 targetProcessId: snapshot.ProcessId, reason: GetFocusReason(evaluation),
                 focusVersion: snapshot.Version, retryAttempt: notification.RetryAttempt, errorCode: (int)evaluation.Status);
-        return evaluation.NeedsRetry;
     }
 
     internal static ReasonCode GetFocusReason(FocusTargetEvaluation evaluation) => evaluation.Status switch

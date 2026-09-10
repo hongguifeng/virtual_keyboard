@@ -8,19 +8,23 @@ public sealed class TargetSessionValidator
     private readonly TargetSessionStore _sessions;
     private readonly IForegroundTargetCapture _capture;
     private readonly LatestFocusSnapshotStore? _focusSnapshots;
+    private readonly Func<bool>? _observationHealthy;
 
     public TargetSessionValidator(
         TargetSessionStore sessions,
         IForegroundTargetCapture capture,
-        LatestFocusSnapshotStore? focusSnapshots = null)
+        LatestFocusSnapshotStore? focusSnapshots = null, Func<bool>? observationHealthy = null)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _focusSnapshots = focusSnapshots;
+        _observationHealthy = observationHealthy;
     }
 
     public TargetValidationResult Validate(long expectedSessionId)
     {
+        if (_observationHealthy?.Invoke() == false)
+            return TargetValidationResult.Invalid(TargetValidationStatus.FocusIdentityStale);
         TargetSession? session = _sessions.Current;
         if (session is null)
         {

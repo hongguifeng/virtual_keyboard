@@ -27,6 +27,13 @@ public enum DiagnosticType
     LayoutLoaded,
     LayoutRejected,
     UnhandledBoundaryException,
+    FocusWorkerStarted,
+    FocusWorkerHeartbeat,
+    FocusWorkerStalled,
+    FocusWorkerExited,
+    FocusWorkerRestarting,
+    FocusWorkerRecovered,
+    FocusWorkerExhausted,
 }
 
 /// <summary>事件来源模块（封闭枚举，避免以模块名夹带任意文本）。</summary>

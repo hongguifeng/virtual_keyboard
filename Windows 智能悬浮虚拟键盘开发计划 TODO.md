@@ -780,3 +780,14 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] computer-use 现场：GitHub 全局搜索弹出、Escape 隐藏、普通输入框弹出；只选不输的语言 ComboBox 不弹；切回 VS Code 查找框正常，仍使用事件目标。证据见 docs/combo-focus-validation.md。
 - [x] 同步 FR-FOC-003、设计 8.3 和 README。
 - [ ] 长期稳定性、其他浏览器/provider 矩阵和独立主审查通过；未发布新的远端版本。
+
+### REL-030 UIA 查询阻塞隔离与有界恢复（本地 1.0.10）
+
+- [x] 原进程查询卡滞、独立进程查询正常的现场对照；见 docs/focus-worker-validation.md。
+- [x] 生产 UIA 采集/分类移入无窗口 MTA 工作进程；有界管道、采样进度/QPC 时间戳、超时终止、最多 3 次退避重启和异常父进程退出清理。
+- [x] 事件/故障作废身份快照、发送前健康校验、跨进程重启单调版本及 Dispatcher 代际检查；不改变 NoActivate、DPI、分类和输入动作语义。
+- [x] 默认日志记录启动、30 秒健康心跳、阻塞阶段、退出、重启、恢复和耗尽；不含 UIA Name/Value、输入文本和 RuntimeId。
+- [x] 最终 `scripts/build.ps1 -SkipPackage` Release 零警告/错误，Core 245、Windows 247、Integration 64，共 556 项通过；TestHost --selftest 退出码 0；1.0.10 win-x64 publish 成功。
+- [x] 自动测试覆盖冻结采样但持续心跳、旧代际拒绝、新进程恢复、重试耗尽、进程退出清理、生产工作进程无窗口、协议边界及旧目标拒绝输入。现场终止唯一检测子进程，父进程不重启而自动恢复，随后重新记录输入框分类与 OverlayShown。
+- [x] 同步 FR-FOC-004、设计 6.1、README 和验证说明。
+- [ ] 独立主审查、长期真实 provider 卡滞复验及完整浏览器/多屏矩阵；本次未发布远端版本。
