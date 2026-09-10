@@ -15,6 +15,8 @@ internal sealed class AppStrings
     internal string LanguageLabel => Chinese ? "界面语言" : "Language";
     internal string Enabled => Chinese ? "启用键盘" : "Enable keyboard";
     internal string AutoShow => Chinese ? "自动显示" : "Show automatically";
+    internal string ShowLauncherButton => Chinese ? "先在光标附近显示悬浮按钮，点击后展开键盘" : "Show a floating button before opening the keyboard";
+    internal string OpenKeyboard => Chinese ? "展开虚拟键盘" : "Open virtual keyboard";
     internal string AutoHide => Chinese ? "自动隐藏" : "Hide automatically";
     internal string Width => Chinese ? "宽度 (DIP)" : "Width (DIP)";
     internal string Height => Chinese ? "高度 (DIP)" : "Height (DIP)";

@@ -50,7 +50,8 @@ public static class ConfigurationDefaults
         detailedDiagnostics: false,
         customKeys: [],
         uiLanguage: UiLanguage.English,
-        autoStart: false);
+        autoStart: false,
+        showLauncherButton: false);
 }
 
 /// <summary>Loads recoverably and saves validated configuration with a flushed same-directory replacement.</summary>
@@ -276,6 +277,7 @@ public sealed class ConfigurationRepository
         public List<RawCustomKey?>? CustomKeys { get; set; }
         public UiLanguage? UiLanguage { get; set; }
         public bool? AutoStart { get; set; }
+        public bool ShowLauncherButton { get; set; }
 
         [JsonIgnore]
         public bool HasAllRequiredValues => SchemaVersion.HasValue && Enabled.HasValue && AutoShow.HasValue && AutoHide.HasValue &&
@@ -295,7 +297,7 @@ public sealed class ConfigurationRepository
                 KeyboardWidthDip!.Value, KeyboardHeightDip!.Value, MarginDip!.Value, LayoutId,
                 ManualPositionMode!.Value, DetailedDiagnostics!.Value, customKeys,
                 UiLanguage ?? global::VirtualKeyboard.Core.Configuration.UiLanguage.English,
-                AutoStart ?? false);
+                AutoStart ?? false, ShowLauncherButton);
         }
     }
 

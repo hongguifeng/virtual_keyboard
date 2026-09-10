@@ -9,6 +9,7 @@ public enum TargetCoordinatorState
     ManuallySuppressed,
     SettingsOpen,
     ShuttingDown,
+    LauncherTracking,
 }
 
 [Flags]
@@ -21,6 +22,7 @@ public enum TargetCoordinatorAction
     ClearTargetSession = 8,
     CancelPendingWork = 16,
     RefreshFocus = 32,
+    ShowOrUpdateLauncher = 64,
 }
 
 public readonly record struct TargetStateTransition(
@@ -40,6 +42,7 @@ public sealed class TargetStateCoordinator
     private FocusSnapshot? _pending;
     private FocusSnapshot? _tracking;
     private FocusTargetIdentity? _suppressedTarget;
+    private FocusTargetIdentity? _expandedTarget;
 
     public TargetStateCoordinator(bool enabled = true)
     {
@@ -66,7 +69,7 @@ public sealed class TargetStateCoordinator
         }
     }
 
-    public TargetStateTransition ApplyClassification(FocusSnapshot snapshot, ClassificationResult classification)
+    public TargetStateTransition ApplyClassification(FocusSnapshot snapshot, ClassificationResult classification, bool showLauncherButton = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         lock (_gate)
@@ -88,11 +91,18 @@ public sealed class TargetStateCoordinator
 
                 _suppressedTarget = null;
                 _tracking = snapshot;
+                if (snapshot.RuntimeId is null || _expandedTarget != identity) _expandedTarget = null;
+                if (showLauncherButton && _expandedTarget is null)
+                {
+                    _state = TargetCoordinatorState.LauncherTracking;
+                    return Accepted(previous, TargetCoordinatorAction.ShowOrUpdateLauncher);
+                }
                 _state = TargetCoordinatorState.VisibleTracking;
                 return Accepted(previous, TargetCoordinatorAction.ShowOrUpdateOverlay);
             }
 
             _tracking = null;
+            _expandedTarget = null;
             _state = TargetCoordinatorState.Hidden;
             return Accepted(previous, TargetCoordinatorAction.HideOverlay | TargetCoordinatorAction.ClearTargetSession);
         }
@@ -105,18 +115,21 @@ public sealed class TargetStateCoordinator
             TargetCoordinatorState previous = _state;
             if (_state != TargetCoordinatorState.VisibleTracking || _tracking is null) return Rejected(previous);
             _suppressedTarget = FocusTargetIdentity.From(_tracking);
+            _expandedTarget = null;
             _state = TargetCoordinatorState.ManuallySuppressed;
             return Accepted(previous, TargetCoordinatorAction.HideOverlay);
         }
     }
 
-    public TargetStateTransition UserShow()
+    public TargetStateTransition UserShow(long? expectedFocusVersion = null)
     {
         lock (_gate)
         {
             TargetCoordinatorState previous = _state;
-            if (_state != TargetCoordinatorState.ManuallySuppressed || _tracking is null) return Rejected(previous);
+            if (expectedFocusVersion.HasValue && expectedFocusVersion.Value != _latestFocusVersion) return Rejected(previous);
+            if (_state is not (TargetCoordinatorState.ManuallySuppressed or TargetCoordinatorState.LauncherTracking) || _tracking is null) return Rejected(previous);
             _suppressedTarget = null;
+            _expandedTarget = FocusTargetIdentity.From(_tracking);
             _state = TargetCoordinatorState.VisibleTracking;
             return Accepted(previous, TargetCoordinatorAction.ShowOrUpdateOverlay);
         }
@@ -129,6 +142,7 @@ public sealed class TargetStateCoordinator
             TargetCoordinatorState previous = _state;
             if (_state == TargetCoordinatorState.ShuttingDown || _enabled == enabled) return Rejected(previous);
             _enabled = enabled;
+            _expandedTarget = null;
             _pending = null;
             _tracking = null;
             _suppressedTarget = null;
@@ -145,6 +159,7 @@ public sealed class TargetStateCoordinator
         {
             TargetCoordinatorState previous = _state;
             if (_state is TargetCoordinatorState.SettingsOpen or TargetCoordinatorState.ShuttingDown) return Rejected(previous);
+            _expandedTarget = null;
             _pending = null;
             _tracking = null;
             _state = TargetCoordinatorState.SettingsOpen;
@@ -170,6 +185,7 @@ public sealed class TargetStateCoordinator
         {
             TargetCoordinatorState previous = _state;
             if (_tracking is null || !FocusTargetIdentity.From(_tracking).Equals(FocusTargetIdentity.From(target))) return Rejected(previous);
+            _expandedTarget = null;
             _tracking = null;
             _pending = null;
             _suppressedTarget = null;
@@ -187,6 +203,7 @@ public sealed class TargetStateCoordinator
             if (_state is TargetCoordinatorState.Disabled or TargetCoordinatorState.Hidden or
                 TargetCoordinatorState.SettingsOpen or TargetCoordinatorState.ShuttingDown)
                 return Rejected(previous);
+            _expandedTarget = null;
             _tracking = null;
             _pending = null;
             _suppressedTarget = null;
@@ -202,6 +219,7 @@ public sealed class TargetStateCoordinator
             TargetCoordinatorState previous = _state;
             if (_state == TargetCoordinatorState.ShuttingDown) return Rejected(previous);
             _state = TargetCoordinatorState.ShuttingDown;
+            _expandedTarget = null;
             _pending = null;
             _tracking = null;
             _suppressedTarget = null;

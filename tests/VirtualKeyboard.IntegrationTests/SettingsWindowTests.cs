@@ -16,6 +16,29 @@ namespace VirtualKeyboard.IntegrationTests;
 public sealed class SettingsWindowTests
 {
     [Fact]
+    public void LauncherSettingLoadsSavesAndSwitchesLanguageWithoutLosingChoice()
+    {
+        RunOnStaThread(() =>
+        {
+            using var fixture = new Fixture();
+            using var window = new SettingsWindow(fixture.Repository);
+            CheckBox launcher = Find<CheckBox>(window, "ShowLauncherButtonCheckBox");
+            Assert.False(launcher.IsChecked);
+            Assert.Equal("Show a floating button before opening the keyboard", launcher.Content);
+            launcher.IsChecked = true;
+            Find<ComboBox>(window, "LanguageComboBox").SelectedIndex = 1;
+            Assert.Equal("先在光标附近显示悬浮按钮，点击后展开键盘", launcher.Content);
+            Assert.True(fixture.Repository.Save(window.ReadConfiguration()).IsSaved);
+            using var reopened = new SettingsWindow(fixture.Repository);
+            Assert.True(Find<CheckBox>(reopened, "ShowLauncherButtonCheckBox").IsChecked);
+            Assert.True(fixture.Repository.Load().Configuration.ShowLauncherButton);
+            Find<CheckBox>(window, "AutoShowCheckBox").IsChecked = false;
+            Assert.False(launcher.IsEnabled);
+            Assert.True(window.ReadConfiguration().ShowLauncherButton);
+        });
+    }
+
+    [Fact]
     public void WindowIsActivatingAndLoadsEveryConfigurationField()
     {
         RunOnStaThread(() =>
@@ -361,6 +384,7 @@ public sealed class SettingsWindowTests
         {
             Find<ComboBox>(window, "LanguageComboBox"), Find<CheckBox>(window, "EnabledCheckBox"),
             Find<CheckBox>(window, "AutoShowCheckBox"), Find<CheckBox>(window, "AutoHideCheckBox"),
+            Find<CheckBox>(window, "ShowLauncherButtonCheckBox"),
             Find<TextBox>(window, "WidthTextBox"), Find<TextBox>(window, "HeightTextBox"),
             Find<TextBox>(window, "MarginTextBox"), Find<Slider>(window, "OpacitySlider"),
             Find<TextBox>(window, "LayoutIdTextBox"), Find<ListBox>(window, "CustomKeysList"),

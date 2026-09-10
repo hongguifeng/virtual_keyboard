@@ -85,7 +85,11 @@
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" Orientation="Horizontal"><Label x:Name="LanguageLabel" Content="Language" Width="130"/><ComboBox x:Name="LanguageComboBox" Width="180" SelectionChanged="OnLanguageChanged"><ComboBoxItem Content="English" Tag="English"/><ComboBoxItem Content="简体中文" Tag="SimplifiedChinese"/></ComboBox></StackPanel>
             <CheckBox x:Name="EnabledCheckBox" Grid.Row="1" Content="Enable keyboard" Margin="0,4"/>
-            <CheckBox x:Name="AutoShowCheckBox" Grid.Row="2" Content="Show automatically" Margin="0,4"/>
+            <StackPanel Grid.Row="2">
+                <CheckBox x:Name="AutoShowCheckBox" Content="Show automatically" Margin="0,4"/>
+                <CheckBox x:Name="ShowLauncherButtonCheckBox" Content="Show a floating button before opening the keyboard"
+                          Margin="20,4,0,4" IsEnabled="{Binding ElementName=AutoShowCheckBox, Path=IsChecked}"/>
+            </StackPanel>
             <CheckBox x:Name="AutoHideCheckBox" Grid.Row="3" Content="Hide automatically" Margin="0,4"/>
             <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="WidthLabel" Content="Width (DIP)" Width="130"/><TextBox x:Name="WidthTextBox" Width="120"/></StackPanel>
             <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,0"><Label x:Name="HeightLabel" Content="Height (DIP)" Width="130"/><TextBox x:Name="HeightTextBox" Width="120"/></StackPanel>

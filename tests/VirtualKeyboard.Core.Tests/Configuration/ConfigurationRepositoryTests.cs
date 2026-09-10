@@ -16,6 +16,7 @@ public sealed class ConfigurationRepositoryTests
 
         Assert.Equal(ConfigurationLoadStatus.DefaultMissing, result.Status);
         Assert.Equal("builtin.qwerty.en-US", result.Configuration.LayoutId);
+        Assert.False(result.Configuration.ShowLauncherButton);
         Assert.Empty(result.Issues);
     }
 
@@ -70,6 +71,37 @@ public sealed class ConfigurationRepositoryTests
         Assert.Equal(ConfigurationLoadStatus.Loaded, loaded.Status);
         Assert.Empty(loaded.Configuration.CustomKeys);
         Assert.Equal(UiLanguage.English, loaded.Configuration.UiLanguage);
+        Assert.False(loaded.Configuration.ShowLauncherButton);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void LauncherModeRoundTripsAsBoolean(bool enabled)
+    {
+        using var fixture = new Fixture();
+        var configuration = new KeyboardConfiguration(1, true, true, true, 0.9, 800, 300, 8,
+            "builtin.qwerty.en-US", ManualPositionMode.UntilTargetChanges, false, showLauncherButton: enabled);
+        Assert.True(fixture.Repository.Save(configuration).IsSaved);
+        using JsonDocument json = JsonDocument.Parse(File.ReadAllText(fixture.ConfigurationFile));
+        Assert.Equal(enabled, json.RootElement.GetProperty("showLauncherButton").GetBoolean());
+        Assert.Equal(enabled, fixture.Repository.Load().Configuration.ShowLauncherButton);
+    }
+
+    [Theory]
+    [InlineData("\"yes\"")]
+    [InlineData("1")]
+    [InlineData("{}")]
+    [InlineData("null")]
+    public void InvalidLauncherModeIsRecovered(string value)
+    {
+        using var fixture = new Fixture();
+        Assert.True(fixture.Repository.Save(ConfigurationDefaults.Create()).IsSaved);
+        string json = File.ReadAllText(fixture.ConfigurationFile);
+        File.WriteAllText(fixture.ConfigurationFile, json.Replace("\"showLauncherButton\": false", $"\"showLauncherButton\": {value}", StringComparison.Ordinal));
+        ConfigurationLoadResult result = fixture.Repository.Load();
+        Assert.Equal(ConfigurationLoadStatus.RecoveredInvalid, result.Status);
+        Assert.False(result.Configuration.ShowLauncherButton);
     }
 
     [Fact]

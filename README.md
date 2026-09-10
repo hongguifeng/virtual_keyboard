@@ -9,6 +9,7 @@ Virtual Keyboard is a lightweight floating keyboard for Windows. It appears next
 ## Highlights
 
 - Opens automatically for supported editable fields and hides outside input scenarios.
+- Optionally shows a small button near the text cursor; click it to open the keyboard.
 - Uses a standard US QWERTY layout with arrows, Windows, Fn, modifier, and editing keys.
 - Keeps Shift, Ctrl, Alt, Windows, Fn, and Caps Lock visibly latched until pressed again.
 - Supports press-and-hold Backspace with progressively faster deletion.
@@ -47,6 +48,7 @@ The tray menu lets you pause or enable automatic behavior, show the keyboard, op
 
 - **Language** switches the application between English and Simplified Chinese. The settings window updates immediately and the saved choice also applies to the keyboard and tray menu.
 - **Show automatically / Hide automatically** control focus-based visibility.
+- **Show a floating button before opening the keyboard** shows a small button near the text cursor first. Click it to expand; switching input fields returns to the button. Off by default, and requires **Show automatically**. If a field does not expose its cursor position, the button appears near the field instead.
 - **Width / Height / Margin** control keyboard size and spacing around the target field.
 - **Transparency** ranges from 0% (fully opaque) to 70% (most transparent).
 - **Keep dragged position** can retain the position only for the current input field or across input fields.

@@ -56,7 +56,8 @@ public sealed class KeyboardConfiguration
         bool detailedDiagnostics,
         IEnumerable<CustomKeyConfiguration>? customKeys = null,
         UiLanguage uiLanguage = UiLanguage.English,
-        bool autoStart = false)
+        bool autoStart = false,
+        bool showLauncherButton = false)
     {
         SchemaVersion = schemaVersion;
         Enabled = enabled;
@@ -72,12 +73,15 @@ public sealed class KeyboardConfiguration
         CustomKeys = Array.AsReadOnly((customKeys ?? []).ToArray());
         UiLanguage = uiLanguage;
         AutoStart = autoStart;
+        ShowLauncherButton = showLauncherButton;
     }
 
     public int SchemaVersion { get; }
     public bool Enabled { get; }
     public bool AutoShow { get; }
     public bool AutoHide { get; }
+    /// <summary>Shows a caret-adjacent launcher before expanding the keyboard; defaults to the existing automatic keyboard behavior.</summary>
+    public bool ShowLauncherButton { get; }
     public double Opacity { get; }
     public double KeyboardWidthDip { get; }
     public double KeyboardHeightDip { get; }

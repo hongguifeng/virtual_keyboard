@@ -801,3 +801,12 @@ M3 和 M4 在接口稳定后可部分并行；单人开发时仍建议按表中�
 - [x] 同步规格 FR-FOC-004、设计 6.1、双语 README 和验证记录。
 - [ ] 独立主审查、全部浏览器/VS Code 和多屏交互矩阵、长期 provider 故障复验。
 - Review note：首次全量运行已有 WPF Settings 资源集合并发异常，原样完整重跑通过；不在此修复点扩大到 WPF 测试调度改造。
+
+### REL-032 可配置的光标附近悬浮按钮
+
+- [x] 按用户要求新增单一功能：`showLauncherButton` 默认 false，schema v1 旧配置兼容；中英文设置开关、原子持久化及各配置复制路径保留选项。
+- [x] `LauncherTracking` 状态；只显示 40 DIP NoActivate 按钮，校验最新会话与版本后展开，同目标保持展开、切换目标恢复按钮。
+- [x] 按钮复用物理像素锚点、显示器/DPI 和工作区算法；不改变键盘尺寸或手动位置；失效、设置、暂停和退出路径清理按钮。
+- [x] 完整 Release 构建零警告/错误，Core 266 + Windows 251 + Integration 80 = 597 项通过；TestHost 自检退出 0。真实 SendInput 鼠标点击的前台/焦点断言及 WPF 界面渲染检查通过；证据与外部兼容性边界见 `docs/launcher-validation.md`。
+- [x] 同步 FR-VIS-008、FR-CFG-001、AC-016、状态/窗口/配置设计及双语 README、使用指南。
+- [ ] 退出检查：独立主审查；完整浏览器、跨物理显示器和实体触摸兼容矩阵。

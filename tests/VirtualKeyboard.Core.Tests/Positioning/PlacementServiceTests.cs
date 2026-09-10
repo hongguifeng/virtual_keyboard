@@ -8,6 +8,31 @@ public sealed class PlacementServiceTests
     private static readonly PhysicalPixelRect WorkArea = new(0, 0, 1920, 1040);
     private static readonly PhysicalPixelSize Keyboard = new(400, 200);
 
+    [Theory]
+    [InlineData(96)]
+    [InlineData(120)]
+    [InlineData(144)]
+    [InlineData(168)]
+    [InlineData(192)]
+    public void SmallLauncherStaysNearCaretWithoutOverlapAtNegativeWorkAreaEdges(int dpi)
+    {
+        var scale = DpiScale.FromDpi((uint)dpi, (uint)dpi);
+        var workArea = new PhysicalPixelRect(-1920, -1080, 1920, 1040);
+        foreach (PhysicalPixelRect caret in new PhysicalPixelRect[]
+        {
+            new(-1800, -1080, 1, 20), new(-1800, -60, 1, 20),
+            new(-1920, -500, 1, 20), new(-1, -500, 1, 20),
+        })
+        {
+            PlacementResult result = PlacementService.Place(caret, workArea, scale.ToPhysicalPixels(new(40, 40)), 8 * scale.ScaleX);
+            PhysicalPixelRect actual = result.Rectangle!.Value;
+            Assert.True(Contains(workArea, actual));
+            Assert.Equal(40 * dpi / 96, actual.Width);
+            Assert.True(actual.Right <= caret.X || actual.X >= caret.Right || actual.Bottom <= caret.Y || actual.Y >= caret.Bottom);
+            Assert.True(Math.Abs(actual.X - caret.X) < 100 && Math.Abs(actual.Y - caret.Y) < 120);
+        }
+    }
+
     [Fact]
     public void PrefersBottomWhenItFitsWithoutOverlap()
     {

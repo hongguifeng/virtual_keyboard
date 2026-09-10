@@ -47,7 +47,8 @@ public partial class SettingsWindow : Window, IDisposable
             _customKeys.Select(static key => new CustomKeyConfiguration(
                 key.Label, key.ActionType, key.Input, key.Modifiers)),
             SelectedLanguage(),
-            AutoStartCheckBox.IsChecked == true);
+            AutoStartCheckBox.IsChecked == true,
+            ShowLauncherButtonCheckBox.IsChecked == true);
     }
 
     internal bool ApplyRecordedChordForTest(params WindowsKeyboardKey[] keys) =>
@@ -59,6 +60,7 @@ public partial class SettingsWindow : Window, IDisposable
         ApplyLanguage(configuration.UiLanguage);
         EnabledCheckBox.IsChecked = configuration.Enabled;
         AutoShowCheckBox.IsChecked = configuration.AutoShow;
+        ShowLauncherButtonCheckBox.IsChecked = configuration.ShowLauncherButton;
         AutoHideCheckBox.IsChecked = configuration.AutoHide;
         OpacitySlider.Value = 1 - configuration.Opacity;
         WidthTextBox.Text = configuration.KeyboardWidthDip.ToString(CultureInfo.InvariantCulture);
@@ -125,7 +127,7 @@ public partial class SettingsWindow : Window, IDisposable
             current.SchemaVersion, current.Enabled, current.AutoShow, current.AutoHide, current.Opacity,
             current.KeyboardWidthDip, current.KeyboardHeightDip, current.MarginDip, current.LayoutId,
             current.ManualPositionMode, current.DetailedDiagnostics, current.CustomKeys, current.UiLanguage,
-            autoStart: !wanted));
+            autoStart: !wanted, showLauncherButton: current.ShowLauncherButton));
         AutoStartCheckBox.IsChecked = !wanted;
     }
 
@@ -303,6 +305,7 @@ public partial class SettingsWindow : Window, IDisposable
         LanguageLabel.Content = _strings.LanguageLabel;
         EnabledCheckBox.Content = _strings.Enabled;
         AutoShowCheckBox.Content = _strings.AutoShow;
+        ShowLauncherButtonCheckBox.Content = _strings.ShowLauncherButton;
         AutoHideCheckBox.Content = _strings.AutoHide;
         WidthLabel.Content = _strings.Width;
         HeightLabel.Content = _strings.Height;

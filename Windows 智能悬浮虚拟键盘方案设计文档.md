@@ -341,6 +341,7 @@ T2.4 的 `NativeFocusAdapter` 是前台/GUI 线程原生信息的统一只读边
 Disabled
 Hidden
 Evaluating
+LauncherTracking
 VisibleTracking
 ManuallySuppressed
 SettingsOpen
@@ -353,6 +354,8 @@ ShuttingDown
 |---|---|---|---|---|
 | Hidden | FocusObserved | enabled | Evaluating | 启动版本化评估 |
 | Evaluating | Classified | Editable 且版本最新 | VisibleTracking | 建会话、定位、无激活显示 |
+| Evaluating | Classified | Editable、按钮模式、当前目标未展开 | LauncherTracking | 建会话、定位、只显示按钮 |
+| LauncherTracking | UserShow | 最新会话与指定评估版本校验通过 | VisibleTracking | 隐藏按钮、展开键盘 |
 | Evaluating | Classified | NotEditable/Unknown | Hidden | 清会话、隐藏 |
 | VisibleTracking | FocusObserved | 新版本 | Evaluating | 保留窗口直到判定完成或短暂隐藏策略触发 |
 | VisibleTracking | TargetDestroyed | 当前目标 | Hidden | 清会话、隐藏 |
@@ -368,6 +371,8 @@ ShuttingDown
 协调器是唯一允许调用 Overlay 的显示、隐藏和移动方法的组件，避免多个模块争用窗口状态。
 
 T2.5 的 Core `TargetStateCoordinator` 将状态与副作用命令分离：状态转换仅返回 `TargetCoordinatorAction` 位标志，WPF/Windows 组合层负责执行 BeginEvaluation、ShowOrUpdateOverlay、HideOverlay、ClearTargetSession、CancelPendingWork、RefreshFocus。`Observe` 只接受严格递增版本，`ApplyClassification` 还必须匹配当前 pending/latest 版本，因此迟到结果和重复结果均无副作用。手动抑制保存 RuntimeId（不可用时使用进程和顶层 HWND 的保守弱身份），同目标通知不会重开键盘；新目标、用户显式显示或暂停后重新启用会解除抑制。
+
+REL-032 为 `ApplyClassification` 增加可选 `showLauncherButton` 参数，并以 `LauncherTracking` / `ShowOrUpdateLauncher` 表达按钮状态和副作用。`UserShow(expectedFocusVersion)` 在协调器锁内核对版本，避免旧按钮点击展开刚完成分类的新目标。展开身份仅保存进程、顶层 HWND 和 RuntimeId；同目标新版本保持展开，身份变化、无 RuntimeId、非可编辑、设置、暂停、销毁或失效时清除。MainWindow 在 Dispatcher 执行前同时检查最新快照版本和协调器状态，拒绝已经过时的显示动作。
 
 ## 10. NoActivate 悬浮窗口设计
 
@@ -434,6 +439,10 @@ T1.5 自动证据由 `VirtualKeyboard.Windows.Tests.OverlayFocusBehaviorTests` �
 - 捕获丢失、拖出或窗口隐藏时取消按压。
 - 拖动手柄和按键区域使用不同命中区。
 - 关闭、设置等系统按键不进入 InputInjectionService。
+
+REL-032 的 `KeyboardLauncherWindow` 是单独的 40×40 DIP 无边框窗口，只有一个不可聚焦按钮；复用 `OverlayWindowAdapter` 的 `WS_EX_NOACTIVATE`、`WS_EX_TOOLWINDOW`、`MA_NOACTIVATE` 和 `SWP_NOACTIVATE`，不可拖动或缩放。MainWindow 统一管理两窗口的互斥显示、目标绑定和销毁。点击只请求展开，不发送输入；先通过 `TargetSessionValidator` 校验工作进程健康、前台、焦点和 RuntimeId，再核对按钮绑定的 SessionId、最新快照版本及协调器版本。失败清会话并隐藏按钮；发送键盘输入时仍执行原有独立校验。
+
+按钮复用现有 caret/selection/控件边界锚点和四方向工作区定位，使用用户 margin，不预留完整键盘的 96 DIP IME 间距，也不沿用手动键盘位置。`WM_DPICHANGED` 按新 DPI 重算 40 DIP 尺寸并 Clamp 到工作区，保持键盘配置宽高不变。目标失效时按钮始终隐藏，键盘仍按 `autoHide` 处理。设置期间隐藏两窗口，退出时释放按钮 HWND 和 Overlay hook。
 
 ## 11. 定位与 DPI 设计
 
@@ -707,6 +716,7 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
   "enabled": true,
   "autoShow": true,
   "autoHide": true,
+  "showLauncherButton": false,
   "opacity": 0.9,
   "keyboardWidthDip": 800,
   "keyboardHeightDip": 300,
@@ -719,6 +729,8 @@ T5.7 在 `NonFocusableKeyButton` 显式覆盖 TouchDown/Move/Up/LostTouchCapture
 ```
 
 ### 14.3 读写策略
+
+REL-032 增加 schema v1 可选布尔字段 `showLauncherButton`，缺失默认 false；非布尔值（含显式 null）按无效配置恢复。设置窗口在自动显示项下提供中英双语开关，关闭自动显示后禁用控件但保留选择。配置原子保存、设置重开、启停、尺寸保存和自启镜像同步/回滚均保留该字段，保存后下次焦点评估使用新值。
 
 1. 启动时读取并按 schemaVersion 迁移。
 2. 对字段执行范围校验，未知字段按前向兼容策略保留或忽略。

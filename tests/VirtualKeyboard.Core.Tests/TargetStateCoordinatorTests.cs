@@ -5,6 +5,124 @@ namespace VirtualKeyboard.Core.Tests;
 public sealed class TargetStateCoordinatorTests
 {
     [Fact]
+    public void ClickFromOlderLauncherCannotExpandNewlyClassifiedTarget()
+    {
+        var coordinator = new TargetStateCoordinator();
+        foreach (FocusSnapshot snapshot in new[] { Snapshot(1, 10), Snapshot(2, 20) })
+        {
+            coordinator.Observe(snapshot);
+            coordinator.ApplyClassification(snapshot, Classification(snapshot, Editability.Editable), showLauncherButton: true);
+        }
+        Assert.False(coordinator.UserShow(expectedFocusVersion: 1).Accepted);
+        Assert.Equal(TargetCoordinatorState.LauncherTracking, coordinator.State);
+        Assert.True(coordinator.UserShow(expectedFocusVersion: 2).Accepted);
+    }
+
+    [Fact]
+    public void MissingRuntimeIdentityDoesNotCarryExpansionToAnotherFocusResult()
+    {
+        var coordinator = new TargetStateCoordinator();
+        FocusSnapshot first = Snapshot(1, 10) with { RuntimeId = null };
+        coordinator.Observe(first);
+        coordinator.ApplyClassification(first, Classification(first, Editability.Editable), showLauncherButton: true);
+        coordinator.UserShow();
+        FocusSnapshot next = first with { Version = 2 };
+        coordinator.Observe(next);
+        Assert.Equal(TargetCoordinatorState.LauncherTracking,
+            coordinator.ApplyClassification(next, Classification(next, Editability.Editable), showLauncherButton: true).CurrentState);
+    }
+
+    [Fact]
+    public void LauncherModeRequiresExplicitExpansionAndRetainsItOnlyForSameTarget()
+    {
+        var coordinator = new TargetStateCoordinator();
+        AssertLauncher(1, 10);
+        Assert.Equal(TargetCoordinatorAction.ShowOrUpdateOverlay, coordinator.UserShow().Actions);
+        Assert.False(coordinator.UserShow().Accepted);
+
+        FocusSnapshot duplicate = Snapshot(2, 10);
+        coordinator.Observe(duplicate);
+        Assert.Equal(TargetCoordinatorState.VisibleTracking,
+            coordinator.ApplyClassification(duplicate, Classification(duplicate, Editability.Editable), showLauncherButton: true).CurrentState);
+        AssertLauncher(3, 20);
+        AssertLauncher(4, 10);
+
+        void AssertLauncher(long version, int runtimeId)
+        {
+            FocusSnapshot snapshot = Snapshot(version, runtimeId);
+            coordinator.Observe(snapshot);
+            TargetStateTransition result = coordinator.ApplyClassification(snapshot, Classification(snapshot, Editability.Editable), showLauncherButton: true);
+            Assert.Equal(TargetCoordinatorState.LauncherTracking, result.CurrentState);
+            Assert.Equal(TargetCoordinatorAction.ShowOrUpdateLauncher, result.Actions);
+        }
+    }
+
+    [Theory]
+    [InlineData(Editability.NotEditable)]
+    [InlineData(Editability.Unknown)]
+    public void LeavingExpandedTargetResetsLauncherAndOldResultsCannotExpandIt(Editability value)
+    {
+        var coordinator = new TargetStateCoordinator();
+        FocusSnapshot first = Snapshot(1, 10);
+        coordinator.Observe(first);
+        coordinator.ApplyClassification(first, Classification(first, Editability.Editable), showLauncherButton: true);
+        coordinator.UserShow();
+        FocusSnapshot other = Snapshot(2, 20);
+        coordinator.Observe(other);
+        Assert.False(coordinator.UserShow().Accepted);
+        coordinator.ApplyClassification(other, Classification(other, value), showLauncherButton: true);
+        Assert.False(coordinator.UserShow().Accepted);
+        Assert.False(coordinator.ApplyClassification(first, Classification(first, Editability.Editable), showLauncherButton: true).Accepted);
+
+        FocusSnapshot returned = Snapshot(3, 10);
+        coordinator.Observe(returned);
+        Assert.Equal(TargetCoordinatorState.LauncherTracking,
+            coordinator.ApplyClassification(returned, Classification(returned, Editability.Editable), showLauncherButton: true).CurrentState);
+    }
+
+    [Fact]
+    public void LauncherModePreservesManualCloseAndTrayShowSemantics()
+    {
+        var coordinator = new TargetStateCoordinator();
+        FocusSnapshot first = Snapshot(1, 10);
+        coordinator.Observe(first);
+        coordinator.ApplyClassification(first, Classification(first, Editability.Editable), showLauncherButton: true);
+        coordinator.UserShow();
+        Assert.Equal(TargetCoordinatorState.ManuallySuppressed, coordinator.UserClose().CurrentState);
+        FocusSnapshot duplicate = Snapshot(2, 10);
+        coordinator.Observe(duplicate);
+        Assert.Equal(TargetCoordinatorAction.None,
+            coordinator.ApplyClassification(duplicate, Classification(duplicate, Editability.Editable), showLauncherButton: true).Actions);
+        Assert.Equal(TargetCoordinatorState.VisibleTracking, coordinator.UserShow().CurrentState);
+    }
+
+    [Theory]
+    [InlineData("settings")]
+    [InlineData("disable")]
+    [InlineData("invalid")]
+    [InlineData("destroyed")]
+    public void LifecycleBoundariesResetExpandedTarget(string boundary)
+    {
+        var coordinator = new TargetStateCoordinator();
+        FocusSnapshot first = Snapshot(1, 10);
+        coordinator.Observe(first);
+        coordinator.ApplyClassification(first, Classification(first, Editability.Editable), showLauncherButton: true);
+        coordinator.UserShow();
+        switch (boundary)
+        {
+            case "settings": coordinator.OpenSettings(); coordinator.CloseSettings(); break;
+            case "disable": coordinator.SetEnabled(false); coordinator.SetEnabled(true); break;
+            case "invalid": coordinator.InvalidateCurrentTarget(); break;
+            case "destroyed": coordinator.TargetDestroyed(first); break;
+        }
+        Assert.False(coordinator.UserShow().Accepted);
+        FocusSnapshot next = Snapshot(2, 10);
+        coordinator.Observe(next);
+        Assert.Equal(TargetCoordinatorState.LauncherTracking,
+            coordinator.ApplyClassification(next, Classification(next, Editability.Editable), showLauncherButton: true).CurrentState);
+    }
+
+    [Fact]
     public void EditableLatestResultShowsOverlay()
     {
         var coordinator = new TargetStateCoordinator();
