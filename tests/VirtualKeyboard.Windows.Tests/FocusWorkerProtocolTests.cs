@@ -9,10 +9,12 @@ namespace VirtualKeyboard.Windows.Tests;
 
 public sealed class FocusWorkerProtocolTests
 {
-    [Fact]
-    public void RoundTripPreservesIdentityGeometryAndPasswordFlagWithParentAssignedVersion()
+    [Theory]
+    [InlineData(FocusControlType.ComboBox)]
+    [InlineData(FocusControlType.Spinner)]
+    public void RoundTripPreservesIdentityGeometryAndPasswordFlagWithParentAssignedVersion(FocusControlType type)
     {
-        var result = new FocusWorkerResult(4, 1, true, 42, 100, [1, 2], FocusControlType.ComboBox,
+        var result = new FocusWorkerResult(4, 1, true, 42, 100, [1, 2], type,
             true, true, false, true, FocusTargetEvaluationStatus.Evaluated, Editability.Editable,
             ClassificationReasonCode.ValuePattern, 101, new PhysicalPixelRect(-500, 20, 200, 30), false, 12);
         var packet = FocusWorkerPacket.Parse(JsonSerializer.Serialize(new FocusWorkerPacket(3, 4, 1, 1, result, 0)));
@@ -22,6 +24,7 @@ public sealed class FocusWorkerProtocolTests
         Assert.Equal(result.Anchor, evaluation.Anchor);
         Assert.Equal(new RuntimeIdentity([1, 2]), evaluation.Snapshot.RuntimeId);
         Assert.True(evaluation.Snapshot.IsPassword);
+        Assert.Equal(type, evaluation.Snapshot.ControlType);
     }
 
     [Fact]

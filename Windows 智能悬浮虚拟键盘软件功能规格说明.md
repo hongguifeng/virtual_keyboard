@@ -131,8 +131,9 @@ MVP 的目标是：
 系统必须将候选元素分类为 `Editable`、`NotEditable` 或 `Unknown`。判定规则必须满足：
 
 - 元素必须有效、已启用并持有键盘焦点。
-- `ControlType.Edit` 上的 `ValuePattern.IsReadOnly == false` 是正向证据；非编辑控件不得仅凭 ValuePattern 判定为输入目标。
+- `ControlType.Edit` 或 Spinner 数值输入框上的 `ValuePattern.IsReadOnly == false` 是正向证据；其他非编辑控件不得仅凭 ValuePattern 判定为输入目标。
 - 可编辑 ComboBox（如带建议的搜索框）必须同时具有可写 ValuePattern 和 TextPattern 才作为正向证据；只提供选项或单一 Pattern 的下拉框不得因此触发。
+- Spinner 数值输入框可使用可写 ValuePattern 作为正向证据，不要求 TextPattern；只有 RangeValuePattern 的数值调节控件不构成文本输入目标，不能因此提升 Slider 或其他类型。
 - Edit/Document 上的 `TextEditPattern` 是正向证据之一。
 - 可编辑的 Edit 控件和密码 Edit 控件可作为正向证据。
 - TextPattern 或 TextPattern2 单独存在时不得直接判定为可编辑。

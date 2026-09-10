@@ -281,7 +281,7 @@ Password Edit control?
         │ yes
         ├──────────────────► Editable(PasswordEdit)
         ▼
-Edit + ValuePattern and !IsReadOnly?
+Edit/Spinner + ValuePattern and !IsReadOnly?
         │ yes
         ├──────────────────► Editable(ValuePattern)
         ▼
@@ -309,6 +309,8 @@ NotEditable(NoEditableEvidence)
 当前实现由 Core `EditabilityClassifier` 消费不可变 `EditabilityEvidence`，Windows `EditabilityEvidenceFactory` 在 UIA 观察线程填充 Pattern 可用性和只读状态。分类器不读取 Value/Text；可写 ValuePattern 在 `ControlType.Edit` 上是正向证据，在 ComboBox 上还必须同时存在 TextPattern。TextEditPattern 仅接受 Edit/Document；桌面图标、资源管理器文件项等选择型控件不得仅凭可写 ValuePattern 触发；`TextPattern` 单独存在返回 `Unknown(TextPatternOnly)`。caret 证据必须为有限、非零、合理范围矩形且归属于快照顶层 HWND；无效身份返回 `Unknown(InvalidIdentity)`，禁用/失焦/离屏返回 `NotEditable(NoFocusOrDisabled)`。UIA 元素失效、无效操作和 COM 异常均降级为无证据。
 
 REL-029 ComboBox 修正：Windows 映射保留 ComboBox 类型，Core 在只读/身份/焦点安全门之后应用上述组合规则，原因码复用 ValuePattern。日志 FocusControlType 可区分 ComboBox 与 Other，不新增 Name/Value 等文本采集。不使用站点白名单，也不放宽 Other 或 TextPattern-only 判定；现场证据与 provider 限制见 docs/combo-focus-validation.md。
+
+REL-029 Spinner 修正：保留独立的 Spinner 类型，并通过工作进程协议传递；在既有身份、启用、焦点、离屏和只读检查之后接受可写 ValuePattern，即使缺少 TextPattern。只暴露 RangeValuePattern、TextPattern 或 caret 的 Spinner 不提升。Slider、ListItem 和 Other 仍不接受数值可调作为文本可编辑证据。原因码继续使用 ValuePattern，未新增输入内容采集。
 
 - `ControlType.Edit` 是强提示但不是无条件结论；显式只读优先。
 - 密码字段常因安全原因不暴露 ValuePattern，应使用 `IsPassword + Edit + HasKeyboardFocus` 判定。

@@ -115,4 +115,37 @@ public sealed class EditabilityClassifierTests
     [Fact]
     public void OtherControlsAreNotPromotedByCombinedPatterns() =>
         Assert.NotEqual(Editability.Editable, Classify(Snapshot(FocusControlType.Other), value: true, text: true).Value);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WritableSpinnerAcceptsTextInputWithoutRequiringTextPattern(bool text)
+    {
+        var result = Classify(Snapshot(FocusControlType.Spinner), value: true, text: text);
+        Assert.Equal(Editability.Editable, result.Value);
+        Assert.Equal(ClassificationReasonCode.ValuePattern, result.ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(true, true, false, true, true, Editability.NotEditable, ClassificationReasonCode.ReadOnly)]
+    [InlineData(false, true, false, true, false, Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled)]
+    [InlineData(true, false, false, true, false, Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled)]
+    [InlineData(true, true, true, true, false, Editability.NotEditable, ClassificationReasonCode.NoFocusOrDisabled)]
+    [InlineData(true, true, false, false, false, Editability.NotEditable, ClassificationReasonCode.NoEditableEvidence)]
+    public void SpinnerSafetyAndMissingTextInputEvidenceRemainRejected(bool enabled, bool focused,
+        bool offscreen, bool value, bool readOnly, Editability verdict, ClassificationReasonCode reason)
+    {
+        var result = Classify(Snapshot(FocusControlType.Spinner, enabled: enabled, focused: focused,
+            offscreen: offscreen), value: value, readOnly: readOnly);
+        Assert.Equal(verdict, result.Value);
+        Assert.Equal(reason, result.ReasonCode);
+    }
+
+    [Fact]
+    public void SpinnerTextSurfaceOrCaretAloneDoesNotProveTextInput()
+    {
+        Assert.NotEqual(Editability.Editable, Classify(Snapshot(FocusControlType.Spinner), text: true,
+            textEdit: true, caret: new(1, 1, 1, 1)).Value);
+        Assert.Equal(Editability.Unknown, Classify(Snapshot(FocusControlType.Spinner) with { ProcessId = 0 }, value: true).Value);
+    }
 }

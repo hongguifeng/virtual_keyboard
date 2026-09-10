@@ -18,6 +18,14 @@ public sealed class FocusSnapshotFactoryTests
     }
 
     [Fact]
+    public void NumericTextInputRetainsSpinnerTypeWhileRangeAndSelectionControlsStayOther()
+    {
+        Assert.Equal(FocusControlType.Spinner, FocusSnapshotFactory.MapControlType(ControlType.Spinner));
+        Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.Slider));
+        Assert.Equal(FocusControlType.Other, FocusSnapshotFactory.MapControlType(ControlType.ListItem));
+    }
+
+    [Fact]
     public void FactoryReadsAllowListedMetadataFromRealAutomationElement()
     {
         RunOnStaThread(() =>

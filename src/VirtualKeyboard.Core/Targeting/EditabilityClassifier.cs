@@ -50,7 +50,10 @@ public static class EditabilityClassifier
             return Result(snapshot, Editability.NotEditable, ClassificationReasonCode.ReadOnly);
         if (snapshot.IsPassword && snapshot.ControlType == FocusControlType.Edit)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.PasswordEdit);
-        if (snapshot.ControlType == FocusControlType.Edit && evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
+        // A Spinner may expose writable text through ValuePattern without TextPattern.
+        // Range adjustment alone (for example a Slider) is not text-input evidence.
+        if (snapshot.ControlType is FocusControlType.Edit or FocusControlType.Spinner &&
+            evidence.IsValuePatternAvailable && !evidence.IsValueReadOnly)
             return Result(snapshot, Editability.Editable, ClassificationReasonCode.ValuePattern);
         // Search suggestions can expose a ComboBox rather than Edit. Require both
         // writable value and a text surface; a selection-only dropdown is insufficient.
