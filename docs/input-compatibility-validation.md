@@ -40,3 +40,12 @@
 - 同时补齐 SearchInputRelationship 的应用诊断映射，新增回归先确认旧映射错误返回 ElementInvalid，再修复。
 - 最终完整 `scripts/build.ps1 -SkipPackage`：Release 0 警告/错误，Core 296、Windows 280、Integration 102，共 678 个测试通过，0 跳过。其中一个集成测试完整验证上述九个场景。TestHost `--selftest`：WPF 31、WinForms 36，均退出 0。
 - 矩阵运行命令见 README。尚未覆盖的提供程序包括自绘画布、游戏/终端、远程桌面、特定 Office 单元格原位编辑，以及不暴露可写值/caret/关系的网页编辑器；不根据窗口标题或应用名直接放行。
+
+## 整合版现场验收
+
+- 本地发布并运行 `1.0.13-local`（代码基于 `83ff7fe`），保留原 1.0.12 便携目录；未创建远端发布或推送。
+- VS Code 1.137.0：单击标题栏入口即出现悬浮按钮，再单击展开的输入区仍保持显示，全程无双击。04:32:06.855（北京时间）的应用日志记录 ListItem / Editable / SearchInputRelationship，随后创建会话并记录 OverlayShown；现场画面显示输入框下方的展开按钮。
+- 自动化工具拒绝点击覆盖在 VS Code 上方的 NoActivate 工具窗口，故没有把自动化截图冒充真实按键验收。
+- 用户随后在本任务明确确认：VS Code 搜索框和 WorkEnglish Coach 数值设置框旁点开悬浮键盘后，均能正常输入。两项原始问题的显示与输入现场验收完成，原生 NoActivate、目标切换和旧会话拒绝另有完整自动测试证据。
+- 发布后的主进程与独立检测进程均从本地修复版目录运行；原版进程已停止。未改动 WorkEnglish Coach 源码或由代理保存其设置值。
+- 独立主审查、其他提供程序及跨物理显示器/触摸矩阵仍未声明完成。
